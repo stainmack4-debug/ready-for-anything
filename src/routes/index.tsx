@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Settings,
   Sparkles,
+  Sun,
   Target,
   Timer,
   UserRound,
@@ -48,6 +49,7 @@ type View =
   | "notes"
   | "profile"
   | "settings";
+type Theme = "day" | "night";
 type Props = { setView: (v: View) => void };
 const topics = [
   { name: "Mole Concept", course: "CHM 101", score: 92, tone: "strong" },
@@ -162,7 +164,15 @@ function Sidebar({
     </aside>
   );
 }
-function Topbar({ setView, openMobile }: { setView: (v: View) => void; openMobile: () => void }) {
+function Topbar({
+  theme,
+  setTheme,
+  openMobile,
+}: {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  openMobile: () => void;
+}) {
   return (
     <header className="flex min-h-[76px] items-center justify-between border-b border-[#dcebe3] bg-white px-5 py-3 sm:px-8">
       <div className="flex items-center gap-3">
@@ -197,10 +207,10 @@ function Topbar({ setView, openMobile }: { setView: (v: View) => void; openMobil
       </div>
       <div className="ml-auto flex items-center gap-3">
         <button
-          onClick={() => setView("settings")}
+          onClick={() => setTheme(theme === "day" ? "night" : "day")}
           className="flex size-10 items-center justify-center rounded-xl border border-[#c9ddd2] text-[#587166] hover:bg-[#eff7f2]"
         >
-          <Moon size={18} />
+          {theme === "day" ? <Moon size={18} /> : <Sun size={18} />}
         </button>
         <button
           onClick={() => setView("profile")}
@@ -902,28 +912,66 @@ function Profile({ setView }: Props) {
     </Page>
   );
 }
-function SettingsPage() {
+function SettingsPage({ theme, setTheme }: { theme: Theme; setTheme: (theme: Theme) => void }) {
   return (
     <Page title="Settings" eyebrow="PREFERENCES" subtitle="Make FunaBAcer fit the way you study.">
       <div className="max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-6">
-        {[
-          ["Account details", "Name, email and academic profile"],
-          ["Notifications", "Daily reminders and weekly progress"],
-          ["AI tutor preferences", "Explanation depth and learning pace"],
-          ["Payment & exam pass", "Manage your FunaBAcer plan"],
-        ].map(([title, detail]) => (
+        <div className="flex items-center gap-4 border-b border-[#dcebe3] py-5">
+          <Sun size={17} className="text-emerald-700" />
+          <div className="flex-1">
+            <p className="font-bold">Appearance</p>
+            <p className="mt-1 text-xs text-[#71877d]">
+              Choose the calm daytime or focused night workspace.
+            </p>
+          </div>
           <button
-            key={title}
-            className="flex w-full items-center gap-4 border-b border-white/6 py-5 text-left last:border-0"
+            onClick={() => setTheme(theme === "day" ? "night" : "day")}
+            className="rounded-full bg-[#eff7f2] px-3 py-2 text-xs font-bold text-emerald-700"
           >
-            <Settings size={17} className="text-emerald-700" />
-            <span className="flex-1">
-              <span className="block font-bold">{title}</span>
-              <span className="mt-1 block text-xs text-[#71877d]">{detail}</span>
-            </span>
-            <ChevronRight size={18} className="text-[#8ca198]" />
+            {theme === "day" ? "Day theme" : "Night theme"}
           </button>
-        ))}
+        </div>
+        <label className="flex items-center gap-4 border-b border-[#dcebe3] py-5">
+          <span className="flex-1">
+            <span className="block font-bold">Daily study reminders</span>
+            <span className="mt-1 block text-xs text-[#71877d]">
+              Get a nudge when it is time to continue your plan.
+            </span>
+          </span>
+          <input type="checkbox" defaultChecked className="size-5 accent-emerald-500" />
+        </label>
+        <label className="flex items-center gap-4 border-b border-[#dcebe3] py-5">
+          <span className="flex-1">
+            <span className="block font-bold">AI tutor voice</span>
+            <span className="mt-1 block text-xs text-[#71877d]">
+              Allow spoken explanations when audio is available.
+            </span>
+          </span>
+          <input type="checkbox" defaultChecked className="size-5 accent-emerald-500" />
+        </label>
+        <label className="flex items-center gap-4 border-b border-[#dcebe3] py-5">
+          <span className="flex-1">
+            <span className="block font-bold">Explanation depth</span>
+            <span className="mt-1 block text-xs text-[#71877d]">
+              How much context the tutor gives before checking understanding.
+            </span>
+          </span>
+          <select className="rounded-lg border border-[#c9ddd2] bg-[#f7faf8] px-3 py-2 text-xs font-bold text-[#244138]">
+            <option>Balanced</option>
+            <option>Simple first</option>
+            <option>Detailed</option>
+          </select>
+        </label>
+        <button className="flex w-full items-center gap-4 py-5 text-left">
+          <Settings size={17} className="text-emerald-700" />
+          <span className="flex-1">
+            <span className="block font-bold">Account and exam pass</span>
+            <span className="mt-1 block text-xs text-[#71877d]">
+              Manage your profile, payment history and exam access.
+            </span>
+          </span>
+          <ChevronRight size={18} className="text-[#8ca198]" />
+        </button>
       </div>
     </Page>
   );
@@ -1396,6 +1444,11 @@ function App() {
   const [session, setSession] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof window !== "undefined"
+      ? (localStorage.getItem("funabacer-theme") as Theme) || "day"
+      : "day",
+  );
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [view, setView] = useState<View>("dashboard");
   const [mobile, setMobile] = useState(false);
@@ -1443,9 +1496,18 @@ function App() {
   else if (view === "results") content = <Results {...props} />;
   else if (view === "notes") content = <Notes />;
   else if (view === "profile") content = <Profile {...props} />;
-  else content = <SettingsPage />;
+  else
+    content = (
+      <SettingsPage
+        theme={theme}
+        setTheme={(next) => {
+          setTheme(next);
+          localStorage.setItem("funabacer-theme", next);
+        }}
+      />
+    );
   return (
-    <div className="flex min-h-screen bg-[#f7faf8] text-[#10231c]">
+    <div className={`app-shell theme-${theme} flex min-h-screen bg-[#f7faf8] text-[#10231c]`}>
       <Sidebar
         view={view}
         setView={setView}
@@ -1492,7 +1554,14 @@ function App() {
         </div>
       )}
       <main className="min-w-0 flex-1">
-        <Topbar setView={setView} openMobile={() => setMobile(true)} />
+        <Topbar
+          theme={theme}
+          setTheme={(next) => {
+            setTheme(next);
+            localStorage.setItem("funabacer-theme", next);
+          }}
+          openMobile={() => setMobile(true)}
+        />
         <div className="mx-auto max-w-[1220px]">{content}</div>
       </main>
     </div>

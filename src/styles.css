@@ -160,12 +160,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      100deg,
-      transparent 30%,
-      oklch(1 0 0 / 25%) 50%,
-      transparent 70%
-    );
+    background: linear-gradient(100deg, transparent 30%, oklch(1 0 0 / 25%) 50%, transparent 70%);
     animation: bar-shimmer 3.2s ease-in-out infinite;
   }
 }
@@ -178,4 +173,36 @@
   100% {
     transform: translateX(100%);
   }
+}
+
+/* FunaBAcer night workspace: black, forest green and emerald accents. */
+.theme-night {
+  background: #071612 !important;
+  color: #f5faf7 !important;
+}
+.theme-night .bg-white,
+.theme-night [class~="bg-white"] {
+  background-color: #102521 !important;
+}
+.theme-night [class~="bg-[#f7faf8]"] {
+  background-color: #071612 !important;
+}
+.theme-night [class~="bg-[#eff7f2]"],
+.theme-night [class~="bg-[#fbfdfc]"],
+.theme-night [class~="bg-[#f4faf6]"] {
+  background-color: #18342c !important;
+}
+.theme-night [class~="text-[#10231c]"],
+.theme-night [class~="text-[#244138]"],
+.theme-night [class~="text-[#365348]"] {
+  color: #f5faf7 !important;
+}
+.theme-night [class~="text-[#587166]"],
+.theme-night [class~="text-[#71877d]"],
+.theme-night [class~="text-[#8ca198]"] {
+  color: #9bb7aa !important;
+}
+.theme-night [class~="border-[#dcebe3]"],
+.theme-night [class~="border-[#c9ddd2]"] {
+  border-color: rgb(255 255 255 / 14%) !important;
 }
