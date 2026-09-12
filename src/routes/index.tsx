@@ -164,26 +164,49 @@ function Sidebar({
 }
 function Topbar({ setView, openMobile }: { setView: (v: View) => void; openMobile: () => void }) {
   return (
-    <header className="flex items-center justify-between border-b border-[#dcebe3] px-5 py-4 sm:px-8">
-      <button onClick={openMobile} className="text-[#587166] lg:hidden">
-        <Menu />
-      </button>
-      <div className="hidden text-sm text-[#71877d] sm:block">
-        Thursday, 12 September 2026 <span className="mx-2 text-[#a8b9b1]">/</span>{" "}
-        <span className="text-[#365348]">Your study command centre</span>
+    <header className="flex min-h-[76px] items-center justify-between border-b border-[#dcebe3] bg-white px-5 py-3 sm:px-8">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={openMobile}
+          className="flex size-10 items-center justify-center rounded-xl border border-[#c9ddd2] text-[#587166] hover:bg-[#eff7f2] lg:hidden"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="flex items-center gap-3 lg:hidden">
+          <img
+            src="/funabacer-logo.jpg"
+            alt="FunaBAcer"
+            className="size-10 rounded-xl object-cover"
+          />
+          <span className="text-base font-extrabold tracking-tight text-[#10231c]">
+            Funa<span className="text-emerald-600">BAcer</span>
+          </span>
+        </div>
+        <div className="hidden items-center gap-3 lg:flex">
+          <img
+            src="/funabacer-logo.jpg"
+            alt="FunaBAcer"
+            className="size-9 rounded-xl object-cover"
+          />
+          <span className="text-sm font-extrabold text-[#10231c]">
+            Funa<span className="text-emerald-600">BAcer</span>
+          </span>
+          <span className="mx-1 h-6 w-px bg-[#dcebe3]" />
+          <span className="text-sm font-semibold text-[#587166]">Home</span>
+        </div>
       </div>
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-3">
         <button
           onClick={() => setView("settings")}
-          className="hidden text-[#587166] hover:text-[#10231c] sm:block"
+          className="flex size-10 items-center justify-center rounded-xl border border-[#c9ddd2] text-[#587166] hover:bg-[#eff7f2]"
         >
           <Moon size={18} />
         </button>
         <button
           onClick={() => setView("profile")}
-          className="flex items-center gap-2 rounded-full border border-[#dcebe3] bg-[#eff7f2] py-1.5 pl-1.5 pr-3 text-sm font-semibold"
+          className="flex items-center gap-2 rounded-xl border border-[#c9ddd2] bg-white py-1.5 pl-1.5 pr-3 text-sm font-semibold hover:bg-[#eff7f2]"
         >
-          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-black text-white">
+          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-xs font-black text-white">
             P
           </span>
           <span className="hidden sm:block">Praise</span>
