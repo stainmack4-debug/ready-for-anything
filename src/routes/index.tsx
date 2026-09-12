@@ -230,14 +230,16 @@ function Page({
   eyebrow,
   subtitle,
   children,
+  className = "",
 }: {
   title: string;
   eyebrow: string;
   subtitle: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="p-5 sm:p-8">
+    <div className={`p-5 sm:p-8 ${className}`}>
       <div className="mb-8">
         <p className="text-[11px] font-bold tracking-[.22em] text-emerald-400">{eyebrow}</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#10231c]">{title}</h1>
@@ -470,6 +472,7 @@ function Courses({ setView }: Props) {
       title="My courses"
       eyebrow="COURSE LIBRARY"
       subtitle="Pick a course and keep moving through your mastery map."
+      className="study-glass-page"
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {courses.map(([code, name, progress, count]) => (
@@ -665,7 +668,12 @@ function Practice({ setView }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   const options = ["0.5 atm", "1.0 atm", "2.0 atm", "4.0 atm"];
   return (
-    <Page title="Practice · Gas Laws" eyebrow="CBT PRACTICE" subtitle="Question 3 of 10">
+    <Page
+      title="Practice · Gas Laws"
+      eyebrow="CBT PRACTICE"
+      subtitle="Question 3 of 10"
+      className="study-glass-page"
+    >
       <div className="mx-auto max-w-3xl">
         <div className="mb-5 flex justify-between rounded-xl border border-[#dcebe3] bg-white px-4 py-3 text-sm">
           <span className="font-bold text-[#365348]">CHM 101 · Gas Laws</span>
