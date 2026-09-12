@@ -215,78 +215,185 @@ function Page({
   );
 }
 function Dashboard({ setView }: Props) {
+  const actions: [string, string, string, ReactNode, View][] = [
+    [
+      "Start learning",
+      "Let FunaBAcer teach you a topic step by step.",
+      "Best next step",
+      <BookOpen size={20} />,
+      "learn",
+    ],
+    [
+      "Practise with CBT",
+      "Answer realistic past questions with a timer.",
+      "Test what you know",
+      <Target size={20} />,
+      "practice",
+    ],
+    [
+      "Ask the AI tutor",
+      "Get an explanation for any confusing idea.",
+      "Learn differently",
+      <Brain size={20} />,
+      "learn",
+    ],
+    [
+      "Crunch my notes",
+      "Turn a PDF or image into summaries and flashcards.",
+      "Study materials",
+      <FileText size={20} />,
+      "notes",
+    ],
+    [
+      "See my mastery",
+      "Find weak topics and your recommended next lesson.",
+      "Know what to do next",
+      <BarChart3 size={20} />,
+      "results",
+    ],
+  ];
   return (
     <div className="space-y-8 p-5 sm:p-8">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <p className="mb-2 text-sm font-semibold text-emerald-400">Good morning, Praise.</p>
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#10231c] sm:text-4xl">
-            Let's make today count.
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-[#587166]">
-            Continue the loop: learn the concept, test yourself, then close the gap.
-          </p>
-        </div>
-        <Btn onClick={() => setView("learn")}>
-          <Play size={16} fill="currentColor" /> Continue learning
-        </Btn>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/20 to-transparent p-5">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
-            Up next · CHM 101
-          </span>
-          <h2 className="mt-5 text-2xl font-extrabold">Gas Laws</h2>
-          <p className="mt-1 text-sm text-[#587166]">4 minute lesson · 34% mastery</p>
-          <button
-            onClick={() => setView("topic")}
-            className="mt-6 flex items-center gap-2 text-sm font-bold text-emerald-700"
-          >
-            Open topic <ArrowRight size={16} />
-          </button>
-        </div>
-        {[
-          ["6 days", "Study streak", <Flame size={17} />],
-          ["342", "Questions answered", <Target size={17} />],
-        ].map(([value, label, icon]) => (
-          <div key={label as string} className="rounded-2xl border border-[#dcebe3] bg-white p-5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-[#eff7f2] text-emerald-700">
-              {icon}
+      <section className="rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-white via-white to-emerald-50 p-7 shadow-[0_24px_70px_-38px_#2f6b4f] sm:p-10">
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">
+              START HERE
+            </p>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">
+              Your personal AI study space.
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-[#587166]">
+              FunaBAcer helps you learn your FUNAAB courses, practise past questions, understand
+              mistakes and build real mastery — one next step at a time.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Btn onClick={() => setView("learn")}>
+                <Play size={16} fill="currentColor" /> Start my next lesson
+              </Btn>
+              <Btn variant="outline" onClick={() => setView("courses")}>
+                <Library size={16} /> Explore courses
+              </Btn>
             </div>
-            <p className="mt-7 text-2xl font-extrabold">{value}</p>
-            <p className="mt-1 text-xs text-[#71877d]">{label}</p>
           </div>
-        ))}
-      </div>
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
-        <section className="rounded-2xl border border-[#dcebe3] bg-white p-6">
-          <h2 className="font-extrabold">Your learning loop</h2>
-          <p className="mt-1 text-sm text-[#71877d]">Every session moves you closer to mastery.</p>
-          <div className="mt-8 grid grid-cols-4 gap-2 sm:gap-4">
-            {[
-              ["Learn", <BookOpen size={19} />, "learn"],
-              ["Question", <CircleHelp size={19} />, "practice"],
-              ["Diagnose", <Brain size={19} />, "review"],
-              ["Master", <Zap size={19} />, "results"],
-            ].map(([label, icon, target], i) => (
-              <button
-                key={label as string}
-                onClick={() => setView(target as View)}
-                className="text-center"
+          <div className="w-full max-w-xs rounded-2xl border border-emerald-100 bg-white p-5">
+            <div className="flex items-center gap-3">
+              <img
+                src="/funabacer-logo.jpg"
+                alt="FunaBAcer progress mark"
+                className="size-12 rounded-xl object-cover"
+              />
+              <div>
+                <p className="text-sm font-extrabold text-[#10231c]">Your study plan</p>
+                <p className="mt-1 text-xs text-[#71877d]">CHM 101 · Gas Laws</p>
+              </div>
+            </div>
+            <div className="mt-5 h-2 rounded-full bg-emerald-50">
+              <div className="h-full w-[34%] rounded-full bg-emerald-500" />
+            </div>
+            <p className="mt-3 text-xs font-semibold text-emerald-700">
+              Recommended because this is your weakest topic
+            </p>
+          </div>
+        </div>
+      </section>
+      <section>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">
+              WHAT CAN I DO?
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold text-[#10231c]">
+              Everything you need to move forward.
+            </h2>
+            <p className="mt-2 text-sm text-[#71877d]">
+              Choose a starting point. FunaBAcer will guide you from there.
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {actions.map(([title, detail, label, icon, target], i) => (
+            <button
+              key={title}
+              onClick={() => setView(target)}
+              className={`group rounded-2xl border p-5 text-left transition-all hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_20px_40px_-28px_#23704d] ${i === 0 ? "border-emerald-300 bg-emerald-500 text-white" : "border-[#dcebe3] bg-white"}`}
+            >
+              <div
+                className={`flex size-11 items-center justify-center rounded-xl ${i === 0 ? "bg-white/20" : "bg-emerald-50 text-emerald-700"}`}
               >
-                <div
-                  className={`mx-auto flex size-12 items-center justify-center rounded-2xl ${i < 3 ? "bg-emerald-500 text-white" : "border border-dashed border-emerald-400/50 text-emerald-700"}`}
-                >
-                  {i < 3 ? <Check size={20} /> : icon}
-                </div>
-                <p className="mt-3 text-xs font-bold text-[#365348]">{label}</p>
+                {icon}
+              </div>
+              <p
+                className={`mt-5 text-xs font-bold uppercase tracking-wider ${i === 0 ? "text-emerald-50" : "text-emerald-700"}`}
+              >
+                {label}
+              </p>
+              <h3
+                className={`mt-2 text-lg font-extrabold ${i === 0 ? "text-white" : "text-[#10231c]"}`}
+              >
+                {title}
+              </h3>
+              <p
+                className={`mt-2 text-sm leading-6 ${i === 0 ? "text-emerald-50" : "text-[#71877d]"}`}
+              >
+                {detail}
+              </p>
+              <span
+                className={`mt-5 inline-flex items-center gap-1 text-sm font-bold ${i === 0 ? "text-white" : "text-emerald-700"}`}
+              >
+                Open <ArrowRight size={15} />
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="grid gap-6 xl:grid-cols-[1.25fr_.75fr]">
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">
+                YOUR JOURNEY
+              </p>
+              <h2 className="mt-2 font-extrabold text-[#10231c]">How FunaBAcer helps you learn</h2>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+              Always connected
+            </span>
+          </div>
+          <div className="mt-7 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[
+              ["Learn", "AI teaches the idea", <BookOpen size={18} />],
+              ["Practise", "Answer a question", <CircleHelp size={18} />],
+              ["Understand", "AI finds the gap", <Brain size={18} />],
+              ["Master", "Re-test and improve", <Zap size={18} />],
+            ].map(([title, detail, icon]) => (
+              <button
+                key={title as string}
+                onClick={() =>
+                  setView(
+                    title === "Learn"
+                      ? "learn"
+                      : title === "Practise"
+                        ? "practice"
+                        : title === "Understand"
+                          ? "review"
+                          : "results",
+                  )
+                }
+                className="rounded-xl bg-[#f7faf8] p-4 text-left hover:bg-emerald-50"
+              >
+                <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500 text-white">
+                  {icon}
+                </span>
+                <p className="mt-4 text-sm font-extrabold text-[#244138]">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-[#71877d]">{detail}</p>
               </button>
             ))}
           </div>
-        </section>
-        <section className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+        </div>
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-extrabold">Weak topics</h2>
+            <h2 className="font-extrabold text-[#10231c]">Weak topics</h2>
             <button
               onClick={() => setView("results")}
               className="text-xs font-bold text-emerald-700"
@@ -304,7 +411,7 @@ function Dashboard({ setView }: Props) {
                     <span className="font-semibold text-[#244138]">{t.name}</span>
                     <span className="text-xs text-[#71877d]">{t.score}%</span>
                   </div>
-                  <div className="mt-2 h-1.5 rounded-full bg-[#eff7f2]">
+                  <div className="mt-2 h-1.5 rounded-full bg-emerald-50">
                     <div
                       className={`h-full rounded-full ${t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
                       style={{ width: `${t.score}%` }}
@@ -313,31 +420,6 @@ function Dashboard({ setView }: Props) {
                 </button>
               ))}
           </div>
-        </section>
-      </div>
-      <section>
-        <h2 className="font-extrabold">Jump back in</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {[
-            ["My courses", "Follow your full course outline", "courses", <Library />],
-            ["Note Cruncher", "Turn class notes into a study set", "notes", <FileText />],
-            ["Progress & mastery", "See what you actually understand", "results", <BarChart3 />],
-          ].map(([title, detail, target, icon]) => (
-            <button
-              key={title as string}
-              onClick={() => setView(target as View)}
-              className="flex items-start gap-4 rounded-2xl border border-[#dcebe3] bg-white p-5 text-left hover:border-emerald-400/40"
-            >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-700">
-                {icon}
-              </span>
-              <span>
-                <span className="block font-bold">{title}</span>
-                <span className="mt-1 block text-sm text-[#71877d]">{detail}</span>
-              </span>
-              <ChevronRight className="ml-auto text-[#8ca198]" size={18} />
-            </button>
-          ))}
         </div>
       </section>
     </div>
