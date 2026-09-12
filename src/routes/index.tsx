@@ -938,9 +938,10 @@ function Onboarding({ done }: { done: (profile: { department: string; course: st
   const [department, setDepartment] = useState("");
   const [course, setCourse] = useState("");
   const selected = funaabDepartments.find((item) => item.group === department);
-  const finish = () => {
+  const finish = async () => {
     if (!department || !course) return;
     const profile = { department, course };
+    await supabase.auth.updateUser({ data: profile });
     localStorage.setItem("funabacer-profile", JSON.stringify(profile));
     done(profile);
   };
@@ -1141,6 +1142,14 @@ function App() {
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      const metadata = data.session?.user.user_metadata as
+        { department?: string; course?: string } | undefined;
+      if (metadata?.department && metadata.course) {
+        localStorage.setItem(
+          "funabacer-profile",
+          JSON.stringify({ department: metadata.department, course: metadata.course }),
+        );
+      }
       setSession(data.session);
       setNeedsOnboarding(Boolean(data.session && !localStorage.getItem("funabacer-profile")));
       setLoading(false);
