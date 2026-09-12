@@ -1111,6 +1111,159 @@ function Onboarding({ done }: { done: (profile: { department: string; course: st
   );
 }
 
+function Landing({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="min-h-screen bg-[#f7faf8] text-[#10231c]">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
+        <Logo />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onStart}
+            className="hidden text-sm font-bold text-[#587166] hover:text-emerald-700 sm:block"
+          >
+            Log in
+          </button>
+          <Btn onClick={onStart} className="px-5">
+            Start learning
+          </Btn>
+        </div>
+      </header>
+      <main>
+        <section className="mx-auto max-w-6xl px-5 pb-20 pt-14 sm:px-8 sm:pb-28 sm:pt-24">
+          <div className="max-w-4xl">
+            <p className="inline-flex rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[.2em] text-emerald-700 shadow-sm">
+              THE AI STUDY SYSTEM FOR FUNAAB
+            </p>
+            <h1 className="mt-7 text-5xl font-extrabold leading-[.98] tracking-[-.05em] text-[#10231c] sm:text-7xl">
+              Don’t just practise questions.
+              <br />
+              <span className="text-emerald-600">Understand what you’re learning.</span>
+            </h1>
+            <p className="mt-7 max-w-2xl text-lg leading-8 text-[#587166] sm:text-xl">
+              FunaBAcer teaches your course topics, gives you realistic CBT practice, diagnoses your
+              mistakes and keeps reteaching until the idea finally makes sense.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Btn onClick={onStart} className="px-6 py-4">
+                <Play size={17} fill="currentColor" /> Start my study journey
+              </Btn>
+              <button
+                onClick={() =>
+                  document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })
+                }
+                className="inline-flex items-center gap-2 rounded-xl border border-[#c9ddd2] bg-white px-5 py-4 text-sm font-bold text-[#244138] hover:border-emerald-400"
+              >
+                See how it works <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        </section>
+        <section className="bg-[#063b2a] px-5 py-16 text-white sm:px-8 sm:py-24" id="how-it-works">
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-200">
+                THE FUNABACER LOOP
+              </p>
+              <h2 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+                A tutor that follows the gap, not just the syllabus.
+              </h2>
+              <p className="mt-5 text-base leading-7 text-emerald-50/75">
+                Most study apps stop at right or wrong. FunaBAcer uses your answers to decide what
+                to teach you next.
+              </p>
+            </div>
+            <div className="mt-12 grid gap-4 md:grid-cols-4">
+              {[
+                ["01", "Learn", "AI explains the topic from the level you need."],
+                ["02", "Practise", "Answer real and generated CBT questions."],
+                ["03", "Diagnose", "Your mistake becomes a teaching signal."],
+                ["04", "Master", "The AI simplifies, reteaches and re-tests you."],
+              ].map(([number, title, detail]) => (
+                <div key={number} className="rounded-2xl border border-white/15 bg-white/10 p-5">
+                  <span className="text-sm font-black text-emerald-300">{number}</span>
+                  <h3 className="mt-10 text-xl font-extrabold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-emerald-50/70">{detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+          <div className="grid gap-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-700">
+                ONE PLACE TO STUDY
+              </p>
+              <h2 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+                Everything you need for your next exam.
+              </h2>
+              <p className="mt-5 text-base leading-7 text-[#587166]">
+                Choose your FUNAAB department and course, then get a study space built around what
+                you actually need to understand.
+              </p>
+              <Btn onClick={onStart} className="mt-7">
+                Choose my course <ArrowRight size={16} />
+              </Btn>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                [
+                  <BookOpen size={20} />,
+                  "AI Learning",
+                  "Step-by-step teaching that adapts to your answers.",
+                ],
+                [
+                  <Target size={20} />,
+                  "CBT Practice",
+                  "Timed past questions for your course and topic.",
+                ],
+                [
+                  <FileText size={20} />,
+                  "Note Cruncher",
+                  "Summaries, flashcards and questions from your notes.",
+                ],
+                [
+                  <BarChart3 size={20} />,
+                  "Mastery map",
+                  "See weak topics and your recommended next lesson.",
+                ],
+              ].map(([icon, title, detail]) => (
+                <div
+                  key={title as string}
+                  className="rounded-2xl border border-[#dcebe3] bg-white p-5 shadow-[0_18px_50px_-40px_#31634c]"
+                >
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    {icon}
+                  </span>
+                  <h3 className="mt-5 font-extrabold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#71877d]">{detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+        <section className="border-t border-[#dcebe3] bg-white px-5 py-14 sm:px-8">
+          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-2xl font-extrabold">Start with the thing you need help with.</h2>
+              <p className="mt-2 text-sm text-[#71877d]">
+                Your next useful study session is one click away.
+              </p>
+            </div>
+            <Btn onClick={onStart}>
+              Create my free account <ArrowRight size={16} />
+            </Btn>
+          </div>
+        </section>
+      </main>
+      <footer className="mx-auto flex max-w-6xl items-center justify-between px-5 py-7 text-xs text-[#8ca198] sm:px-8">
+        <span>© 2026 FunaBAcer</span>
+        <span>Built for FUNAAB students</span>
+      </footer>
+    </div>
+  );
+}
+
 function Auth({ done }: { done: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -1219,6 +1372,7 @@ function Auth({ done }: { done: () => void }) {
 function App() {
   const [session, setSession] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [view, setView] = useState<View>("dashboard");
   const [mobile, setMobile] = useState(false);
@@ -1248,7 +1402,12 @@ function App() {
         Loading your study space…
       </div>
     );
-  if (!session) return <Auth done={() => setSession({ loggedIn: true })} />;
+  if (!session)
+    return authOpen ? (
+      <Auth done={() => setSession({ loggedIn: true })} />
+    ) : (
+      <Landing onStart={() => setAuthOpen(true)} />
+    );
   if (needsOnboarding) return <Onboarding done={() => setNeedsOnboarding(false)} />;
   let content: ReactNode;
   const props = { setView };
