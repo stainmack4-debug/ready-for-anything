@@ -60,15 +60,17 @@ const topics = [
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-400 text-xl font-black text-emerald-950 shadow-[0_0_24px_-6px_#34d399]">
-        F
-      </div>
+      <img
+        src="/funabacer-logo.jpg"
+        alt="FunaBAcer F+A progress logo"
+        className="size-10 rounded-xl object-cover shadow-[0_8px_20px_-8px_#16a34a]"
+      />
       <div>
-        <div className="text-base font-extrabold tracking-tight text-white">
-          Funa<span className="text-emerald-400">BAcer</span>
+        <div className="text-base font-extrabold tracking-tight text-[#10231c]">
+          Funa<span className="text-emerald-600">BAcer</span>
         </div>
-        <div className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">
-          Study system
+        <div className="text-[10px] font-bold uppercase tracking-[.18em] text-[#71877d]">
+          AI study system
         </div>
       </div>
     </div>
@@ -86,9 +88,9 @@ function Btn({
   className?: string;
 }) {
   const styles = {
-    primary: "bg-emerald-400 text-emerald-950 hover:bg-emerald-300",
-    ghost: "bg-white/7 text-white hover:bg-white/12",
-    outline: "border border-white/12 text-slate-200 hover:border-emerald-400/50",
+    primary: "bg-emerald-500 text-white hover:bg-emerald-600",
+    ghost: "bg-[#eff7f2] text-[#10231c] hover:bg-white/12",
+    outline: "border border-[#c9ddd2] text-[#244138] hover:border-emerald-400/50",
   };
   return (
     <button
@@ -116,17 +118,17 @@ function Sidebar({
     ["results", "Progress & mastery", <BarChart3 size={18} />],
   ];
   return (
-    <aside className="hidden w-[250px] shrink-0 border-r border-white/8 bg-[#0a1b18] px-5 py-7 lg:flex lg:flex-col">
+    <aside className="hidden w-[250px] shrink-0 border-r border-[#dcebe3] bg-white px-5 py-7 lg:flex lg:flex-col">
       <Logo />
       <nav className="mt-12 space-y-1">
         {links.map(([id, label, icon]) => (
           <button
             key={id}
             onClick={() => setView(id)}
-            className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold ${view === id ? "bg-emerald-400/10 text-emerald-300" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold ${view === id ? "bg-emerald-400/10 text-emerald-700" : "text-[#587166] hover:bg-[#eff7f2] hover:text-[#10231c]"}`}
           >
             <span
-              className={`flex size-9 items-center justify-center rounded-xl ${view === id ? "text-emerald-300" : "text-slate-400"}`}
+              className={`flex size-9 items-center justify-center rounded-xl ${view === id ? "text-emerald-700" : "text-[#587166]"}`}
             >
               {icon}
             </span>
@@ -134,24 +136,24 @@ function Sidebar({
           </button>
         ))}
       </nav>
-      <div className="mt-auto space-y-1 border-t border-white/8 pt-5">
+      <div className="mt-auto space-y-1 border-t border-[#dcebe3] pt-5">
         <button
           onClick={() => setView("profile")}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-400 hover:text-white"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#587166] hover:text-[#10231c]"
         >
           <UserRound size={18} />
           Profile
         </button>
         <button
           onClick={() => setView("settings")}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-400 hover:text-white"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#587166] hover:text-[#10231c]"
         >
           <Settings size={18} />
           Settings
         </button>
         <button
           onClick={logout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-400 hover:text-white"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#587166] hover:text-[#10231c]"
         >
           <LogOut size={18} />
           Sign out
@@ -162,26 +164,26 @@ function Sidebar({
 }
 function Topbar({ setView, openMobile }: { setView: (v: View) => void; openMobile: () => void }) {
   return (
-    <header className="flex items-center justify-between border-b border-white/8 px-5 py-4 sm:px-8">
-      <button onClick={openMobile} className="text-slate-400 lg:hidden">
+    <header className="flex items-center justify-between border-b border-[#dcebe3] px-5 py-4 sm:px-8">
+      <button onClick={openMobile} className="text-[#587166] lg:hidden">
         <Menu />
       </button>
-      <div className="hidden text-sm text-slate-500 sm:block">
-        Thursday, 12 September 2026 <span className="mx-2 text-slate-700">/</span>{" "}
-        <span className="text-slate-300">Your study command centre</span>
+      <div className="hidden text-sm text-[#71877d] sm:block">
+        Thursday, 12 September 2026 <span className="mx-2 text-[#a8b9b1]">/</span>{" "}
+        <span className="text-[#365348]">Your study command centre</span>
       </div>
       <div className="ml-auto flex items-center gap-4">
         <button
           onClick={() => setView("settings")}
-          className="hidden text-slate-400 hover:text-white sm:block"
+          className="hidden text-[#587166] hover:text-[#10231c] sm:block"
         >
           <Moon size={18} />
         </button>
         <button
           onClick={() => setView("profile")}
-          className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1.5 pl-1.5 pr-3 text-sm font-semibold"
+          className="flex items-center gap-2 rounded-full border border-[#dcebe3] bg-[#eff7f2] py-1.5 pl-1.5 pr-3 text-sm font-semibold"
         >
-          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-black text-emerald-950">
+          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-black text-white">
             P
           </span>
           <span className="hidden sm:block">Praise</span>
@@ -205,8 +207,8 @@ function Page({
     <div className="p-5 sm:p-8">
       <div className="mb-8">
         <p className="text-[11px] font-bold tracking-[.22em] text-emerald-400">{eyebrow}</p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">{title}</h1>
-        <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#10231c]">{title}</h1>
+        <p className="mt-2 text-sm text-[#71877d]">{subtitle}</p>
       </div>
       {children}
     </div>
@@ -218,10 +220,10 @@ function Dashboard({ setView }: Props) {
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <p className="mb-2 text-sm font-semibold text-emerald-400">Good morning, Praise.</p>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#10231c] sm:text-4xl">
             Let's make today count.
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-[#587166]">
             Continue the loop: learn the concept, test yourself, then close the gap.
           </p>
         </div>
@@ -231,14 +233,14 @@ function Dashboard({ setView }: Props) {
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/20 to-transparent p-5">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
+          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
             Up next · CHM 101
           </span>
           <h2 className="mt-5 text-2xl font-extrabold">Gas Laws</h2>
-          <p className="mt-1 text-sm text-slate-400">4 minute lesson · 34% mastery</p>
+          <p className="mt-1 text-sm text-[#587166]">4 minute lesson · 34% mastery</p>
           <button
             onClick={() => setView("topic")}
-            className="mt-6 flex items-center gap-2 text-sm font-bold text-emerald-300"
+            className="mt-6 flex items-center gap-2 text-sm font-bold text-emerald-700"
           >
             Open topic <ArrowRight size={16} />
           </button>
@@ -247,19 +249,19 @@ function Dashboard({ setView }: Props) {
           ["6 days", "Study streak", <Flame size={17} />],
           ["342", "Questions answered", <Target size={17} />],
         ].map(([value, label, icon]) => (
-          <div key={label as string} className="rounded-2xl border border-white/8 bg-[#102521] p-5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-white/6 text-emerald-300">
+          <div key={label as string} className="rounded-2xl border border-[#dcebe3] bg-white p-5">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-[#eff7f2] text-emerald-700">
               {icon}
             </div>
             <p className="mt-7 text-2xl font-extrabold">{value}</p>
-            <p className="mt-1 text-xs text-slate-500">{label}</p>
+            <p className="mt-1 text-xs text-[#71877d]">{label}</p>
           </div>
         ))}
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
-        <section className="rounded-2xl border border-white/8 bg-[#102521] p-6">
+        <section className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <h2 className="font-extrabold">Your learning loop</h2>
-          <p className="mt-1 text-sm text-slate-500">Every session moves you closer to mastery.</p>
+          <p className="mt-1 text-sm text-[#71877d]">Every session moves you closer to mastery.</p>
           <div className="mt-8 grid grid-cols-4 gap-2 sm:gap-4">
             {[
               ["Learn", <BookOpen size={19} />, "learn"],
@@ -273,21 +275,21 @@ function Dashboard({ setView }: Props) {
                 className="text-center"
               >
                 <div
-                  className={`mx-auto flex size-12 items-center justify-center rounded-2xl ${i < 3 ? "bg-emerald-400 text-emerald-950" : "border border-dashed border-emerald-400/50 text-emerald-300"}`}
+                  className={`mx-auto flex size-12 items-center justify-center rounded-2xl ${i < 3 ? "bg-emerald-500 text-white" : "border border-dashed border-emerald-400/50 text-emerald-700"}`}
                 >
                   {i < 3 ? <Check size={20} /> : icon}
                 </div>
-                <p className="mt-3 text-xs font-bold text-slate-300">{label}</p>
+                <p className="mt-3 text-xs font-bold text-[#365348]">{label}</p>
               </button>
             ))}
           </div>
         </section>
-        <section className="rounded-2xl border border-white/8 bg-[#102521] p-6">
+        <section className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-extrabold">Weak topics</h2>
             <button
               onClick={() => setView("results")}
-              className="text-xs font-bold text-emerald-300"
+              className="text-xs font-bold text-emerald-700"
             >
               View all
             </button>
@@ -299,10 +301,10 @@ function Dashboard({ setView }: Props) {
               .map((t) => (
                 <button key={t.name} onClick={() => setView("topic")} className="w-full text-left">
                   <div className="flex justify-between text-sm">
-                    <span className="font-semibold text-slate-200">{t.name}</span>
-                    <span className="text-xs text-slate-500">{t.score}%</span>
+                    <span className="font-semibold text-[#244138]">{t.name}</span>
+                    <span className="text-xs text-[#71877d]">{t.score}%</span>
                   </div>
-                  <div className="mt-2 h-1.5 rounded-full bg-white/8">
+                  <div className="mt-2 h-1.5 rounded-full bg-[#eff7f2]">
                     <div
                       className={`h-full rounded-full ${t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
                       style={{ width: `${t.score}%` }}
@@ -324,16 +326,16 @@ function Dashboard({ setView }: Props) {
             <button
               key={title as string}
               onClick={() => setView(target as View)}
-              className="flex items-start gap-4 rounded-2xl border border-white/8 bg-[#102521] p-5 text-left hover:border-emerald-400/40"
+              className="flex items-start gap-4 rounded-2xl border border-[#dcebe3] bg-white p-5 text-left hover:border-emerald-400/40"
             >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-700">
                 {icon}
               </span>
               <span>
                 <span className="block font-bold">{title}</span>
-                <span className="mt-1 block text-sm text-slate-500">{detail}</span>
+                <span className="mt-1 block text-sm text-[#71877d]">{detail}</span>
               </span>
-              <ChevronRight className="ml-auto text-slate-600" size={18} />
+              <ChevronRight className="ml-auto text-[#8ca198]" size={18} />
             </button>
           ))}
         </div>
@@ -359,19 +361,19 @@ function Courses({ setView }: Props) {
           <button
             key={code as string}
             onClick={() => setView("topic")}
-            className="group rounded-2xl border border-white/8 bg-gradient-to-br from-emerald-400/15 to-[#102521] p-6 text-left hover:-translate-y-1 hover:border-emerald-400/40"
+            className="group rounded-2xl border border-[#dcebe3] bg-gradient-to-br from-emerald-400/15 to-white p-6 text-left hover:-translate-y-1 hover:border-emerald-400/40"
           >
             <div className="flex justify-between">
-              <span className="rounded-lg bg-black/20 px-2.5 py-1 text-xs font-bold text-slate-300">
+              <span className="rounded-lg bg-[#eff7f2] px-2.5 py-1 text-xs font-bold text-[#365348]">
                 {code}
               </span>
-              <ChevronRight size={18} className="text-slate-500" />
+              <ChevronRight size={18} className="text-[#71877d]" />
             </div>
             <h2 className="mt-8 text-xl font-extrabold">{name}</h2>
-            <p className="mt-2 text-sm text-slate-500">{count}</p>
+            <p className="mt-2 text-sm text-[#71877d]">{count}</p>
             <div className="mt-7 flex justify-between text-xs">
-              <span className="font-bold text-emerald-300">{progress}% complete</span>
-              <span className="text-slate-500">View topics</span>
+              <span className="font-bold text-emerald-700">{progress}% complete</span>
+              <span className="text-[#71877d]">View topics</span>
             </div>
             <div className="mt-2 h-2 rounded-full bg-white/10">
               <div
@@ -393,12 +395,12 @@ function Topic({ setView }: Props) {
       subtitle="Master the idea before the app asks you to prove it."
     >
       <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <section className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-[#102521] p-7">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
+        <section className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-white p-7">
+          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
             Your next best lesson
           </span>
           <h2 className="mt-4 text-3xl font-extrabold">Gas Laws</h2>
-          <p className="mt-3 max-w-xl leading-7 text-slate-400">
+          <p className="mt-3 max-w-xl leading-7 text-[#587166]">
             You scored 34% here last time. We’ll rebuild the concept from zero, then retest the
             exact gap we found.
           </p>
@@ -411,8 +413,8 @@ function Topic({ setView }: Props) {
             </Btn>
           </div>
         </section>
-        <section className="rounded-2xl border border-white/8 bg-[#102521] p-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+        <section className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#71877d]">
             Topic mastery
           </p>
           <div className="mt-4 flex items-end gap-3">
@@ -421,13 +423,13 @@ function Topic({ setView }: Props) {
               Needs attention
             </span>
           </div>
-          <div className="mt-6 h-2 rounded-full bg-white/8">
+          <div className="mt-6 h-2 rounded-full bg-[#eff7f2]">
             <div className="h-full w-[34%] rounded-full bg-rose-400" />
           </div>
-          <p className="mt-4 text-sm text-slate-500">3 of 9 checkpoints completed</p>
+          <p className="mt-4 text-sm text-[#71877d]">3 of 9 checkpoints completed</p>
         </section>
       </div>
-      <section className="mt-6 rounded-2xl border border-white/8 bg-[#102521] p-6">
+      <section className="mt-6 rounded-2xl border border-[#dcebe3] bg-white p-6">
         <h2 className="font-extrabold">Topic checkpoints</h2>
         <div className="mt-5 space-y-3">
           {[
@@ -440,16 +442,16 @@ function Topic({ setView }: Props) {
             <button
               key={item}
               onClick={() => setView(i < 2 ? "learn" : "practice")}
-              className="flex w-full items-center gap-4 rounded-xl border border-white/6 bg-white/[.02] p-4 text-left hover:border-emerald-400/30"
+              className="flex w-full items-center gap-4 rounded-xl border border-white/6 bg-[#fbfdfc] p-4 text-left hover:border-emerald-400/30"
             >
               <span
-                className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${i < 2 ? "bg-emerald-400 text-emerald-950" : "border border-white/15 text-slate-500"}`}
+                className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${i < 2 ? "bg-emerald-500 text-white" : "border border-[#c9ddd2] text-[#71877d]"}`}
               >
                 {i < 2 ? <Check size={15} /> : i + 1}
               </span>
               <span className="flex-1">
-                <span className="block text-sm font-bold text-slate-200">{item}</span>
-                <span className="mt-1 block text-xs text-slate-500">
+                <span className="block text-sm font-bold text-[#244138]">{item}</span>
+                <span className="mt-1 block text-xs text-[#71877d]">
                   {i < 2
                     ? "Completed · strong foundation"
                     : i === 2
@@ -457,7 +459,7 @@ function Topic({ setView }: Props) {
                       : "Locked until you continue"}
                 </span>
               </span>
-              <ChevronRight size={17} className="text-slate-600" />
+              <ChevronRight size={17} className="text-[#8ca198]" />
             </button>
           ))}
         </div>
@@ -470,12 +472,12 @@ function Learn({ setView }: Props) {
   const lessons = [
     [
       "Let's start with the idea",
-      "Pressure is simply how much a gas pushes on the walls of its container. More collisions in a smaller space means more pressure.",
-      "Think of a crowded room: the more people bumping into the walls, the higher the pressure.",
+      "I’m your AI tutor for Gas Laws. I’ll check what you already know, teach one idea at a time, and adapt the next explanation to your answer. Pressure is the force gas particles exert when they collide with a surface.",
+      "Start with this: more particle collisions per second means more pressure. We will use a visual example and then I’ll ask you to explain it back in your own words.",
     ],
     [
       "Boyle's law",
-      "When temperature stays constant, pressure and volume move in opposite directions. Squeeze the same gas into half the space and the pressure doubles.",
+      "Now let’s connect the idea to Boyle’s law. I’ll show the relationship, ask you to predict what happens when volume changes, and only then introduce the equation.",
       "P₁V₁ = P₂V₂ — the product stays constant.",
     ],
     [
@@ -500,14 +502,19 @@ function Learn({ setView }: Props) {
             />
           ))}
         </div>
-        <article className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-[#102521] p-7 sm:p-10">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-400 text-emerald-950">
-            <Brain size={24} />
+        <article className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-white p-7 sm:p-10">
+          <div className="flex items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500 text-white">
+              <Brain size={24} />
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+              AI tutor · adapting to you
+            </span>
           </div>
           <h2 className="mt-8 text-3xl font-extrabold">{l[0]}</h2>
-          <p className="mt-5 text-lg leading-8 text-slate-300">{l[1]}</p>
-          <div className="mt-8 rounded-xl border border-white/8 bg-black/10 p-5 text-sm leading-6 text-emerald-100">
-            <span className="font-bold text-emerald-300">A simple way to remember it: </span>
+          <p className="mt-5 text-lg leading-8 text-[#365348]">{l[1]}</p>
+          <div className="mt-8 rounded-xl border border-[#dcebe3] bg-[#f4faf6] p-5 text-sm leading-6 text-emerald-800">
+            <span className="font-bold text-emerald-700">A simple way to remember it: </span>
             {l[2]}
           </div>
           <div className="mt-10 flex justify-between gap-3">
@@ -531,7 +538,7 @@ function Learn({ setView }: Props) {
         </article>
         <button
           onClick={() => setView("practice")}
-          className="mx-auto mt-6 block text-sm font-semibold text-slate-500 hover:text-emerald-300"
+          className="mx-auto mt-6 block text-sm font-semibold text-[#71877d] hover:text-emerald-700"
         >
           I already know this · go to practice
         </button>
@@ -545,18 +552,18 @@ function Practice({ setView }: Props) {
   return (
     <Page title="Practice · Gas Laws" eyebrow="CBT PRACTICE" subtitle="Question 3 of 10">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-5 flex justify-between rounded-xl border border-white/8 bg-[#102521] px-4 py-3 text-sm">
-          <span className="font-bold text-slate-300">CHM 101 · Gas Laws</span>
-          <span className="flex items-center gap-2 font-bold text-emerald-300">
+        <div className="mb-5 flex justify-between rounded-xl border border-[#dcebe3] bg-white px-4 py-3 text-sm">
+          <span className="font-bold text-[#365348]">CHM 101 · Gas Laws</span>
+          <span className="flex items-center gap-2 font-bold text-emerald-700">
             <Timer size={16} /> 08:42
           </span>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#102521] p-7 sm:p-10">
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-7 sm:p-10">
           <div className="flex justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest text-emerald-300">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
               Past question
             </span>
-            <span className="text-xs text-slate-500">Single answer</span>
+            <span className="text-xs text-[#71877d]">Single answer</span>
           </div>
           <h2 className="mt-7 text-xl font-bold leading-8">
             A gas occupies 2 dm³ at a pressure of 1 atm. If the volume is reduced to 1 dm³ at
@@ -567,10 +574,10 @@ function Practice({ setView }: Props) {
               <button
                 key={option}
                 onClick={() => setSelected(i)}
-                className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left text-sm font-semibold ${selected === i ? "border-emerald-400 bg-emerald-400/10 text-emerald-200" : "border-white/8 text-slate-300 hover:border-white/20"}`}
+                className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left text-sm font-semibold ${selected === i ? "border-emerald-400 bg-emerald-400/10 text-emerald-700" : "border-[#dcebe3] text-[#365348] hover:border-white/20"}`}
               >
                 <span
-                  className={`flex size-8 items-center justify-center rounded-full text-xs ${selected === i ? "bg-emerald-400 text-emerald-950" : "bg-white/8 text-slate-500"}`}
+                  className={`flex size-8 items-center justify-center rounded-full text-xs ${selected === i ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#71877d]"}`}
                 >
                   {String.fromCharCode(65 + i)}
                 </span>
@@ -607,24 +614,24 @@ function Review({ setView }: Props) {
             </span>
             <div>
               <p className="font-bold text-rose-200">Not quite — you chose 0.5 atm</p>
-              <p className="mt-1 text-xs text-slate-500">Question 3 · Gas Laws</p>
+              <p className="mt-1 text-xs text-[#71877d]">Question 3 · Gas Laws</p>
             </div>
           </div>
-          <p className="mt-5 text-sm leading-6 text-slate-300">
+          <p className="mt-5 text-sm leading-6 text-[#365348]">
             You treated the volume change as if pressure moves in the same direction. Boyle’s law is
             an inverse relationship.
           </p>
         </div>
-        <div className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-[#102521] p-7">
-          <div className="flex items-center gap-2 text-sm font-bold text-emerald-300">
+        <div className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-white p-7">
+          <div className="flex items-center gap-2 text-sm font-bold text-emerald-700">
             <Sparkles size={16} /> AI diagnosis
           </div>
           <h2 className="mt-5 text-2xl font-extrabold">When space shrinks, collisions increase.</h2>
-          <p className="mt-4 leading-7 text-slate-300">
+          <p className="mt-4 leading-7 text-[#365348]">
             Imagine the same number of people inside a smaller room. They hit the walls more often,
             so the pressure goes up. Halving the volume doubles the pressure.
           </p>
-          <div className="mt-6 rounded-xl bg-black/15 p-4 font-mono text-sm text-emerald-100">
+          <div className="mt-6 rounded-xl bg-[#eff7f2] p-4 font-mono text-sm text-emerald-800">
             P₁V₁ = P₂V₂ → 1 × 2 = P₂ × 1 → P₂ = 2 atm
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -653,18 +660,18 @@ function Results({ setView }: Props) {
           ["342", "Questions answered", "Across 4 courses"],
           ["4h 20m", "Study time", "This week"],
         ].map(([v, l, d]) => (
-          <div key={l} className="rounded-2xl border border-white/8 bg-[#102521] p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{l}</p>
+          <div key={l} className="rounded-2xl border border-[#dcebe3] bg-white p-5">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#71877d]">{l}</p>
             <p className="mt-4 text-3xl font-extrabold">{v}</p>
-            <p className="mt-2 text-xs font-semibold text-emerald-300">{d}</p>
+            <p className="mt-2 text-xs font-semibold text-emerald-700">{d}</p>
           </div>
         ))}
       </div>
-      <section className="mt-6 rounded-2xl border border-white/8 bg-[#102521] p-6">
+      <section className="mt-6 rounded-2xl border border-[#dcebe3] bg-white p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-extrabold">Mastery map</h2>
-            <p className="mt-1 text-sm text-slate-500">Your next lesson is chosen from this map.</p>
+            <p className="mt-1 text-sm text-[#71877d]">Your next lesson is chosen from this map.</p>
           </div>
           <Btn variant="outline" onClick={() => setView("courses")}>
             Browse courses
@@ -675,16 +682,16 @@ function Results({ setView }: Props) {
             <div key={t.name}>
               <div className="flex justify-between gap-4">
                 <div>
-                  <span className="text-sm font-bold text-slate-200">{t.name}</span>
-                  <span className="ml-2 text-xs text-slate-600">{t.course}</span>
+                  <span className="text-sm font-bold text-[#244138]">{t.name}</span>
+                  <span className="ml-2 text-xs text-[#8ca198]">{t.course}</span>
                 </div>
                 <span
-                  className={`text-xs font-bold ${t.tone === "strong" ? "text-emerald-300" : t.tone === "weak" ? "text-rose-300" : "text-amber-300"}`}
+                  className={`text-xs font-bold ${t.tone === "strong" ? "text-emerald-700" : t.tone === "weak" ? "text-rose-300" : "text-amber-300"}`}
                 >
                   {t.tone === "strong" ? "Strong" : t.tone === "weak" ? "Weak" : "Needs practice"}
                 </span>
               </div>
-              <div className="mt-2 h-2 rounded-full bg-white/8">
+              <div className="mt-2 h-2 rounded-full bg-[#eff7f2]">
                 <div
                   className={`h-full rounded-full ${t.tone === "strong" ? "bg-emerald-400" : t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
                   style={{ width: `${t.score}%` }}
@@ -706,20 +713,20 @@ function Notes() {
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
         <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-8 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-400 text-emerald-950">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-500 text-white">
             <FileText size={25} />
           </div>
           <h2 className="mt-6 text-xl font-extrabold">Drop your notes here</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#71877d]">
             Upload a PDF, lecture slide or image. FunaBAcer will make a summary, flashcards and
             questions.
           </p>
           <Btn className="mt-7">
             <FileText size={16} /> Choose a file
           </Btn>
-          <p className="mt-3 text-xs text-slate-600">PDF, PNG or JPG · up to 20 MB</p>
+          <p className="mt-3 text-xs text-[#8ca198]">PDF, PNG or JPG · up to 20 MB</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#102521] p-6">
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <h2 className="font-extrabold">Recent study sets</h2>
           <div className="mt-5 space-y-3">
             {[
@@ -727,10 +734,10 @@ function Notes() {
               "MTH 101 — Functions",
               "GNS 101 — Communication skills",
             ].map((item) => (
-              <div key={item} className="flex items-center gap-3 rounded-xl bg-white/[.03] p-3">
-                <BookOpen size={16} className="text-emerald-300" />
-                <span className="flex-1 text-sm font-semibold text-slate-300">{item}</span>
-                <ChevronRight size={16} className="text-slate-600" />
+              <div key={item} className="flex items-center gap-3 rounded-xl bg-[#fbfdfc] p-3">
+                <BookOpen size={16} className="text-emerald-700" />
+                <span className="flex-1 text-sm font-semibold text-[#365348]">{item}</span>
+                <ChevronRight size={16} className="text-[#8ca198]" />
               </div>
             ))}
           </div>
@@ -747,27 +754,27 @@ function Profile({ setView }: Props) {
       subtitle="A quick picture of how you are progressing toward exam day."
     >
       <div className="grid gap-6 lg:grid-cols-[.75fr_1.25fr]">
-        <section className="rounded-2xl border border-white/8 bg-[#102521] p-7 text-center">
-          <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-400 text-3xl font-black text-emerald-950">
+        <section className="rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
+          <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-400 text-3xl font-black text-white">
             P
           </div>
           <h2 className="mt-5 text-xl font-extrabold">Praise Adebayo</h2>
-          <p className="mt-1 text-sm text-slate-500">100 level · Computer Science</p>
+          <p className="mt-1 text-sm text-[#71877d]">100 level · Computer Science</p>
           <div className="mt-7 grid grid-cols-2 gap-3 text-left">
-            <div className="rounded-xl bg-white/[.03] p-4">
+            <div className="rounded-xl bg-[#fbfdfc] p-4">
               <p className="text-xl font-extrabold">74%</p>
-              <p className="mt-1 text-xs text-slate-500">Overall progress</p>
+              <p className="mt-1 text-xs text-[#71877d]">Overall progress</p>
             </div>
-            <div className="rounded-xl bg-white/[.03] p-4">
-              <p className="text-xl font-extrabold text-emerald-300">On track</p>
-              <p className="mt-1 text-xs text-slate-500">Exam status</p>
+            <div className="rounded-xl bg-[#fbfdfc] p-4">
+              <p className="text-xl font-extrabold text-emerald-700">On track</p>
+              <p className="mt-1 text-xs text-[#71877d]">Exam status</p>
             </div>
           </div>
           <Btn variant="outline" className="mt-6 w-full" onClick={() => setView("settings")}>
             Edit profile <Settings size={16} />
           </Btn>
         </section>
-        <section className="rounded-2xl border border-white/8 bg-[#102521] p-7">
+        <section className="rounded-2xl border border-[#dcebe3] bg-white p-7">
           <h2 className="font-extrabold">Your study identity</h2>
           <div className="mt-6 space-y-4">
             {[
@@ -780,8 +787,8 @@ function Profile({ setView }: Props) {
                 key={label}
                 className="flex justify-between border-b border-white/6 pb-4 text-sm"
               >
-                <span className="text-slate-500">{label}</span>
-                <span className="font-semibold text-slate-200">{value}</span>
+                <span className="text-[#71877d]">{label}</span>
+                <span className="font-semibold text-[#244138]">{value}</span>
               </div>
             ))}
           </div>
@@ -793,7 +800,7 @@ function Profile({ setView }: Props) {
 function SettingsPage() {
   return (
     <Page title="Settings" eyebrow="PREFERENCES" subtitle="Make FunaBAcer fit the way you study.">
-      <div className="max-w-2xl rounded-2xl border border-white/8 bg-[#102521] p-6">
+      <div className="max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-6">
         {[
           ["Account details", "Name, email and academic profile"],
           ["Notifications", "Daily reminders and weekly progress"],
@@ -804,12 +811,12 @@ function SettingsPage() {
             key={title}
             className="flex w-full items-center gap-4 border-b border-white/6 py-5 text-left last:border-0"
           >
-            <Settings size={17} className="text-emerald-300" />
+            <Settings size={17} className="text-emerald-700" />
             <span className="flex-1">
               <span className="block font-bold">{title}</span>
-              <span className="mt-1 block text-xs text-slate-500">{detail}</span>
+              <span className="mt-1 block text-xs text-[#71877d]">{detail}</span>
             </span>
-            <ChevronRight size={18} className="text-slate-600" />
+            <ChevronRight size={18} className="text-[#8ca198]" />
           </button>
         ))}
       </div>
@@ -838,48 +845,48 @@ function Auth({ done }: { done: () => void }) {
     else done();
   };
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#071612] px-5 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-[#f7faf8] px-5 py-10">
       <div className="w-full max-w-md">
         <div className="mb-10 flex justify-center">
           <Logo />
         </div>
-        <div className="rounded-3xl border border-white/10 bg-[#102521] p-7 shadow-2xl sm:p-9">
+        <div className="rounded-3xl border border-[#dcebe3] bg-white p-7 shadow-2xl sm:p-9">
           <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">
             FUNAAB STUDY SYSTEM
           </p>
           <h1 className="mt-3 text-3xl font-extrabold">
             {mode === "login" ? "Welcome back." : "Create your account."}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <p className="mt-2 text-sm leading-6 text-[#71877d]">
             {mode === "login"
               ? "Pick up exactly where your learning loop left off."
               : "Start building mastery across every course."}
           </p>
           <form onSubmit={submit} className="mt-8 space-y-4">
             {mode === "signup" && (
-              <label className="block text-sm font-semibold text-slate-300">
+              <label className="block text-sm font-semibold text-[#365348]">
                 Full name
                 <input
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f4faf6] px-4 py-3 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
                   placeholder="Praise Adebayo"
                 />
               </label>
             )}
-            <label className="block text-sm font-semibold text-slate-300">
+            <label className="block text-sm font-semibold text-[#365348]">
               Email
               <input
                 required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-emerald-400"
+                className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f4faf6] px-4 py-3 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
                 placeholder="you@example.com"
               />
             </label>
-            <label className="block text-sm font-semibold text-slate-300">
+            <label className="block text-sm font-semibold text-[#365348]">
               Password
               <input
                 required
@@ -887,34 +894,34 @@ function Auth({ done }: { done: () => void }) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-black/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-emerald-400"
+                className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f4faf6] px-4 py-3 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
                 placeholder="At least 6 characters"
               />
             </label>
             {message && (
-              <p className="rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-200">{message}</p>
+              <p className="rounded-xl bg-emerald-400/10 p-3 text-sm text-emerald-700">{message}</p>
             )}
             <button
               disabled={busy}
-              className="w-full rounded-xl bg-emerald-400 py-3.5 text-sm font-extrabold text-emerald-950 hover:bg-emerald-300 disabled:opacity-60"
+              className="w-full rounded-xl bg-emerald-400 py-3.5 text-sm font-extrabold text-white hover:bg-emerald-600 disabled:opacity-60"
             >
               {busy ? "Please wait…" : mode === "login" ? "Log in to FunaBAcer" : "Create account"}
             </button>
           </form>
-          <div className="mt-7 text-center text-sm text-slate-500">
+          <div className="mt-7 text-center text-sm text-[#71877d]">
             {mode === "login" ? "New to FunaBAcer?" : "Already have an account?"}{" "}
             <button
               onClick={() => {
                 setMode(mode === "login" ? "signup" : "login");
                 setMessage("");
               }}
-              className="font-bold text-emerald-300"
+              className="font-bold text-emerald-700"
             >
               {mode === "login" ? "Create an account" : "Log in"}
             </button>
           </div>
         </div>
-        <p className="mt-6 text-center text-xs text-slate-600">
+        <p className="mt-6 text-center text-xs text-[#8ca198]">
           Your progress is securely saved to your account.
         </p>
       </div>
@@ -936,7 +943,7 @@ function App() {
   }, []);
   if (loading)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#071612] text-emerald-300">
+      <div className="flex min-h-screen items-center justify-center bg-[#f7faf8] text-emerald-700">
         Loading your study space…
       </div>
     );
@@ -954,7 +961,7 @@ function App() {
   else if (view === "profile") content = <Profile {...props} />;
   else content = <SettingsPage />;
   return (
-    <div className="flex min-h-screen bg-[#071612] text-white">
+    <div className="flex min-h-screen bg-[#f7faf8] text-[#10231c]">
       <Sidebar
         view={view}
         setView={setView}
@@ -964,8 +971,11 @@ function App() {
         }}
       />
       {mobile && (
-        <div className="fixed inset-0 z-50 bg-black/60 lg:hidden" onClick={() => setMobile(false)}>
-          <div className="h-full w-[270px] bg-[#0a1b18] p-5" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 bg-[#10231c]/30 lg:hidden"
+          onClick={() => setMobile(false)}
+        >
+          <div className="h-full w-[270px] bg-white p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <Logo />
               <button onClick={() => setMobile(false)}>
@@ -988,7 +998,7 @@ function App() {
                     setView(id as View);
                     setMobile(false);
                   }}
-                  className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-300 hover:bg-white/5"
+                  className="block w-full rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#365348] hover:bg-[#eff7f2]"
                 >
                   {label}
                 </button>
