@@ -823,6 +823,211 @@ function SettingsPage() {
     </Page>
   );
 }
+const funaabDepartments = [
+  {
+    group: "Agriculture",
+    description: "Agriculture, crops, animals and natural resources",
+    courses: [
+      "Agriculture",
+      "Agricultural Administration",
+      "Agricultural Economics and Farm Management",
+      "Agricultural Extension and Rural Development",
+      "Animal Breeding and Genetics",
+      "Animal Nutrition",
+      "Animal Physiology",
+      "Animal Production and Health",
+      "Aquaculture and Fisheries Management",
+      "Climate Science and Agricultural Meteorology",
+      "Crop Protection",
+      "Environmental Management and Toxicology",
+      "Forest Resource Management",
+      "Geology",
+      "Horticulture",
+      "Hydrology and Water Resources Management",
+      "Pasture and Range Management",
+      "Plant Breeding and Seed Technology",
+      "Plant Physiology and Crop Production",
+      "Soil Science and Land Management",
+      "Water Resources Management and Agro-meteorology",
+      "Wildlife and Eco-tourism Management",
+      "Water Sanitation and Hygiene",
+    ],
+  },
+  {
+    group: "Biological Science",
+    description: "Life sciences, laboratory work and public health",
+    courses: [
+      "Biochemistry",
+      "Biotechnology",
+      "Microbiology",
+      "Public Health",
+      "Pure and Applied Botany",
+      "Pure and Applied Zoology",
+      "Science Laboratory Technology",
+    ],
+  },
+  {
+    group: "Computing Science",
+    description: "Computing, software, data and information systems",
+    courses: [
+      "Computer Science",
+      "Cyber Security",
+      "Data Science",
+      "Information Communication Technology",
+      "Information Systems",
+      "Information Technology",
+      "Software Engineering",
+    ],
+  },
+  {
+    group: "Food Science and Human Ecology",
+    description: "Food, nutrition, clothing and hospitality",
+    courses: [
+      "Clothing & Textile Design",
+      "Food Science and Technology",
+      "Home Science and Management",
+      "Hospitality and Tourism",
+      "Nutrition and Dietetics",
+    ],
+  },
+  {
+    group: "Physical Science",
+    description: "Chemistry, mathematics, physics and statistics",
+    courses: [
+      "Chemistry",
+      "Geophysics",
+      "Industrial Chemistry",
+      "Mathematics",
+      "Physics",
+      "Statistics",
+    ],
+  },
+  {
+    group: "Engineering",
+    description: "Engineering design, systems and technology",
+    courses: [
+      "Agricultural Engineering",
+      "Civil Engineering",
+      "Electrical and Electronics Engineering",
+      "Mechanical Engineering",
+      "Mechatronic Engineering",
+    ],
+  },
+  {
+    group: "Veterinary Medicine",
+    description: "Animal health and veterinary medicine",
+    courses: ["Veterinary Medicine"],
+  },
+  {
+    group: "Entrepreneurial and Development Studies",
+    description: "Business, economics, accounting and development",
+    courses: [
+      "Accounting",
+      "Banking and Finance",
+      "Business Administration",
+      "Cooperative Studies",
+      "Development Studies",
+      "Economics",
+      "Entrepreneurial Studies",
+      "Library and Information Science",
+    ],
+  },
+];
+
+function Onboarding({ done }: { done: (profile: { department: string; course: string }) => void }) {
+  const [department, setDepartment] = useState("");
+  const [course, setCourse] = useState("");
+  const selected = funaabDepartments.find((item) => item.group === department);
+  const finish = () => {
+    if (!department || !course) return;
+    const profile = { department, course };
+    localStorage.setItem("funabacer-profile", JSON.stringify(profile));
+    done(profile);
+  };
+  return (
+    <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-5xl">
+        <Logo />
+        <div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">
+              PERSONALISE YOUR STUDY PLAN
+            </p>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">
+              Tell us what you’re studying.
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-7 text-[#587166]">
+              FunaBAcer will use your department and course to choose relevant topics, past
+              questions and AI explanations for you.
+            </p>
+            <div className="mt-8 flex items-center gap-3 text-sm font-semibold text-emerald-700">
+              <span className="flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">
+                1
+              </span>
+              Department first
+              <span className="h-px w-8 bg-[#c9ddd2]" />
+              <span className="flex size-8 items-center justify-center rounded-full border border-[#c9ddd2] text-[#71877d]">
+                2
+              </span>
+              Course next
+            </div>
+          </div>
+          <div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8">
+            <label className="block text-sm font-bold text-[#244138]">
+              What college or department are you in?
+              <select
+                value={department}
+                onChange={(event) => {
+                  setDepartment(event.target.value);
+                  setCourse("");
+                }}
+                className="mt-3 w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] px-4 py-3.5 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="">Select your department</option>
+                {funaabDepartments.map((item) => (
+                  <option key={item.group} value={item.group}>
+                    {item.group}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selected && (
+              <div className="mt-6">
+                <p className="text-xs font-semibold text-[#71877d]">{selected.description}</p>
+                <label className="mt-4 block text-sm font-bold text-[#244138]">
+                  What course are you studying?
+                  <select
+                    value={course}
+                    onChange={(event) => setCourse(event.target.value)}
+                    className="mt-3 w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] px-4 py-3.5 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
+                  >
+                    <option value="">Select your course</option>
+                    {selected.courses.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+            <button
+              onClick={finish}
+              disabled={!department || !course}
+              className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]"
+            >
+              Build my study plan <ArrowRight className="ml-2 inline-block" size={16} />
+            </button>
+            <p className="mt-4 text-center text-xs text-[#8ca198]">
+              You can change this later in Settings.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Auth({ done }: { done: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -931,14 +1136,19 @@ function Auth({ done }: { done: () => void }) {
 function App() {
   const [session, setSession] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [view, setView] = useState<View>("dashboard");
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setNeedsOnboarding(Boolean(data.session && !localStorage.getItem("funabacer-profile")));
       setLoading(false);
     });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (s) setNeedsOnboarding(!localStorage.getItem("funabacer-profile"));
+    });
     return () => data.subscription.unsubscribe();
   }, []);
   if (loading)
@@ -948,6 +1158,7 @@ function App() {
       </div>
     );
   if (!session) return <Auth done={() => setSession({ loggedIn: true })} />;
+  if (needsOnboarding) return <Onboarding done={() => setNeedsOnboarding(false)} />;
   let content: ReactNode;
   const props = { setView };
   if (view === "dashboard") content = <Dashboard {...props} />;
