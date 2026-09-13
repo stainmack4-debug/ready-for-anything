@@ -223,7 +223,7 @@ function Topbar({
           className="flex items-center gap-2 rounded-xl border border-[#c9ddd2] bg-white py-1.5 pl-1.5 pr-3 text-sm font-semibold hover:bg-[#eff7f2]"
         >
           <img
-            src={avatarUrl(getAvatarId())}
+            src={useAvatar().url}
             alt="Your avatar"
             className="size-7 rounded-full border border-emerald-300 bg-white object-cover"
           />
