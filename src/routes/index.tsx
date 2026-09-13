@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
 import {
   ArrowLeft,
@@ -723,46 +724,87 @@ function Dashboard({ setView }: Props) {
   );
 }
 function Courses({ setView }: Props) {
-  const courses = [
-    ["CHM 101", "General Chemistry I", 68, "12 topics"],
-    ["MTH 101", "Elementary Mathematics I", 72, "10 topics"],
-    ["GNS 101", "Use of English I", 44, "8 topics"],
-    ["PHY 101", "Introductory Physics", 18, "14 topics"],
-  ];
+  const [activeDomain, setActiveDomain] = useState(funaabCurriculum[0].id);
+  const domain = funaabCurriculum.find((item) => item.id === activeDomain) ?? funaabCurriculum[0];
   return (
     <Page
-      title="My courses"
-      eyebrow="COURSE LIBRARY"
-      subtitle="Pick a course and keep moving through your mastery map."
-      className="study-glass-page"
+      title="Learn"
+      eyebrow="FUNAAB COURSE LIBRARY"
+      subtitle="Verified programme information, source-backed synopses and clear evidence labels."
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {courses.map(([code, name, progress, count]) => (
-          <button
-            key={code as string}
-            onClick={() => setView("topic")}
-            className="group rounded-2xl border border-[#dcebe3] bg-gradient-to-br from-emerald-400/15 to-white p-6 text-left hover:-translate-y-1 hover:border-emerald-400/40"
-          >
-            <div className="flex justify-between">
-              <span className="rounded-lg bg-[#eff7f2] px-2.5 py-1 text-xs font-bold text-[#365348]">
-                {code}
+      <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
+        <aside className="h-fit rounded-2xl border border-[#dcebe3] bg-white p-3 lg:sticky lg:top-5">
+          <p className="px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[.18em] text-emerald-700">
+            Academic domains
+          </p>
+          <div className="space-y-1">
+            {funaabCurriculum.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveDomain(item.id)}
+                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-bold ${activeDomain === item.id ? "bg-emerald-500 text-white" : "text-[#365348] hover:bg-[#eff7f2]"}`}
+              >
+                {item.domain}
+                <span
+                  className={`mt-1 block text-xs ${activeDomain === item.id ? "text-emerald-50" : "text-[#8ca198]"}`}
+                >
+                  {item.courses.length} programmes
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+        <div>
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6">
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">
+              {domain.domain}
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold">Choose a programme to study.</h2>
+            <p className="mt-2 text-sm leading-6 text-[#587166]">
+              These programme descriptions come from the FUNAAB research catalogue. Confidence and
+              source links stay visible so you know what is verified.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                {domain.courses.length} programmes
               </span>
-              <ChevronRight size={18} className="text-[#71877d]" />
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">
+                Source-linked
+              </span>
             </div>
-            <h2 className="mt-8 text-xl font-extrabold">{name}</h2>
-            <p className="mt-2 text-sm text-[#71877d]">{count}</p>
-            <div className="mt-7 flex justify-between text-xs">
-              <span className="font-bold text-emerald-700">{progress}% complete</span>
-              <span className="text-[#71877d]">View topics</span>
-            </div>
-            <div className="mt-2 h-2 rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-emerald-400"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </button>
-        ))}
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {domain.courses.map((course) => (
+              <button
+                key={course.name}
+                onClick={() => setView("topic")}
+                className="group rounded-2xl border border-[#dcebe3] bg-white p-5 text-left transition-all hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_20px_40px_-28px_#23704d]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${course.confidence === "high" ? "bg-emerald-50 text-emerald-700" : course.confidence === "medium" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}
+                  >
+                    {course.confidence} confidence
+                  </span>
+                  <ChevronRight
+                    size={18}
+                    className="text-[#8ca198] transition-transform group-hover:translate-x-1"
+                  />
+                </div>
+                <h3 className="mt-5 text-lg font-extrabold text-[#10231c]">{course.name}</h3>
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#71877d]">
+                  {course.synopsis}
+                </p>
+                <div className="mt-5 flex items-center justify-between text-xs font-bold">
+                  <span className="text-emerald-700">Open study path</span>
+                  <span className="text-[#8ca198]">
+                    {course.official_sources.length} official sources
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </Page>
   );
