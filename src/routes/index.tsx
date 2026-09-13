@@ -40,6 +40,7 @@ export const Route = createFileRoute("/")({
 });
 type View =
   | "dashboard"
+  | "overview"
   | "courses"
   | "topic"
   | "learn"
@@ -113,7 +114,8 @@ function Sidebar({
   logout: () => void;
 }) {
   const links: [View, string, ReactNode][] = [
-    ["dashboard", "Overview", <LayoutDashboard size={18} />],
+    ["dashboard", "Dashboard", <Sparkles size={18} />],
+    ["overview", "Overview", <LayoutDashboard size={18} />],
     ["courses", "My courses", <Library size={18} />],
     ["practice", "CBT practice", <Target size={18} />],
     ["notes", "Note Cruncher", <FileText size={18} />],
