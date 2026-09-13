@@ -168,6 +168,34 @@ function Sidebar({
     </aside>
   );
 }
+/** Cartoon avatar chooser — pick the face that represents you. */
+function AvatarPicker() {
+  const avatar = useAvatar();
+  return (
+    <div>
+      <img
+        src={avatar.url}
+        alt="Your avatar"
+        className="mx-auto size-20 rounded-full border-2 border-emerald-400 bg-emerald-50 object-cover"
+      />
+      <p className="mt-4 text-[10px] font-bold uppercase tracking-[.2em] text-emerald-700">
+        Choose your avatar
+      </p>
+      <div className="mt-3 grid grid-cols-6 gap-2">
+        {avatars.map((a) => (
+          <button
+            key={a.id}
+            onClick={() => setAvatarId(a.id)}
+            aria-label={`Use avatar ${a.id}`}
+            className={`rounded-full border-2 bg-emerald-50 p-0.5 transition-transform hover:scale-105 ${a.id === avatar.id ? "border-emerald-500" : "border-transparent"}`}
+          >
+            <img src={a.url} alt="" className="size-full rounded-full" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 function Topbar({
   theme,
   setTheme,
@@ -224,7 +252,7 @@ function Topbar({
           className="flex items-center gap-2 rounded-xl border border-[#c9ddd2] bg-white py-1.5 pl-1.5 pr-3 text-sm font-semibold hover:bg-[#eff7f2]"
         >
           <img
-            src={useAvatar().url}
+            src={avatar.url}
             alt="Your avatar"
             className="size-7 rounded-full border border-emerald-300 bg-white object-cover"
           />
