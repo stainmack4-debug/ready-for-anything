@@ -1712,7 +1712,8 @@ function App() {
   if (needsOnboarding) return <Onboarding done={() => setNeedsOnboarding(false)} />;
   let content: ReactNode;
   const props = { setView };
-  if (view === "dashboard") content = <Dashboard {...props} />;
+  if (view === "dashboard") content = <Home {...props} />;
+  else if (view === "overview") content = <Dashboard {...props} />;
   else if (view === "courses") content = <Courses {...props} />;
   else if (view === "topic") content = <Topic {...props} />;
   else if (view === "learn") content = <Learn {...props} />;
@@ -1755,7 +1756,8 @@ function App() {
             </div>
             <div className="mt-10 space-y-2">
               {[
-                ["dashboard", "Overview"],
+                ["dashboard", "Dashboard"],
+                ["overview", "Overview"],
                 ["courses", "My courses"],
                 ["practice", "CBT practice"],
                 ["notes", "Note Cruncher"],
