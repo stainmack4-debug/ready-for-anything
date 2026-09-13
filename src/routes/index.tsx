@@ -168,10 +168,12 @@ function Topbar({
   theme,
   setTheme,
   openMobile,
+  setView,
 }: {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   openMobile: () => void;
+  setView: (v: View) => void;
 }) {
   return (
     <header className="flex min-h-[76px] items-center justify-between border-b border-[#dcebe3] bg-white px-5 py-3 sm:px-8">
@@ -604,7 +606,7 @@ function Learn({ setView }: Props) {
       "One question. No pressure. This is how we learn what to teach next.",
     ],
   ];
-  const l = lessons[step];
+  const l = lessons[step] ?? lessons[0]!;
   return (
     <Page
       title="Learn · Gas Laws"
