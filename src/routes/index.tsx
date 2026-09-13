@@ -255,6 +255,217 @@ function Page({
     </div>
   );
 }
+function useAvatar() {
+  const [id, setId] = useState(avatars[0]!.id);
+  useEffect(() => {
+    const sync = () => setId(getAvatarId());
+    sync();
+    window.addEventListener("funabacer-avatar", sync);
+    return () => window.removeEventListener("funabacer-avatar", sync);
+  }, []);
+  return { id, url: avatarUrl(id) };
+}
+
+/** Time-of-day + recent-performance aware greeting for the hero header. */
+function useGreeting() {
+  return useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12)
+      return {
+        slot: "Good morning",
+        line: "Mornings are your sharpest hours — one focused sprint now beats an hour tonight.",
+        tint: "from-amber-50 via-white to-emerald-50",
+        chip: "Morning momentum",
+      };
+    if (h < 17)
+      return {
+        slot: "Good afternoon",
+        line: "Fifteen honest minutes between lectures is how mastery actually gets built.",
+        tint: "from-emerald-50 via-white to-emerald-50",
+        chip: "Afternoon focus",
+      };
+    if (h < 21)
+      return {
+        slot: "Good evening",
+        line: "Let's clear one weak topic before the day closes. I'll keep it light.",
+        tint: "from-sky-50 via-white to-emerald-50",
+        chip: "Evening review",
+      };
+    return {
+      slot: "Still up",
+      line: "Late night? Then we go small — one concept, five questions, and you rest.",
+      tint: "from-indigo-50 via-white to-emerald-50",
+      chip: "Night mode",
+    };
+  }, []);
+}
+
+function Home({ setView }: Props) {
+  const g = useGreeting();
+  const avatar = useAvatar();
+  const [message, setMessage] = useState("");
+  const streak = 6;
+  const days = ["M", "T", "W", "T", "F", "S", "S"];
+  const prompts = [
+    "Explain the mole concept simply",
+    "Why did I fail that Gas Laws question?",
+    "Give me 5 quick CHM 101 questions",
+  ];
+  const ask = () => {
+    if (message.trim()) localStorage.setItem("funabacer.pending-question", message.trim());
+    setView("learn");
+  };
+  return (
+    <div className="space-y-6 p-5 sm:p-8">
+      {/* Personalized hero header */}
+      <section
+        className={`rounded-[2rem] border border-emerald-200 bg-gradient-to-br ${g.tint} p-6 shadow-[0_24px_70px_-42px_#2f6b4f] sm:p-9`}
+      >
+        <div className="flex items-center gap-4">
+          <img
+            src={avatar.url}
+            alt="Your avatar"
+            className="size-14 rounded-full border-2 border-emerald-400 bg-white object-cover"
+          />
+          <div>
+            <span className="rounded-full bg-emerald-500/12 px-3 py-1 text-[10px] font-bold uppercase tracking-[.18em] text-emerald-700">
+              {g.chip}
+            </span>
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-[#10231c] sm:text-3xl">
+              {g.slot}, Praise
+            </h1>
+          </div>
+        </div>
+        <p className="mt-5 max-w-xl text-sm leading-6 text-[#587166] sm:text-base">{g.line}</p>
+
+        {/* AI message box — the heart of the dashboard */}
+        <div className="mt-7 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_18px_44px_-34px_#23704d]">
+          <div className="flex items-end gap-2">
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  ask();
+                }
+              }}
+              rows={2}
+              placeholder="Ask FunaBAcer anything… “Teach me stoichiometry from scratch”"
+              className="min-h-[54px] w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 text-[#10231c] outline-none placeholder:text-[#8ca198]"
+            />
+            <button
+              onClick={ask}
+              aria-label="Send message to AI tutor"
+              className="mb-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white transition-transform active:scale-95"
+            >
+              <Send size={18} />
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 px-1 pb-1">
+            {prompts.map((p) => (
+              <button
+                key={p}
+                onClick={() => setMessage(p)}
+                className="rounded-full border border-[#dcebe3] px-3 py-1.5 text-xs font-semibold text-[#587166] hover:border-emerald-300 hover:text-emerald-700"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* One-click action zone */}
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <Btn onClick={() => setView("learn")} className="flex-1 py-4 text-base">
+            <Play size={18} fill="currentColor" /> Resume my lesson plan
+          </Btn>
+          <Btn variant="outline" onClick={() => setView("practice")} className="flex-1 py-4">
+            <Timer size={18} /> Start 10-minute sprint
+          </Btn>
+        </div>
+      </section>
+
+      {/* Smart progress tracking */}
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame size={18} className="text-amber-500" />
+              <h2 className="font-extrabold text-[#10231c]">{streak}-day streak</h2>
+            </div>
+            <span className="text-xs font-semibold text-[#71877d]">This week</span>
+          </div>
+          <div className="mt-6 flex items-center gap-2">
+            {days.map((d, i) => (
+              <div key={`${d}${i}`} className="flex-1 text-center">
+                <div
+                  className={`flex h-10 items-center justify-center rounded-xl text-xs font-bold ${
+                    i < streak
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[#eff7f2] text-[#8ca198]"
+                  }`}
+                >
+                  {i < streak ? <Check size={16} /> : d}
+                </div>
+                <p className="mt-2 text-[10px] font-semibold text-[#8ca198]">{d}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-xs leading-5 text-[#71877d]">
+            One more day and you beat your best week yet. A sprint counts.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setView("topic")}
+          className="rounded-2xl border border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 text-left text-white"
+        >
+          <div className="flex items-center gap-2">
+            <Target size={18} />
+            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-emerald-50">
+              Focus area
+            </p>
+          </div>
+          <h2 className="mt-4 text-2xl font-extrabold">CHM 101 · Gas Laws</h2>
+          <p className="mt-2 text-sm leading-6 text-emerald-50">
+            Your weakest topic at 34%. I'll teach it in three short steps, then re-test you.
+          </p>
+          <div className="mt-6 h-2 rounded-full bg-white/25">
+            <div className="h-full w-[34%] rounded-full bg-white" />
+          </div>
+          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">
+            Fix this now <ArrowRight size={15} />
+          </span>
+        </button>
+      </section>
+
+      {/* Quick jumps */}
+      <section className="grid gap-3 sm:grid-cols-3">
+        {(
+          [
+            ["Note Cruncher", "Turn notes into flashcards", <FileText size={18} />, "notes"],
+            ["CBT practice", "Timed past questions", <Target size={18} />, "practice"],
+            ["My mastery", "See every topic's health", <BarChart3 size={18} />, "results"],
+          ] as [string, string, ReactNode, View][]
+        ).map(([title, detail, icon, target]) => (
+          <button
+            key={title}
+            onClick={() => setView(target)}
+            className="rounded-2xl border border-[#dcebe3] bg-white p-5 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-300"
+          >
+            <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              {icon}
+            </span>
+            <p className="mt-4 text-sm font-extrabold text-[#10231c]">{title}</p>
+            <p className="mt-1 text-xs leading-5 text-[#71877d]">{detail}</p>
+          </button>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 function Dashboard({ setView }: Props) {
   const actions: [string, string, string, ReactNode, View][] = [
     [
