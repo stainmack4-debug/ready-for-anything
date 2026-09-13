@@ -235,6 +235,10 @@
 .theme-night .study-glass-page .bg-gradient-to-br {
   background: linear-gradient(145deg, rgb(115 129 125 / 30%), rgb(24 38 34 / 92%)) !important;
 }
+.theme-night nav.fixed {
+  background-color: rgb(16 37 33 / 94%) !important;
+  border-color: rgb(255 255 255 / 14%) !important;
+}
 .theme-night [class*="border-emerald-200"],
 .theme-night [class*="border-emerald-300"] {
   border-color: rgb(110 231 183 / 35%) !important;

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
+  Bot,
   BookOpen,
   Brain,
   Check,
@@ -13,6 +14,8 @@ import {
   CircleHelp,
   FileText,
   Flame,
+  GraduationCap,
+  House,
   LayoutDashboard,
   Library,
   LogOut,
@@ -116,12 +119,9 @@ function Sidebar({
   logout: () => void;
 }) {
   const links: [View, string, ReactNode][] = [
-    ["dashboard", "Dashboard", <Sparkles size={18} />],
-    ["overview", "Overview", <LayoutDashboard size={18} />],
-    ["courses", "My courses", <Library size={18} />],
-    ["practice", "CBT practice", <Target size={18} />],
     ["notes", "Note Cruncher", <FileText size={18} />],
-    ["results", "Progress & mastery", <BarChart3 size={18} />],
+    ["profile", "Profile & academic info", <UserRound size={18} />],
+    ["settings", "Settings & preferences", <Settings size={18} />],
   ];
   return (
     <aside className="hidden w-[250px] shrink-0 border-r border-[#dcebe3] bg-white px-5 py-7 lg:flex lg:flex-col">
@@ -143,20 +143,6 @@ function Sidebar({
         ))}
       </nav>
       <div className="mt-auto space-y-1 border-t border-[#dcebe3] pt-5">
-        <button
-          onClick={() => setView("profile")}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#587166] hover:text-[#10231c]"
-        >
-          <UserRound size={18} />
-          Profile
-        </button>
-        <button
-          onClick={() => setView("settings")}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#587166] hover:text-[#10231c]"
-        >
-          <Settings size={18} />
-          Settings
-        </button>
         <button
           onClick={logout}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#587166] hover:text-[#10231c]"
@@ -194,6 +180,36 @@ function AvatarPicker() {
         ))}
       </div>
     </div>
+  );
+}
+function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }) {
+  const links: [View, string, ReactNode][] = [
+    ["dashboard", "Home", <House size={21} />],
+    ["courses", "Learn", <GraduationCap size={21} />],
+    ["practice", "AI Coach", <Bot size={21} />],
+    ["results", "Progress", <BarChart3 size={21} />],
+  ];
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dcebe3] bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-14px_35px_-28px_#154c35] backdrop-blur-xl lg:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+        {links.map(([id, label, icon]) => {
+          const active =
+            view === id ||
+            (id === "courses" && ["topic", "learn"].includes(view)) ||
+            (id === "practice" && view === "review");
+          return (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-extrabold ${active ? "bg-emerald-500 text-white" : "text-[#71877d] hover:bg-[#eff7f2]"}`}
+            >
+              <span>{icon}</span>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 function Topbar({
@@ -432,9 +448,7 @@ function Home({ setView }: Props) {
               <div key={`${d}${i}`} className="flex-1 text-center">
                 <div
                   className={`flex h-10 items-center justify-center rounded-xl text-xs font-bold ${
-                    i < streak
-                      ? "bg-emerald-500 text-white"
-                      : "bg-[#eff7f2] text-[#8ca198]"
+                    i < streak ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#8ca198]"
                   }`}
                 >
                   {i < streak ? <Check size={16} /> : d}
@@ -1785,12 +1799,7 @@ function App() {
             </div>
             <div className="mt-10 space-y-2">
               {[
-                ["dashboard", "Dashboard"],
-                ["overview", "Overview"],
-                ["courses", "My courses"],
-                ["practice", "CBT practice"],
                 ["notes", "Note Cruncher"],
-                ["results", "Progress & mastery"],
                 ["profile", "Profile"],
                 ["settings", "Settings"],
               ].map(([id, label]) => (
@@ -1819,8 +1828,9 @@ function App() {
           openMobile={() => setMobile(true)}
           setView={setView}
         />
-        <div className="mx-auto max-w-[1220px]">{content}</div>
+        <div className="mx-auto max-w-[1220px] pb-24 lg:pb-0">{content}</div>
       </main>
+      <BottomNav view={view} setView={setView} />
     </div>
   );
 }
