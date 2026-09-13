@@ -582,15 +582,17 @@ function Dashboard({ setView }: Props) {
                 className="size-12 rounded-xl object-cover"
               />
               <div>
-                <p className="text-sm font-extrabold text-[#10231c]">Your study plan</p>
-                <p className="mt-1 text-xs text-[#71877d]">CHM 101 · Gas Laws</p>
+                <p className="text-sm font-extrabold text-[#10231c]">Your FUNAAB study plan</p>
+                <p className="mt-1 text-xs text-[#71877d]">
+                  Choose a programme to personalise this space
+                </p>
               </div>
             </div>
             <div className="mt-5 h-2 rounded-full bg-emerald-50">
               <div className="h-full w-[34%] rounded-full bg-emerald-500" />
             </div>
             <p className="mt-3 text-xs font-semibold text-emerald-700">
-              Recommended because this is your weakest topic
+              Source-backed recommendations will appear here after your first study session.
             </p>
           </div>
         </div>
