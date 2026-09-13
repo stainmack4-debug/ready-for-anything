@@ -1571,6 +1571,7 @@ function App() {
             localStorage.setItem("funabacer-theme", next);
           }}
           openMobile={() => setMobile(true)}
+          setView={setView}
         />
         <div className="mx-auto max-w-[1220px]">{content}</div>
       </main>
