@@ -179,6 +179,7 @@ function Topbar({
   openMobile: () => void;
   setView: (v: View) => void;
 }) {
+  const avatar = useAvatar();
   return (
     <header className="flex min-h-[76px] items-center justify-between border-b border-[#dcebe3] bg-white px-5 py-3 sm:px-8">
       <div className="flex items-center gap-3">
