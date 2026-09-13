@@ -222,9 +222,11 @@ function Topbar({
           onClick={() => setView("profile")}
           className="flex items-center gap-2 rounded-xl border border-[#c9ddd2] bg-white py-1.5 pl-1.5 pr-3 text-sm font-semibold hover:bg-[#eff7f2]"
         >
-          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-xs font-black text-white">
-            P
-          </span>
+          <img
+            src={avatarUrl(getAvatarId())}
+            alt="Your avatar"
+            className="size-7 rounded-full border border-emerald-300 bg-white object-cover"
+          />
           <span className="hidden sm:block">Praise</span>
         </button>
       </div>
@@ -1095,9 +1097,7 @@ function Profile({ setView }: Props) {
     >
       <div className="grid gap-6 lg:grid-cols-[.75fr_1.25fr]">
         <section className="rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
-          <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-400 text-3xl font-black text-white">
-            P
-          </div>
+          <AvatarPicker />
           <h2 className="mt-5 text-xl font-extrabold">Praise Adebayo</h2>
           <p className="mt-1 text-sm text-[#71877d]">100 level · Computer Science</p>
           <div className="mt-7 grid grid-cols-2 gap-3 text-left">
