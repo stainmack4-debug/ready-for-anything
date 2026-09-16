@@ -57,7 +57,8 @@ type View =
   | "profile"
   | "settings";
 type Theme = "day" | "night";
-type Props = { setView: (v: View) => void };
+type StudentProfile = { department: string; course: string };
+type Props = { setView: (v: View) => void; profile?: StudentProfile | null };
 const topics = [
   { name: "Mole Concept", course: "CHM 101", score: 92, tone: "strong" },
   { name: "Stoichiometry", course: "CHM 101", score: 61, tone: "practice" },
@@ -891,8 +892,13 @@ function Topic({ setView }: Props) {
     </Page>
   );
 }
-function Learn({ setView }: Props) {
+function Learn({ setView, profile }: Props) {
   const [step, setStep] = useState(0);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [isAsking, setIsAsking] = useState(false);
+  const [tutorError, setTutorError] = useState("");
+  const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const lessons = [
     [
       "Let's start with the idea",
@@ -911,6 +917,41 @@ function Learn({ setView }: Props) {
     ],
   ];
   const l = lessons[step] ?? lessons[0]!;
+  const askTutor = async () => {
+    const message = question.trim();
+    if (!message || isAsking) return;
+    setIsAsking(true);
+    setTutorError("");
+    setAnswer("");
+    try {
+      const response = await fetch("/api/ai/tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          history,
+          department: profile?.department,
+          course: profile?.course,
+          topic: "Gas Laws",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
+      setAnswer(data.answer);
+      setHistory((current) => [
+        ...current,
+        { role: "user", content: message },
+        { role: "assistant", content: data.answer },
+      ]);
+      setQuestion("");
+    } catch (error) {
+      setTutorError(
+        error instanceof Error ? error.message : "The tutor could not answer right now.",
+      );
+    } finally {
+      setIsAsking(false);
+    }
+  };
   return (
     <Page
       title="Learn · Gas Laws"
@@ -940,6 +981,44 @@ function Learn({ setView }: Props) {
           <div className="mt-8 rounded-xl border border-[#dcebe3] bg-[#f4faf6] p-5 text-sm leading-6 text-emerald-800">
             <span className="font-bold text-emerald-700">A simple way to remember it: </span>
             {l[2]}
+          </div>
+          <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-extrabold text-[#10231c]">Ask your course tutor</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                {profile?.course || "Your course"}
+              </span>
+            </div>
+            <textarea
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) askTutor();
+              }}
+              placeholder="Ask about this topic… e.g. why does pressure increase when volume decreases?"
+              className="mt-4 min-h-24 w-full resize-y rounded-xl border border-[#c9ddd2] bg-[#f7faf8] p-3 text-sm text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-[#8ca198]">
+                Ctrl/⌘ + Enter to ask. The tutor uses your saved programme and course.
+              </p>
+              <Btn onClick={askTutor} disabled={!question.trim() || isAsking}>
+                <Send size={15} /> {isAsking ? "Thinking…" : "Ask tutor"}
+              </Btn>
+            </div>
+            {tutorError && (
+              <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+                {tutorError}
+              </p>
+            )}
+            {answer && (
+              <div className="mt-4 whitespace-pre-wrap rounded-xl bg-[#eff7f2] p-4 text-sm leading-7 text-[#244138]">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-700">
+                  FunaBAcer tutor
+                </span>
+                {answer}
+              </div>
+            )}
           </div>
           <div className="mt-10 flex justify-between gap-3">
             {step > 0 ? (
@@ -1754,6 +1833,7 @@ function Auth({ done }: { done: () => void }) {
 }
 function App() {
   const [session, setSession] = useState<unknown>(null);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(() =>
@@ -1769,10 +1849,16 @@ function App() {
       const metadata = data.session?.user.user_metadata as
         { department?: string; course?: string } | undefined;
       if (metadata?.department && metadata.course) {
-        localStorage.setItem(
-          "funabacer-profile",
-          JSON.stringify({ department: metadata.department, course: metadata.course }),
-        );
+        const savedProfile = { department: metadata.department, course: metadata.course };
+        localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
+        setProfile(savedProfile);
+      } else {
+        try {
+          const savedProfile = JSON.parse(localStorage.getItem("funabacer-profile") || "null");
+          if (savedProfile?.department && savedProfile?.course) setProfile(savedProfile);
+        } catch {
+          localStorage.removeItem("funabacer-profile");
+        }
       }
       setSession(data.session);
       setNeedsOnboarding(Boolean(data.session && !localStorage.getItem("funabacer-profile")));
@@ -1796,14 +1882,22 @@ function App() {
     ) : (
       <Landing onStart={() => setAuthOpen(true)} />
     );
-  if (needsOnboarding) return <Onboarding done={() => setNeedsOnboarding(false)} />;
+  if (needsOnboarding)
+    return (
+      <Onboarding
+        done={(nextProfile) => {
+          setProfile(nextProfile);
+          setNeedsOnboarding(false);
+        }}
+      />
+    );
   let content: ReactNode;
   const props = { setView };
   if (view === "dashboard") content = <Home {...props} />;
   else if (view === "overview") content = <Dashboard {...props} />;
   else if (view === "courses") content = <Courses {...props} />;
   else if (view === "topic") content = <Topic {...props} />;
-  else if (view === "learn") content = <Learn {...props} />;
+  else if (view === "learn") content = <Learn {...props} profile={profile} />;
   else if (view === "practice") content = <Practice {...props} />;
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
