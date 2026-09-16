@@ -893,43 +893,35 @@ function Topic({ setView }: Props) {
   );
 }
 function Learn({ setView, profile }: Props) {
-  const [step, setStep] = useState(0);
+  type ChatMessage = { role: "user" | "assistant"; content: string };
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [tutorError, setTutorError] = useState("");
-  const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const lessons = [
-    [
-      "Let's start with the idea",
-      "I’m your AI tutor for Gas Laws. I’ll check what you already know, teach one idea at a time, and adapt the next explanation to your answer. Pressure is the force gas particles exert when they collide with a surface.",
-      "Start with this: more particle collisions per second means more pressure. We will use a visual example and then I’ll ask you to explain it back in your own words.",
-    ],
-    [
-      "Boyle's law",
-      "Now let’s connect the idea to Boyle’s law. I’ll show the relationship, ask you to predict what happens when volume changes, and only then introduce the equation.",
-      "P₁V₁ = P₂V₂ — the product stays constant.",
-    ],
-    [
-      "Ready to test the idea?",
-      "You now have the foundation. Let’s use one exam-style question to see what stuck.",
-      "One question. No pressure. This is how we learn what to teach next.",
-    ],
-  ];
-  const l = lessons[step] ?? lessons[0]!;
-  const askTutor = async () => {
-    const message = question.trim();
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [expression, setExpression] = useState("");
+  const [calculation, setCalculation] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"}. Ask me to explain a topic, work through a calculation, or create practice questions. I’ll teach one step at a time using your ${profile?.department || "department"} context.`,
+    },
+  ]);
+
+  const askTutor = async (preset?: string) => {
+    const message = (preset || question).trim();
     if (!message || isAsking) return;
     setIsAsking(true);
     setTutorError("");
-    setAnswer("");
+    const nextMessages = [...messages, { role: "user" as const, content: message }];
+    setMessages(nextMessages);
+    setQuestion("");
     try {
       const response = await fetch("/api/ai/tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          history,
+          history: messages,
           department: profile?.department,
           course: profile?.course,
           topic: "Gas Laws",
@@ -937,114 +929,190 @@ function Learn({ setView, profile }: Props) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
-      setAnswer(data.answer);
-      setHistory((current) => [
-        ...current,
-        { role: "user", content: message },
-        { role: "assistant", content: data.answer },
-      ]);
-      setQuestion("");
+      setMessages([...nextMessages, { role: "assistant", content: data.answer }]);
     } catch (error) {
       setTutorError(
         error instanceof Error ? error.message : "The tutor could not answer right now.",
       );
+      setMessages(messages);
     } finally {
       setIsAsking(false);
     }
   };
+
+  const calculate = () => {
+    const safe = expression
+      .replace(/[×x]/gi, "*")
+      .replace(/÷/g, "/")
+      .replace(/[^0-9+\\-*/().%\\s]/g, "");
+    if (!safe.trim()) return;
+    try {
+      const value = Function(`"use strict"; return (${safe})`)();
+      setCalculation(
+        Number.isFinite(value) ? String(Number(value.toFixed(8))) : "Not a valid result",
+      );
+    } catch {
+      setCalculation("Check the expression");
+    }
+  };
+
+  const quickPrompts = [
+    "Explain this topic from the beginning",
+    "Give me 5 exam-style questions",
+    "Quiz me one question at a time",
+  ];
   return (
     <Page
-      title="Learn · Gas Laws"
-      eyebrow={`LESSON ${step + 1} OF 3`}
-      subtitle="Progressive teaching that meets you where you are."
+      title="AI Coach"
+      eyebrow="YOUR PERSONAL TUTOR"
+      subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
     >
       <div className="mx-auto max-w-3xl">
-        <div className="mb-6 flex gap-2">
-          {lessons.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-emerald-400" : "bg-white/10"}`}
-            />
-          ))}
-        </div>
-        <article className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-white p-7 sm:p-10">
-          <div className="flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500 text-white">
-              <Brain size={24} />
+        <div className="overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500">
+                <Bot size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold">FunaBAcer Tutor</p>
+                <p className="text-xs text-emerald-100/65">
+                  {profile?.course || "Personalised study session"}
+                </p>
+              </div>
             </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-              AI tutor · adapting to you
-            </span>
+            <button
+              onClick={() => setShowCalculator((open) => !open)}
+              className={`flex size-10 items-center justify-center rounded-full border transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}
+              aria-label="Open calculator"
+            >
+              ∑
+            </button>
           </div>
-          <h2 className="mt-8 text-3xl font-extrabold">{l[0]}</h2>
-          <p className="mt-5 text-lg leading-8 text-[#365348]">{l[1]}</p>
-          <div className="mt-8 rounded-xl border border-[#dcebe3] bg-[#f4faf6] p-5 text-sm leading-6 text-emerald-800">
-            <span className="font-bold text-emerald-700">A simple way to remember it: </span>
-            {l[2]}
-          </div>
-          <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-extrabold text-[#10231c]">Ask your course tutor</p>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                {profile?.course || "Your course"}
-              </span>
-            </div>
-            <textarea
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) askTutor();
-              }}
-              placeholder="Ask about this topic… e.g. why does pressure increase when volume decreases?"
-              className="mt-4 min-h-24 w-full resize-y rounded-xl border border-[#c9ddd2] bg-[#f7faf8] p-3 text-sm text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-[#8ca198]">
-                Ctrl/⌘ + Enter to ask. The tutor uses your saved programme and course.
-              </p>
-              <Btn onClick={askTutor} disabled={!question.trim() || isAsking}>
-                <Send size={15} /> {isAsking ? "Thinking…" : "Ask tutor"}
-              </Btn>
-            </div>
-            {tutorError && (
-              <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-700">
-                {tutorError}
-              </p>
-            )}
-            {answer && (
-              <div className="mt-4 whitespace-pre-wrap rounded-xl bg-[#eff7f2] p-4 text-sm leading-7 text-[#244138]">
-                <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-emerald-700">
-                  FunaBAcer tutor
-                </span>
-                {answer}
+          <div className="max-h-[58vh] space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-white/10 text-emerald-50"}`}
+                >
+                  {message.content}
+                </div>
+              </div>
+            ))}
+            {isAsking && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-sm text-emerald-100/70">
+                  Thinking through that…
+                </div>
               </div>
             )}
           </div>
-          <div className="mt-10 flex justify-between gap-3">
-            {step > 0 ? (
-              <Btn variant="ghost" onClick={() => setStep(step - 1)}>
-                <ArrowLeft size={16} /> Back
-              </Btn>
-            ) : (
-              <span />
+          <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-6">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => askTutor(prompt)}
+                  disabled={isAsking}
+                  className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-emerald-100/75 hover:border-emerald-300 hover:text-white"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+            {showCalculator && (
+              <div className="mb-3 rounded-2xl border border-emerald-300/25 bg-white/10 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                    Study calculator
+                  </p>
+                  <button
+                    onClick={() => {
+                      setExpression("");
+                      setCalculation("");
+                    }}
+                    className="text-xs text-emerald-100/60"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={expression}
+                    onChange={(event) => setExpression(event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && calculate()}
+                    placeholder="e.g. (1 × 2) / 0.5"
+                    className="min-w-0 flex-1 rounded-xl border border-white/15 bg-[#04100c] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+                  />
+                  <button
+                    onClick={calculate}
+                    className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-[#071612]"
+                  >
+                    =
+                  </button>
+                </div>
+                {calculation && (
+                  <p className="mt-2 text-right text-lg font-extrabold text-emerald-200">
+                    {calculation}
+                  </p>
+                )}
+                <p className="mt-2 text-[11px] text-emerald-100/50">
+                  Use +, −, ×, ÷, brackets and percentages. Use the result to explain your working
+                  to the tutor.
+                </p>
+              </div>
             )}
-            {step < 2 ? (
-              <Btn onClick={() => setStep(step + 1)}>
-                I understand <ArrowRight size={16} />
-              </Btn>
-            ) : (
-              <Btn onClick={() => setView("practice")}>
-                Test me <Target size={16} />
-              </Btn>
+            {tutorError && (
+              <p className="mb-3 rounded-xl bg-rose-400/15 p-3 text-xs font-semibold text-rose-100">
+                {tutorError}
+              </p>
             )}
+            <div className="flex items-end gap-2 rounded-2xl border border-white/15 bg-white/10 p-2">
+              <button
+                onClick={() => setShowCalculator(true)}
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl text-2xl text-emerald-100/80 hover:bg-white/10"
+                aria-label="Open calculator"
+              >
+                +
+              </button>
+              <textarea
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    askTutor();
+                  }
+                }}
+                placeholder="Ask FunaBAcer anything…"
+                rows={1}
+                className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-emerald-100/45"
+              />
+              <button
+                onClick={() => askTutor()}
+                disabled={!question.trim() || isAsking}
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#071612] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Send message"
+              >
+                <Send size={17} />
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[11px] text-emerald-100/45">
+              Enter to send · Shift + Enter for a new line · AI checks your course context
+            </p>
           </div>
-        </article>
-        <button
-          onClick={() => setView("practice")}
-          className="mx-auto mt-6 block text-sm font-semibold text-[#71877d] hover:text-emerald-700"
-        >
-          I already know this · go to practice
-        </button>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-[#71877d]">
+            Need a timed exam? Start CBT practice after your tutoring session.
+          </p>
+          <Btn onClick={() => setView("practice")}>
+            <Target size={16} /> Test me
+          </Btn>
+        </div>
       </div>
     </Page>
   );
