@@ -22,6 +22,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Paperclip,
   Play,
   RotateCcw,
   Send,
@@ -897,6 +898,8 @@ function Learn({ setView, profile }: Props) {
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [tutorError, setTutorError] = useState("");
+  const [sourceContext, setSourceContext] = useState("");
+  const [sourceName, setSourceName] = useState("");
   const [showCalculator, setShowCalculator] = useState(false);
   const [expression, setExpression] = useState("");
   const [calculation, setCalculation] = useState("");
@@ -925,6 +928,7 @@ function Learn({ setView, profile }: Props) {
           department: profile?.department,
           course: profile?.course,
           topic: "Gas Laws",
+          sourceContext,
         }),
       });
       const data = await response.json();
@@ -1280,7 +1284,33 @@ function Results({ setView }: Props) {
     </Page>
   );
 }
+
+function DocumentAttachment({ onProcessed, name }: { onProcessed: (text: string, name: string) => void; name?: string }) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const process = async (file: File) => {
+    if (!/^application\/pdf$|^image\/(png|jpeg|jpg)$/.test(file.type)) { setError("Use a PDF, PNG, or JPG file."); return; }
+    if (file.size > 4 * 1024 * 1024) { setError("Please use a file under 4 MB."); return; }
+    setBusy(true); setError(""); setStatus("Reading your document with Grok…");
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
+      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Grok could not read the file.");
+      onProcessed(data.text, data.name || file.name); setStatus("Document read. Gemini will use it as tutor context.");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "The document could not be processed."); setStatus(""); }
+    finally { setBusy(false); }
+  };
+  return <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-5">
+    <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-[#244138]"><span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500 text-white"><Paperclip size={18} /></span><span>{busy ? "Grok is reading…" : name ? `Attached: ${name}` : "Attach a PDF or image"}<span className="mt-1 block text-xs font-normal text-[#71877d]">Grok reads it, then Gemini teaches from it · max 4 MB</span></span><input className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void process(file); event.currentTarget.value = ""; }} /></label>
+    {status && <p className="mt-3 text-xs font-semibold text-emerald-700">{status}</p>}
+    {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+  </div>;
+}
+
 function Notes() {
+  const [source, setSource] = useState<{ text: string; name: string } | null>(null);
   return (
     <Page
       title="Note Cruncher"
@@ -1288,19 +1318,9 @@ function Notes() {
       subtitle="Turn your class notes into something you can actually revise."
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
-        <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-8 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-emerald-500 text-white">
-            <FileText size={25} />
-          </div>
-          <h2 className="mt-6 text-xl font-extrabold">Drop your notes here</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#71877d]">
-            Upload a PDF, lecture slide or image. FunaBAcer will make a summary, flashcards and
-            questions.
-          </p>
-          <Btn className="mt-7">
-            <FileText size={16} /> Choose a file
-          </Btn>
-          <p className="mt-3 text-xs text-[#8ca198]">PDF, PNG or JPG · up to 20 MB</p>
+        <div>
+          <DocumentAttachment onProcessed={(text, name) => setSource({ text, name })} />
+          {source && <div className="mt-4 rounded-xl bg-white p-4 text-left"><p className="text-sm font-bold">{source.name} is ready for Gemini</p><p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-5 text-[#71877d]">{source.text}</p></div>}
         </div>
         <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <h2 className="font-extrabold">Recent study sets</h2>
