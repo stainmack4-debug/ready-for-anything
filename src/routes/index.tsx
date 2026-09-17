@@ -944,7 +944,7 @@ function Learn({ setView, profile }: Props) {
     const safe = expression
       .replace(/[×x]/gi, "*")
       .replace(/÷/g, "/")
-      .replace(/[^0-9+\\-*/().%\\s]/g, "");
+      .replace(/[^0-9+*/().%\s-]/g, "");
     if (!safe.trim()) return;
     try {
       const value = Function(`"use strict"; return (${safe})`)();
