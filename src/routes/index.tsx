@@ -893,6 +893,20 @@ function Topic({ setView }: Props) {
     </Page>
   );
 }
+
+function TutorMessage({ content }: { content: string }) {
+  const lines = content.replace(/\r/g, "").split("\n");
+  const inline = (value: string) => value.split(/(\*\*[^*]+\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
+  return <div>{lines.map((line, i) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={i} className="h-2" />;
+    if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item">{inline(trimmed.slice(2))}</div>;
+    if (/^#{1,3} /.test(trimmed)) return <p key={i} className="mt-2 font-extrabold text-white">{inline(trimmed.replace(/^#{1,3} /, ""))}</p>;
+    if (/^\d+\. /.test(trimmed)) return <div key={i} className="ml-4 list-item">{inline(trimmed.replace(/^\d+\. /, ""))}</div>;
+    return <p key={i}>{inline(trimmed)}</p>;
+  })}</div>;
+}
+
 function Learn({ setView, profile }: Props) {
   type ChatMessage = { role: "user" | "assistant"; content: string };
   const [question, setQuestion] = useState("");
@@ -927,7 +941,7 @@ function Learn({ setView, profile }: Props) {
           history: messages,
           department: profile?.department,
           course: profile?.course,
-          topic: "Gas Laws",
+          topic: "",
           sourceContext,
         }),
       });
@@ -961,8 +975,8 @@ function Learn({ setView, profile }: Props) {
   };
 
   const quickPrompts = [
-    "Explain this topic from the beginning",
-    "Give me 5 exam-style questions",
+    `Explain ${profile?.course || "this course"} from the beginning`,
+    `Give me 5 exam-style questions for ${profile?.course || "this course"}`,
     "Quiz me one question at a time",
   ];
   return (
@@ -1000,9 +1014,9 @@ function Learn({ setView, profile }: Props) {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-white/10 text-emerald-50"}`}
+                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-white/10 text-emerald-50"}`}
                 >
-                  {message.content}
+                  <TutorMessage content={message.content} />
                 </div>
               </div>
             ))}
