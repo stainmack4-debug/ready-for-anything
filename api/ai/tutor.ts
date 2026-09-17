@@ -32,7 +32,7 @@ function providerConfig(): ProviderConfig {
       baseUrl:
         process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai",
       key: process.env.GEMINI_API_KEY,
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: process.env.GEMINI_MODEL || "gemini-3.6-flash",
     },
     grok: {
       baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
