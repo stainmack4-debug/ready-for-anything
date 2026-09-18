@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
+import { averageScore, getAttempts, totalAnswered } from "@/lib/progress";
 import {
   ArrowLeft,
   ArrowRight,
@@ -60,6 +61,13 @@ type View =
 type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null };
+function realStats() {
+  const attempts = getAttempts();
+  const answered = totalAnswered();
+  const score = averageScore();
+  const studyDays = new Set(attempts.map((attempt) => new Date(attempt.at).toDateString())).size;
+  return { answered, score, studyDays };
+}
 const topics = [
   { name: "Mole Concept", course: "CHM 101", score: 92, tone: "strong" },
   { name: "Stoichiometry", course: "CHM 101", score: 61, tone: "practice" },
@@ -354,12 +362,12 @@ function Home({ setView }: Props) {
   const g = useGreeting();
   const avatar = useAvatar();
   const [message, setMessage] = useState("");
-  const streak = 6;
+  const stats = realStats();
   const days = ["M", "T", "W", "T", "F", "S", "S"];
   const prompts = [
-    "Explain the mole concept simply",
-    "Why did I fail that Gas Laws question?",
-    "Give me 5 quick CHM 101 questions",
+    "Explain my first topic simply",
+    "Help me understand this course",
+    "Give me practice questions for my course",
   ];
   const ask = () => {
     if (message.trim()) localStorage.setItem("funabacer.pending-question", message.trim());
@@ -442,7 +450,7 @@ function Home({ setView }: Props) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Flame size={18} className="text-amber-500" />
-              <h2 className="font-extrabold text-[#10231c]">{streak}-day streak</h2>
+              <h2 className="font-extrabold text-[#10231c]">{stats.studyDays}-day streak</h2>
             </div>
             <span className="text-xs font-semibold text-[#71877d]">This week</span>
           </div>
@@ -451,17 +459,17 @@ function Home({ setView }: Props) {
               <div key={`${d}${i}`} className="flex-1 text-center">
                 <div
                   className={`flex h-10 items-center justify-center rounded-xl text-xs font-bold ${
-                    i < streak ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#8ca198]"
+                    i < stats.studyDays ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#8ca198]"
                   }`}
                 >
-                  {i < streak ? <Check size={16} /> : d}
+                  {i < stats.studyDays ? <Check size={16} /> : d}
                 </div>
                 <p className="mt-2 text-[10px] font-semibold text-[#8ca198]">{d}</p>
               </div>
             ))}
           </div>
           <p className="mt-5 text-xs leading-5 text-[#71877d]">
-            One more day and you beat your best week yet. A sprint counts.
+            {stats.answered ? "Your study activity is recorded from submitted work." : "You have not studied any topics yet. Start your first lesson to begin tracking progress."}
           </p>
         </div>
 
@@ -475,16 +483,12 @@ function Home({ setView }: Props) {
               Focus area
             </p>
           </div>
-          <h2 className="mt-4 text-2xl font-extrabold">CHM 101 · Gas Laws</h2>
+          <h2 className="mt-4 text-2xl font-extrabold">{stats.answered ? "Continue your study" : "Your first study session"}</h2>
           <p className="mt-2 text-sm leading-6 text-emerald-50">
-            Your weakest topic at 34%. I'll teach it in three short steps, then re-test you.
+            {stats.answered ? `Your current average is ${stats.score ?? 0}%. Keep going from your last submitted work.` : "No topic mastery has been recorded yet. Choose your course to begin."}
           </p>
-          <div className="mt-6 h-2 rounded-full bg-white/25">
-            <div className="h-full w-[34%] rounded-full bg-white" />
-          </div>
-          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">
-            Fix this now <ArrowRight size={15} />
-          </span>
+          <div className="mt-6 h-2 rounded-full bg-white/25"><div className="h-full rounded-full bg-white" style={{ width: `${stats.score ?? 0}%` }} /></div>
+          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">{stats.answered ? "Continue learning" : "Choose a course"} <ArrowRight size={15} /></span>
         </button>
       </section>
 
@@ -1135,63 +1139,15 @@ function Learn({ setView, profile }: Props) {
     </Page>
   );
 }
-function Practice({ setView }: Props) {
-  const [selected, setSelected] = useState<number | null>(null);
-  const options = ["0.5 atm", "1.0 atm", "2.0 atm", "4.0 atm"];
-  return (
-    <Page
-      title="Practice · Gas Laws"
-      eyebrow="CBT PRACTICE"
-      subtitle="Question 3 of 10"
-      className="study-glass-page"
-    >
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-5 flex justify-between rounded-xl border border-[#dcebe3] bg-white px-4 py-3 text-sm">
-          <span className="font-bold text-[#365348]">CHM 101 · Gas Laws</span>
-          <span className="flex items-center gap-2 font-bold text-emerald-700">
-            <Timer size={16} /> 08:42
-          </span>
-        </div>
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-7 sm:p-10">
-          <div className="flex justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
-              Past question
-            </span>
-            <span className="text-xs text-[#71877d]">Single answer</span>
-          </div>
-          <h2 className="mt-7 text-xl font-bold leading-8">
-            A gas occupies 2 dm³ at a pressure of 1 atm. If the volume is reduced to 1 dm³ at
-            constant temperature, what is the new pressure?
-          </h2>
-          <div className="mt-8 space-y-3">
-            {options.map((option, i) => (
-              <button
-                key={option}
-                onClick={() => setSelected(i)}
-                className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left text-sm font-semibold ${selected === i ? "border-emerald-400 bg-emerald-400/10 text-emerald-700" : "border-[#dcebe3] text-[#365348] hover:border-white/20"}`}
-              >
-                <span
-                  className={`flex size-8 items-center justify-center rounded-full text-xs ${selected === i ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#71877d]"}`}
-                >
-                  {String.fromCharCode(65 + i)}
-                </span>
-                {option}
-              </button>
-            ))}
-          </div>
-          <div className="mt-8 flex justify-between">
-            <Btn variant="ghost">
-              <ArrowLeft size={16} /> Previous
-            </Btn>
-            <Btn onClick={() => setView(selected === 2 ? "results" : "review")}>
-              <span>Submit answer</span>
-              <ArrowRight size={16} />
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </Page>
-  );
+function Practice({ setView, profile }: Props) {
+  return <Page title="Practice" eyebrow="YOUR PRACTICE" subtitle="Practice begins after you choose a real course topic.">
+    <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-8 text-center">
+      <Target className="mx-auto text-emerald-600" size={34} />
+      <h2 className="mt-5 text-2xl font-extrabold">No practice session started</h2>
+      <p className="mx-auto mt-3 max-w-lg leading-7 text-[#71877d]">{profile?.course ? `Choose a topic from ${profile.course} in Learn. The tutor will generate questions for that topic, then mark your submitted answers.` : "Select your department and course first. No questions or scores are created before you study."}</p>
+      <Btn className="mt-6" onClick={() => setView("learn")}><BookOpen size={16} /> Choose a topic</Btn>
+    </div>
+  </Page>;
 }
 function Review({ setView }: Props) {
   return (
@@ -1250,9 +1206,9 @@ function Results({ setView }: Props) {
     >
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          ["74%", "Overall mastery", "+8% this month"],
-          ["342", "Questions answered", "Across 4 courses"],
-          ["4h 20m", "Study time", "This week"],
+          [`${realStats().score ?? 0}%`, "Overall mastery", realStats().answered ? "From submitted work" : "No submitted work yet"],
+          [String(realStats().answered), "Questions answered", realStats().answered ? "Your account" : "Start your first lesson"],
+          [`${realStats().studyDays} days`, "Study streak", realStats().studyDays ? "Based on study activity" : "No study activity yet"],
         ].map(([v, l, d]) => (
           <div key={l} className="rounded-2xl border border-[#dcebe3] bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-widest text-[#71877d]">{l}</p>
@@ -1339,11 +1295,7 @@ function Notes() {
         <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <h2 className="font-extrabold">Recent study sets</h2>
           <div className="mt-5 space-y-3">
-            {[
-              "CHM 101 — Atomic structure",
-              "MTH 101 — Functions",
-              "GNS 101 — Communication skills",
-            ].map((item) => (
+            {[].map((item) => (
               <div key={item} className="flex items-center gap-3 rounded-xl bg-[#fbfdfc] p-3">
                 <BookOpen size={16} className="text-emerald-700" />
                 <span className="flex-1 text-sm font-semibold text-[#365348]">{item}</span>
@@ -1351,12 +1303,13 @@ function Notes() {
               </div>
             ))}
           </div>
+          <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>
         </div>
       </div>
     </Page>
   );
 }
-function Profile({ setView }: Props) {
+function Profile({ setView, profile }: Props) {
   return (
     <Page
       title="Your profile"
@@ -1366,15 +1319,15 @@ function Profile({ setView }: Props) {
       <div className="grid gap-6 lg:grid-cols-[.75fr_1.25fr]">
         <section className="rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
           <AvatarPicker />
-          <h2 className="mt-5 text-xl font-extrabold">Praise Adebayo</h2>
-          <p className="mt-1 text-sm text-[#71877d]">100 level · Computer Science</p>
+          <h2 className="mt-5 text-xl font-extrabold">Your profile</h2>
+          <p className="mt-1 text-sm text-[#71877d]">{profile?.department || "Department not selected"} · {profile?.course || "Course not selected"}</p>
           <div className="mt-7 grid grid-cols-2 gap-3 text-left">
             <div className="rounded-xl bg-[#fbfdfc] p-4">
-              <p className="text-xl font-extrabold">74%</p>
+              <p className="text-xl font-extrabold">{realStats().score ?? 0}%</p>
               <p className="mt-1 text-xs text-[#71877d]">Overall progress</p>
             </div>
             <div className="rounded-xl bg-[#fbfdfc] p-4">
-              <p className="text-xl font-extrabold text-emerald-700">On track</p>
+              <p className="text-xl font-extrabold text-emerald-700">{realStats().answered ? "Active" : "Not started"}</p>
               <p className="mt-1 text-xs text-[#71877d]">Exam status</p>
             </div>
           </div>
@@ -1386,10 +1339,10 @@ function Profile({ setView }: Props) {
           <h2 className="font-extrabold">Your study identity</h2>
           <div className="mt-6 space-y-4">
             {[
-              ["Department", "College of Engineering"],
-              ["Exam window", "November 2026"],
-              ["Current streak", "6 days"],
-              ["Preferred study mode", "Learn then practise"],
+              ["Department", profile?.department || "Not selected"],
+              ["Course", profile?.course || "Not selected"],
+              ["Current streak", `${realStats().studyDays} days`],
+              ["Submitted answers", String(realStats().answered)],
             ].map(([label, value]) => (
               <div
                 key={label}
@@ -1455,16 +1408,12 @@ function SettingsPage({ theme, setTheme }: { theme: Theme; setTheme: (theme: The
             <option>Detailed</option>
           </select>
         </label>
-        <button className="flex w-full items-center gap-4 py-5 text-left">
-          <Settings size={17} className="text-emerald-700" />
-          <span className="flex-1">
-            <span className="block font-bold">Account and exam pass</span>
-            <span className="mt-1 block text-xs text-[#71877d]">
-              Manage your profile, payment history and exam access.
-            </span>
-          </span>
-          <ChevronRight size={18} className="text-[#8ca198]" />
-        </button>
+        <div className="border-t border-[#dcebe3] py-5">
+          <div className="flex items-center gap-4"><Settings size={17} className="text-emerald-700" /><div><p className="font-bold">Account and Exam Pass</p><p className="mt-1 text-xs text-[#71877d]">Manual payment activation is available below.</p></div></div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-[#eff7f2] p-4"><p className="font-bold">Monthly · ₦500</p><p className="mt-1 text-xs text-[#71877d]">Limited capacity</p></div><div className="rounded-xl bg-[#eff7f2] p-4"><p className="font-bold">Semester · ₦1,500</p><p className="mt-1 text-xs text-[#71877d]">Full capacity</p></div></div>
+          <p className="mt-4 text-sm leading-6 text-[#365348]">Pay to PalmPay <strong>8130760557</strong> · <strong>Praise Onoja</strong>, then send your receipt on WhatsApp to <strong>9112834887</strong>. An unlock code will be issued after verification.</p>
+          <a href="https://wa.me/2349112834887" target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white">Send receipt on WhatsApp</a>
+        </div>
       </div>
     </Page>
   );
@@ -2000,11 +1949,11 @@ function App() {
   else if (view === "courses") content = <Courses {...props} />;
   else if (view === "topic") content = <Topic {...props} />;
   else if (view === "learn") content = <Learn {...props} profile={profile} />;
-  else if (view === "practice") content = <Practice {...props} />;
+  else if (view === "practice") content = <Practice {...props} profile={profile} />;
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
   else if (view === "notes") content = <Notes />;
-  else if (view === "profile") content = <Profile {...props} />;
+  else if (view === "profile") content = <Profile {...props} profile={profile} />;
   else
     content = (
       <SettingsPage
