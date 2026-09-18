@@ -1151,6 +1151,8 @@ function Practice({ setView, profile }: Props) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  useEffect(() => { if (secondsLeft === null || secondsLeft <= 0) return; const timer = window.setInterval(() => setSecondsLeft((value) => value === null ? null : Math.max(value - 1, 0)), 1000); return () => window.clearInterval(timer); }, [secondsLeft]);
   const generate = async () => {
     if (!profile?.course || !topic.trim()) return;
     setBusy(true); setFeedback(""); setQuestions([]); setAnswers({});
@@ -1158,6 +1160,7 @@ function Practice({ setView, profile }: Props) {
       const response = await fetch("/api/ai/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ course: profile.course, topic, count: 10 }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not generate questions");
       setQuestions(data.questions || []);
+      setSecondsLeft(600);
     } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not generate questions"); }
     finally { setBusy(false); }
   };
@@ -1169,7 +1172,8 @@ function Practice({ setView, profile }: Props) {
   };
   return <Page title="Practice" eyebrow="AI-GENERATED PRACTICE" subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}>
     <div className="mx-auto max-w-3xl space-y-5">
-      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold text-[#365348]">Topic to practise<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic from your course scheme" className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400" /></label><Btn className="mt-4" onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>{busy ? "Generating questions…" : "Generate 10 questions"}</Btn></div>
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold text-[#365348]">Topic to practise<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic from your course scheme" className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400" /></label><Btn className="mt-4" onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>{busy ? "Generating questions…" : "Select topic and start 10-minute sprint"}</Btn></div>
+      {questions.length > 0 && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">10-minute sprint · {secondsLeft === null ? "Not started" : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`} · Questions are generated for {topic}</div>}
       {questions.map((q, i) => <div key={i} className="rounded-2xl border border-[#dcebe3] bg-white p-6"><p className="font-bold leading-7">{i + 1}. {q.question}</p><div className="mt-4 space-y-2">{q.options.map((option, j) => <button key={option} onClick={() => setAnswers({ ...answers, [i]: j })} className={`w-full rounded-xl border p-3 text-left text-sm ${answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3]"}`}>{String.fromCharCode(65 + j)}. {option}</button>)}</div></div>)}
       {questions.length > 0 && <Btn onClick={submit} disabled={Object.keys(answers).length !== questions.length}>Submit all answers to the tutor <ArrowRight size={16} /></Btn>}
       {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">{feedback} <button className="ml-2 underline" onClick={() => setView("learn")}>Open AI Tutor</button></div>}
