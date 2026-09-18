@@ -1168,7 +1168,14 @@ function Practice({ setView, profile }: Props) {
     const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
     const score = questions.length ? Math.round((correct / questions.length) * 100) : 0;
     saveAttempt({ topicId: `${profile?.course}:${topic.trim()}`, score, total: questions.length, correct, at: Date.now() });
-    setFeedback(`You scored ${correct}/${questions.length} (${score}%). The tutor will now explain your mistakes and what to study next.`);
+    setBusy(true);
+    try {
+      const marking = questions.map((q, i) => `Question ${i + 1}: ${q.question}\nStudent answer: ${q.options[answers[i]]}\nCorrect answer: ${q.options[q.answer]}\nBuilt-in explanation: ${q.explanation}`).join("\n\n");
+      const response = await fetch("/api/ai/tutor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `Mark my submitted ${topic} practice carefully. I scored ${correct}/${questions.length}. Explain every mistake, why it is wrong, the correct method, and what I should study next.\n\n${marking}`, history: [], department: profile?.department, course: profile?.course, topic }) });
+      const data = await response.json();
+      setFeedback(response.ok ? data.answer : `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`);
+    } catch { setFeedback(`You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`); }
+    finally { setBusy(false); }
   };
   return <Page title="Practice" eyebrow="AI-GENERATED PRACTICE" subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}>
     <div className="mx-auto max-w-3xl space-y-5">
