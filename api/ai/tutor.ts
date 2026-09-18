@@ -39,7 +39,7 @@ function providerConfig(): ProviderConfig {
     },
     grok: {
       baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
-      key: process.env.GROK_API_KEY || process.env.XAI_API_KEY,
+      key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY,
       model: process.env.XAI_MODEL || "grok-3-mini",
     },
     nvidia: {
