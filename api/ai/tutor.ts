@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+declare const process: { env: Record<string, string | undefined> };
+
 const TUTOR_SYSTEM_PROMPT = `You are FunaBAcer, an adaptive AI study tutor for students of the Federal University of Agriculture, Abeokuta (FUNAAB).
 
 Your job is to teach, diagnose and guide—not to fill space with confident generic text.
@@ -12,120 +14,38 @@ Operating rules:
 5. Ask one short check-for-understanding question before moving on. Do not dump an entire lecture unless asked.
 6. For calculation questions, show the formula, substitute values, track units and check the result.
 7. Use the student's exact department and course context. Never substitute a different subject or invent a topic that was not requested.
-8. Use Nigerian/FUNAAB academic context where relevant, but do not pretend to know current departmental rules unless a source is supplied.
-9. Format answers for a mobile learner: use short headings, numbered steps for procedures, bullets for lists, and a blank line between sections. Use Markdown bold for important terms, but never return raw JSON or HTML.
-10. For requests for multiple exam questions, number each question clearly and include a concise answer key or ask whether the student wants answers before revealing them.
-11. Use plain English, supportive tone and no shame. Do not say “pressure is simply…” as a generic filler; connect every explanation to the student's exact question.
-12. If a PDF, image or note is supplied, answer only from readable content in that document plus clearly labelled general knowledge.
-13. Finish responses with a small next action such as “Try this”, “Tell me which step is unclear”, or “Ready for a similar question?”.
+8. Use plain English, supportive tone and no shame.
+9. Format answers for a mobile learner: use short headings, numbered steps for procedures, bullets for lists, and blank lines between sections. Use Markdown bold for important terms, but never return raw JSON or HTML.
+10. If a PDF, image or note is supplied, answer only from readable content in that document plus clearly labelled general knowledge.
+11. Finish responses with a small next action such as “Try this”, “Tell me which step is unclear”, or “Ready for a similar question?”`;
 
-Response structure when useful:
-- Direct answer
-- Why it works
-- Worked example or misconception diagnosis
-- Source note (only when source context is provided)
-- One check question`;
-
-type ProviderConfig = { baseUrl: string; key?: string; model: string };
-
-function providerConfig(): ProviderConfig {
-  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-  const configs: Record<string, ProviderConfig> = {
-    gemini: {
-      baseUrl:
-        process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai",
-      key: process.env.GEMINI_API_KEY,
-      model: process.env.GEMINI_MODEL || "gemini-3.6-flash",
-    },
-    grok: {
-      baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1",
-      key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY,
-      model: process.env.XAI_MODEL || "grok-3-mini",
-    },
-    nvidia: {
-      baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1",
-      key: process.env.NVIDIA_API_KEY,
-      model: process.env.NVIDIA_MODEL || "meta/llama-3.1-70b-instruct",
-    },
-    openai: {
-      baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-      key: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    },
-  };
-  return configs[provider] || configs.gemini;
+type Provider = { name: string; baseUrl: string; key?: string; model: string };
+function providerList(): Provider[] {
+  const gemini: Provider = { name: "gemini", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-3.6-flash" };
+  const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
+  const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+  return selected === "grok" ? [grok, gemini] : [gemini, grok];
 }
-
-function cleanBaseUrl(value: string) {
-  return value.replace(/\/$/, "");
-}
-
+function cleanBaseUrl(value: string) { return value.replace(/\/$/, ""); }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const config = providerConfig();
-  if (!config.key) {
-    return res.status(503).json({
-      error: "AI provider is not configured yet.",
-      setup: "Add the selected provider API key as a server-side Vercel environment variable.",
-    });
-  }
-
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return res.status(400).json({ error: "message is required" });
-
-  const history = Array.isArray(body.history)
-    ? body.history
-        .filter(
-          (item: any) =>
-            item && ["user", "assistant"].includes(item.role) && typeof item.content === "string",
-        )
-        .slice(-8)
-        .map((item: any) => ({ role: item.role, content: item.content }))
-    : [];
-
-  const context = [
-    body.department ? `Department: ${String(body.department)}` : "",
-    body.course ? `Course: ${String(body.course)}` : "",
-    body.topic ? `Requested topic: ${String(body.topic)}` : "",
-    body.programme ? `Student programme: ${String(body.programme)}` : "",
-    body.sourceContext
-      ? `FUNAAB source context:\n${String(body.sourceContext).slice(0, 12000)}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
-  const upstream = await fetch(`${cleanBaseUrl(config.baseUrl)}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${config.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: config.model,
-      temperature: 0.35,
-      max_tokens: 900,
-      messages: [
-        { role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` },
-        ...history,
-        { role: "user", content: message },
-      ],
-    }),
-  });
-
-  const payload = await upstream.json().catch(() => ({}));
-  if (!upstream.ok) {
-    console.error("Tutor provider error", upstream.status, payload);
-    return res.status(502).json({ error: "The AI provider could not answer right now." });
+  const history = Array.isArray(body.history) ? body.history.filter((item: any) => item && ["user", "assistant"].includes(item.role) && typeof item.content === "string").slice(-8).map((item: any) => ({ role: item.role, content: item.content })) : [];
+  const context = [body.department ? `Department: ${String(body.department)}` : "", body.course ? `Course: ${String(body.course)}` : "", body.topic ? `Requested topic: ${String(body.topic)}` : "", body.sourceContext ? `FUNAAB source context:\n${String(body.sourceContext).slice(0, 12000)}` : ""].filter(Boolean).join("\n\n");
+  let lastError = "";
+  for (const provider of providerList()) {
+    if (!provider.key) { lastError = `${provider.name} not configured`; continue; }
+    try {
+      const upstream = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 1200, messages: [{ role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` }, ...history, { role: "user", content: message }] }) });
+      const payload = await upstream.json().catch(() => ({}));
+      if (!upstream.ok) { lastError = `${provider.name}:${upstream.status}`; console.error("Tutor provider error", provider.name, upstream.status, payload); continue; }
+      const answer = payload?.choices?.[0]?.message?.content;
+      if (typeof answer === "string" && answer.trim()) return res.status(200).json({ answer, provider: provider.name, model: provider.model });
+      lastError = `${provider.name}:empty`;
+    } catch (error) { lastError = `${provider.name}:${error instanceof Error ? error.message : "request failed"}`; }
   }
-
-  const answer = payload?.choices?.[0]?.message?.content;
-  if (typeof answer !== "string" || !answer.trim()) {
-    return res.status(502).json({ error: "The AI provider returned an empty answer." });
-  }
-
-  return res
-    .status(200)
-    .json({ answer, provider: process.env.AI_PROVIDER || "gemini", model: config.model });
+  console.error("All tutor providers failed", lastError);
+  return res.status(502).json({ error: "The tutor could not answer right now." });
 }
