@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
-import { averageScore, getAttempts, totalAnswered } from "@/lib/progress";
+import { averageScore, getAttempts, saveAttempt, totalAnswered } from "@/lib/progress";
 import {
   ArrowLeft,
   ArrowRight,
@@ -922,11 +922,16 @@ function Learn({ setView, profile }: Props) {
   const [expression, setExpression] = useState("");
   const [calculation, setCalculation] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"}. Ask me to explain a topic, work through a calculation, or create practice questions. I’ll teach one step at a time using your ${profile?.department || "department"} context.`,
-    },
+    { role: "assistant", content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"}. Choose a topic or ask me a question. I’ll teach one step at a time using your ${profile?.department || "department"} context.` },
   ]);
+  useEffect(() => {
+    const pending = localStorage.getItem("funabacer.pending-question");
+    if (pending) {
+      localStorage.removeItem("funabacer.pending-question");
+      setQuestion(pending);
+      void (async () => { await new Promise((resolve) => setTimeout(resolve, 0)); })();
+    }
+  }, []);
 
   const askTutor = async (preset?: string) => {
     const message = (preset || question).trim();
@@ -1140,12 +1145,34 @@ function Learn({ setView, profile }: Props) {
   );
 }
 function Practice({ setView, profile }: Props) {
-  return <Page title="Practice" eyebrow="YOUR PRACTICE" subtitle="Practice begins after you choose a real course topic.">
-    <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-8 text-center">
-      <Target className="mx-auto text-emerald-600" size={34} />
-      <h2 className="mt-5 text-2xl font-extrabold">No practice session started</h2>
-      <p className="mx-auto mt-3 max-w-lg leading-7 text-[#71877d]">{profile?.course ? `Choose a topic from ${profile.course} in Learn. The tutor will generate questions for that topic, then mark your submitted answers.` : "Select your department and course first. No questions or scores are created before you study."}</p>
-      <Btn className="mt-6" onClick={() => setView("learn")}><BookOpen size={16} /> Choose a topic</Btn>
+  type Question = { question: string; options: string[]; answer: number; explanation: string };
+  const [topic, setTopic] = useState("");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const generate = async () => {
+    if (!profile?.course || !topic.trim()) return;
+    setBusy(true); setFeedback(""); setQuestions([]); setAnswers({});
+    try {
+      const response = await fetch("/api/ai/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ course: profile.course, topic, count: 10 }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not generate questions");
+      setQuestions(data.questions || []);
+    } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not generate questions"); }
+    finally { setBusy(false); }
+  };
+  const submit = async () => {
+    const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
+    const score = questions.length ? Math.round((correct / questions.length) * 100) : 0;
+    saveAttempt({ topicId: `${profile?.course}:${topic.trim()}`, score, total: questions.length, correct, at: Date.now() });
+    setFeedback(`You scored ${correct}/${questions.length} (${score}%). The tutor will now explain your mistakes and what to study next.`);
+  };
+  return <Page title="Practice" eyebrow="AI-GENERATED PRACTICE" subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}>
+    <div className="mx-auto max-w-3xl space-y-5">
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold text-[#365348]">Topic to practise<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic from your course scheme" className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400" /></label><Btn className="mt-4" onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>{busy ? "Generating questions…" : "Generate 10 questions"}</Btn></div>
+      {questions.map((q, i) => <div key={i} className="rounded-2xl border border-[#dcebe3] bg-white p-6"><p className="font-bold leading-7">{i + 1}. {q.question}</p><div className="mt-4 space-y-2">{q.options.map((option, j) => <button key={option} onClick={() => setAnswers({ ...answers, [i]: j })} className={`w-full rounded-xl border p-3 text-left text-sm ${answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3]"}`}>{String.fromCharCode(65 + j)}. {option}</button>)}</div></div>)}
+      {questions.length > 0 && <Btn onClick={submit} disabled={Object.keys(answers).length !== questions.length}>Submit all answers to the tutor <ArrowRight size={16} /></Btn>}
+      {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">{feedback} <button className="ml-2 underline" onClick={() => setView("learn")}>Open AI Tutor</button></div>}
     </div>
   </Page>;
 }
