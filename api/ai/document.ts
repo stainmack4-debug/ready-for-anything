@@ -16,7 +16,7 @@ function outputText(payload: any): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const key = process.env.XAI_API_KEY;
+  const key = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   if (!key) return res.status(503).json({ error: "Document reading is not configured yet." });
 
   let body: DocumentBody;
