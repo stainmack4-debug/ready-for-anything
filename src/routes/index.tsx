@@ -952,18 +952,20 @@ function Learn({ setView, profile, userId }: Props) {
             )}
           </div>
           <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-6">
-            <div className="mb-3 flex flex-wrap gap-2">
-              {quickPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => askTutor(prompt)}
-                  disabled={isAsking}
-                  className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-emerald-100/75 hover:border-emerald-300 hover:text-white"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+            {messages.length <= 1 && !question.trim() && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {quickPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => askTutor(prompt)}
+                    disabled={isAsking}
+                    className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-emerald-100/75 hover:border-emerald-300 hover:text-white"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
             {showCalculator && (
               <div className="mb-3 rounded-2xl border border-emerald-300/25 bg-white/10 p-3">
                 <div className="flex items-center justify-between">
