@@ -22,9 +22,10 @@ Operating rules:
 type Provider = { name: string; baseUrl: string; key?: string; model: string };
 function providerList(): Provider[] {
   const gemini: Provider = { name: "gemini", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-3.6-flash" };
+  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash" };
   const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
   const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-  return selected === "grok" ? [grok, gemini] : [gemini, grok];
+  return selected === "grok" ? [grok, gemini, geminiFallback] : [gemini, geminiFallback, grok];
 }
 function cleanBaseUrl(value: string) { return value.replace(/\/$/, ""); }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
