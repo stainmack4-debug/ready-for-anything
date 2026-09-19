@@ -6,6 +6,7 @@ type Provider = { url: string; key?: string; model: string };
 function providers(): Provider[] {
   return [
     { url: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-3.6-flash" },
+    { url: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-3.6-flash" },
     { url: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" },
   ].filter((provider) => provider.key);
 }
@@ -28,9 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const upstream = await fetch(`${provider.url.replace(/\/$/, "")}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 4000, messages: [{ role: "system", content: "You generate accurate, age-appropriate study questions. Output valid JSON only." }, { role: "user", content: prompt }] }) });
       const payload = await upstream.json().catch(() => ({}));
-      if (!upstream.ok) { lastError = `${upstream.status}`; continue; }
+      if (!upstream.ok) { lastError = `${upstream.status}`; console.error("Question provider error", provider.model, upstream.status, payload); continue; }
       const parsed = parseQuestions(String(payload?.choices?.[0]?.message?.content || ""));
-      if (!Array.isArray(parsed) || parsed.length === 0) { lastError = "empty"; continue; }
+      if (!Array.isArray(parsed) || parsed.length === 0) { lastError = "empty"; console.error("Question provider returned invalid JSON", provider.model, payload); continue; }
       return res.status(200).json({ questions: parsed.slice(0, count), provider: provider.model });
     } catch (error) { lastError = error instanceof Error ? error.message : "request failed"; }
   }
