@@ -783,6 +783,9 @@ function Learn({ setView, profile, userId }: Props) {
   const [showCalculator, setShowCalculator] = useState(false);
   const [expression, setExpression] = useState("");
   const [calculation, setCalculation] = useState("");
+  const [tutorFileBusy, setTutorFileBusy] = useState(false);
+  const [tutorFileError, setTutorFileError] = useState("");
+  const [tutorFileName, setTutorFileName] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(memoryKey) || "null");
@@ -853,6 +856,19 @@ function Learn({ setView, profile, userId }: Props) {
     } catch {
       setCalculation("Check the expression");
     }
+  };
+
+  const attachTutorFile = async (file: File) => {
+    if (!/^application\/pdf$|^image\/(png|jpeg|jpg)$/.test(file.type)) { setTutorFileError("Use a PDF, PNG, or JPG file."); return; }
+    if (file.size > 4 * 1024 * 1024) { setTutorFileError("Please use a file under 4 MB."); return; }
+    setTutorFileBusy(true); setTutorFileError("");
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
+      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "The file could not be read.");
+      setSourceContext(data.text || ""); setSourceName(data.name || file.name);
+    } catch (error) { setTutorFileError(error instanceof Error ? error.message : "The file could not be read."); }
+    finally { setTutorFileBusy(false); }
   };
 
   const quickPrompts = [
@@ -965,6 +981,8 @@ function Learn({ setView, profile, userId }: Props) {
                 </p>
               </div>
             )}
+            {tutorFileName && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Attached: {tutorFileName}. Gemini will use Grok’s extracted context.</p>}
+            {tutorFileError && <p className="mb-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-100">{tutorFileError}</p>}
             {tutorError && (
               <p className="mb-3 rounded-xl bg-rose-400/15 p-3 text-xs font-semibold text-rose-100">
                 {tutorError}
@@ -972,12 +990,14 @@ function Learn({ setView, profile, userId }: Props) {
             )}
             <div className="flex items-end gap-2 rounded-2xl border border-white/15 bg-white/10 p-2">
               <button
-                onClick={() => setShowCalculator(true)}
-                className="flex size-10 shrink-0 items-center justify-center rounded-xl text-2xl text-emerald-100/80 hover:bg-white/10"
-                aria-label="Open calculator"
+                onClick={() => document.getElementById("tutor-upload")?.click()}
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl text-emerald-100/80 hover:bg-white/10"
+                aria-label="Attach a PDF or image"
+                title={tutorFileBusy ? "Reading file…" : "Attach a PDF or image"}
               >
-                +
+                <Paperclip size={19} />
               </button>
+              <input id="tutor-upload" className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg" disabled={tutorFileBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void attachTutorFile(file); event.currentTarget.value = ""; }} />
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
