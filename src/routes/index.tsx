@@ -598,7 +598,7 @@ function Dashboard({ setView, profile }: Props) {
               </div>
             </div>
             <div className="mt-5 h-2 rounded-full bg-emerald-50">
-              <div className="h-full w-[34%] rounded-full bg-emerald-500" />
+              <div className="h-full w-0 rounded-full bg-emerald-500" />
             </div>
             <p className="mt-3 text-xs font-semibold text-emerald-700">
               Source-backed recommendations will appear here after your first study session.
@@ -1049,52 +1049,9 @@ function Practice({ setView, profile }: Props) {
   </Page>;
 }
 function Review({ setView }: Props) {
-  return (
-    <Page
-      title="Let's close the gap"
-      eyebrow="QUESTION REVIEW"
-      subtitle="A wrong answer is a diagnosis, not a dead end."
-    >
-      <div className="mx-auto max-w-3xl space-y-5">
-        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/8 p-6">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-full bg-rose-400/15 text-rose-300">
-              <X size={18} />
-            </span>
-            <div>
-              <p className="font-bold text-rose-200">Not quite — you chose 0.5 atm</p>
-              <p className="mt-1 text-xs text-[#71877d]">Question 3 · Gas Laws</p>
-            </div>
-          </div>
-          <p className="mt-5 text-sm leading-6 text-[#365348]">
-            You treated the volume change as if pressure moves in the same direction. Boyle’s law is
-            an inverse relationship.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-white p-7">
-          <div className="flex items-center gap-2 text-sm font-bold text-emerald-700">
-            <Sparkles size={16} /> AI diagnosis
-          </div>
-          <h2 className="mt-5 text-2xl font-extrabold">When space shrinks, collisions increase.</h2>
-          <p className="mt-4 leading-7 text-[#365348]">
-            Imagine the same number of people inside a smaller room. They hit the walls more often,
-            so the pressure goes up. Halving the volume doubles the pressure.
-          </p>
-          <div className="mt-6 rounded-xl bg-[#eff7f2] p-4 font-mono text-sm text-emerald-800">
-            P₁V₁ = P₂V₂ → 1 × 2 = P₂ × 1 → P₂ = 2 atm
-          </div>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Btn onClick={() => setView("practice")}>
-              <RotateCcw size={16} /> Re-test this concept
-            </Btn>
-            <Btn variant="outline" onClick={() => setView("learn")}>
-              Explain from the beginning
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </Page>
-  );
+  return <Page title="Question review" eyebrow="YOUR REVIEW" subtitle="Review is created from your submitted answers, not from demo content.">
+    <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-7 text-center"><h2 className="text-2xl font-extrabold">No submitted answers to review</h2><p className="mt-3 leading-7 text-[#71877d]">Complete a real practice session and submit it. The Tutor will then explain each mistake from your own answers.</p><Btn className="mt-6" onClick={() => setView("practice")}><Target size={16}/> Start practice</Btn></div>
+  </Page>;
 }
 function Results({ setView }: Props) {
   return (
