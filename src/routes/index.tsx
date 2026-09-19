@@ -1178,7 +1178,7 @@ function Notes() {
     </Page>
   );
 }
-function Profile({ setView, profile }: Props) {
+function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
   return (
     <Page
       title="Your profile"
@@ -1200,8 +1200,8 @@ function Profile({ setView, profile }: Props) {
               <p className="mt-1 text-xs text-[#71877d]">Exam status</p>
             </div>
           </div>
-          <Btn variant="outline" className="mt-6 w-full" onClick={() => setView("settings")}>
-            Edit profile <Settings size={16} />
+          <Btn variant="outline" className="mt-6 w-full" onClick={onEdit}>
+            Change programme <Settings size={16} />
           </Btn>
         </section>
         <section className="rounded-2xl border border-[#dcebe3] bg-white p-7">
@@ -1399,98 +1399,17 @@ const funaabDepartments = [
 ];
 
 function Onboarding({ done }: { done: (profile: { department: string; course: string }) => void }) {
-  const [department, setDepartment] = useState("");
   const [course, setCourse] = useState("");
-  const selected = funaabDepartments.find((item) => item.group === department);
+  const programmes = funaabDepartments.flatMap((item) => item.courses.map((name) => ({ name, department: item.group })));
+  const selected = programmes.find((item) => item.name === course);
   const finish = async () => {
-    if (!department || !course) return;
-    const profile = { department, course };
+    if (!selected) return;
+    const profile = { department: selected.department, course: selected.name };
     await supabase.auth.updateUser({ data: profile });
     localStorage.setItem("funabacer-profile", JSON.stringify(profile));
     done(profile);
   };
-  return (
-    <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12">
-      <div className="mx-auto max-w-5xl">
-        <Logo />
-        <div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">
-              PERSONALISE YOUR STUDY PLAN
-            </p>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">
-              Tell us what you’re studying.
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#587166]">
-              FunaBAcer will use your department and course to choose relevant topics, past
-              questions and AI explanations for you.
-            </p>
-            <div className="mt-8 flex items-center gap-3 text-sm font-semibold text-emerald-700">
-              <span className="flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">
-                1
-              </span>
-              Department first
-              <span className="h-px w-8 bg-[#c9ddd2]" />
-              <span className="flex size-8 items-center justify-center rounded-full border border-[#c9ddd2] text-[#71877d]">
-                2
-              </span>
-              Course next
-            </div>
-          </div>
-          <div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8">
-            <label className="block text-sm font-bold text-[#244138]">
-              What college or department are you in?
-              <select
-                value={department}
-                onChange={(event) => {
-                  setDepartment(event.target.value);
-                  setCourse("");
-                }}
-                className="mt-3 w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] px-4 py-3.5 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option value="">Select your department</option>
-                {funaabDepartments.map((item) => (
-                  <option key={item.group} value={item.group}>
-                    {item.group}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {selected && (
-              <div className="mt-6">
-                <p className="text-xs font-semibold text-[#71877d]">{selected.description}</p>
-                <label className="mt-4 block text-sm font-bold text-[#244138]">
-                  What course are you studying?
-                  <select
-                    value={course}
-                    onChange={(event) => setCourse(event.target.value)}
-                    className="mt-3 w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] px-4 py-3.5 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
-                  >
-                    <option value="">Select your course</option>
-                    {selected.courses.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            )}
-            <button
-              onClick={finish}
-              disabled={!department || !course}
-              className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]"
-            >
-              Build my study plan <ArrowRight className="ml-2 inline-block" size={16} />
-            </button>
-            <p className="mt-4 text-center text-xs text-[#8ca198]">
-              You can change this later in Settings.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12"><div className="mx-auto max-w-5xl"><Logo /><div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">PERSONALISE YOUR STUDY PLAN</p><h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">Choose your exact programme.</h1><p className="mt-5 max-w-md text-base leading-7 text-[#587166]">Select the programme you actually study. FunaBAcer will automatically attach it to the correct department and will not show unrelated programmes.</p><div className="mt-8 text-sm font-semibold text-emerald-700"><span className="mr-3 inline-flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">1</span>Programme first</div></div><div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8"><label className="block text-sm font-bold text-[#244138]">What programme are you studying?<select value={course} onChange={(event) => setCourse(event.target.value)} className="mt-3 w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] px-4 py-3.5 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"><option value="">Select your programme</option>{programmes.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>{selected && <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><strong>Department:</strong> {selected.department}<br/><strong>Programme:</strong> {selected.name}</div>}<button onClick={finish} disabled={!selected} className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]">Build my study plan <ArrowRight className="ml-2 inline-block" size={16}/></button><p className="mt-4 text-center text-xs text-[#8ca198]">You can change your programme later from Profile.</p></div></div></div></div>;
 }
 
 function Landing({ onStart }: { onStart: () => void }) {
@@ -1823,7 +1742,7 @@ function App() {
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
   else if (view === "notes") content = <Notes />;
-  else if (view === "profile") content = <Profile {...props} profile={profile} />;
+  else if (view === "profile") content = <Profile {...props} profile={profile} onEdit={async () => { await supabase.auth.updateUser({ data: { department: null, course: null } }); localStorage.removeItem("funabacer-profile"); setProfile(null); setNeedsOnboarding(true); }} />;
   else if (view === "admin") content = <AdminPanel />;
   else
     content = (
