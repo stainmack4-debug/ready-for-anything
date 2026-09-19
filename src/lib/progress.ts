@@ -6,7 +6,9 @@ export type Attempt = {
   at: number;
 };
 
-const KEY = "funabacer.attempts.v1";
+// v2 intentionally starts clean so legacy demo/test attempts from the old UI
+// cannot be presented as a learner's real mastery.
+const KEY = "funabacer.attempts.v2";
 
 export function getAttempts(): Attempt[] {
   if (typeof window === "undefined") return [];
