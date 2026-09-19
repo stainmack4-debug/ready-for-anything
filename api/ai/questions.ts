@@ -27,14 +27,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let lastError = "";
   for (const provider of providers()) {
     try {
-      const upstream = await fetch(`${provider.url.replace(/\/$/, "")}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 4000, messages: [{ role: "system", content: "You generate accurate, age-appropriate study questions. Output valid JSON only." }, { role: "user", content: prompt }] }) });
+      const upstream = await fetch(`${provider.url.replace(/\/$/, "")}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.25, max_tokens: 2500, messages: [{ role: "user", content: `${prompt}\nReturn only the JSON array. Do not use markdown fences or any text before or after it.` }] }) });
       const payload = await upstream.json().catch(() => ({}));
-      if (!upstream.ok) { lastError = `${upstream.status}`; console.error("Question provider error", provider.model, upstream.status, payload); continue; }
+      if (!upstream.ok) { lastError = `${provider.model}:${upstream.status}:${String(payload?.error?.message || payload?.error || "provider rejected request").slice(0, 180)}`; console.error("Question provider error", provider.model, upstream.status, JSON.stringify(payload)); continue; }
       const parsed = parseQuestions(String(payload?.choices?.[0]?.message?.content || ""));
       if (!Array.isArray(parsed) || parsed.length === 0) { lastError = "empty"; console.error("Question provider returned invalid JSON", provider.model, payload); continue; }
       return res.status(200).json({ questions: parsed.slice(0, count), provider: provider.model });
     } catch (error) { lastError = error instanceof Error ? error.message : "request failed"; }
   }
   console.error("Question generation failed", lastError);
-  return res.status(502).json({ error: "Questions could not be generated right now." });
+  return res.status(502).json({ error: "Questions could not be generated right now.", detail: lastError });
 }
