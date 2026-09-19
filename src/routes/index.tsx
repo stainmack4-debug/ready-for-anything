@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
@@ -758,16 +760,33 @@ function AdminPanel() {
   if (!unlocked) return <Page title="Admin Panel" eyebrow="ADMIN ACCESS" subtitle="Restricted settings"><div className="mx-auto max-w-md rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Enter admin password</h2><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" className="mt-5 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/><Btn className="mt-4 w-full" onClick={() => password === "808254" ? setUnlocked(true) : alert("Incorrect password")}>Open Admin Panel</Btn><p className="mt-4 text-xs leading-5 text-[#71877d]">This panel currently controls this browser only. Server-side multi-user announcements and unlock codes still need a protected Supabase admin table.</p></div></Page>;
   return <Page title="Admin Panel" eyebrow="ADMIN CONTROLS" subtitle="Manage the current announcement and free access period."><div className="max-w-2xl space-y-5"><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Free access period (days)<input value={freeDays} onChange={(e) => setFreeDays(e.target.value)} type="number" min="0" className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Announcement shown to users<textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} rows={4} placeholder="You have free access for 30 days." className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><Btn onClick={save}>Save admin settings</Btn></div></Page>;
 }
+function TutorMath({ expression, display }: { expression: string; display?: boolean }) {
+  const html = katex.renderToString(expression.trim(), { displayMode: Boolean(display), throwOnError: false, strict: "ignore" });
+  return <span className={display ? "my-4 block overflow-x-auto text-center" : "align-middle"} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+function TutorInline({ value }: { value: string }) {
+  const parts = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\))/g);
+  return <>{parts.map((part, i) => {
+    if (part.startsWith("$$") && part.endsWith("$$")) return <TutorMath key={i} expression={part.slice(2, -2)} display />;
+    if (part.startsWith("$") && part.endsWith("$")) return <TutorMath key={i} expression={part.slice(1, -1)} />;
+    if (part.startsWith("\\[") && part.endsWith("\\]")) return <TutorMath key={i} expression={part.slice(2, -2)} display />;
+    if (part.startsWith("\\(") && part.endsWith("\\)")) return <TutorMath key={i} expression={part.slice(2, -2)} />;
+    const bold = part.split(/(\*\*[^*]+\*\*)/g).map((piece, j) => piece.startsWith("**") && piece.endsWith("**") ? <strong key={j}>{piece.slice(2, -2)}</strong> : piece);
+    return <span key={i}>{bold}</span>;
+  })}</>;
+}
 function TutorMessage({ content }: { content: string }) {
-  const lines = content.replace(/\r/g, "").split("\n");
-  const inline = (value: string) => value.split(/(\*\*[^*]+\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
-  return <div>{lines.map((line, i) => {
+  const cleaned = content.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const lines = cleaned.split("\n");
+  return <div className="space-y-1">{lines.map((line, i) => {
     const trimmed = line.trim();
     if (!trimmed) return <div key={i} className="h-2" />;
-    if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item">{inline(trimmed.slice(2))}</div>;
-    if (/^#{1,3} /.test(trimmed)) return <p key={i} className="mt-2 font-extrabold text-white">{inline(trimmed.replace(/^#{1,3} /, ""))}</p>;
-    if (/^\d+\. /.test(trimmed)) return <div key={i} className="ml-4 list-item">{inline(trimmed.replace(/^\d+\. /, ""))}</div>;
-    return <p key={i}>{inline(trimmed)}</p>;
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed)) return <hr key={i} className="my-3 border-white/15" />;
+    if (/^\$\$.*\$\$$/.test(trimmed)) return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
+    if (/^#{1,3} /.test(trimmed)) return <h3 key={i} className="mt-3 font-extrabold text-white"><TutorInline value={trimmed.replace(/^#{1,3} /, "")} /></h3>;
+    if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.slice(2)} /></div>;
+    if (/^\d+[.)] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.replace(/^\d+[.)] /, "")} /></div>;
+    return <p key={i}><TutorInline value={trimmed} /></p>;
   })}</div>;
 }
 
