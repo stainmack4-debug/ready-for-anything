@@ -61,7 +61,7 @@ type View =
   | "admin";
 type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string };
-type Props = { setView: (v: View) => void; profile?: StudentProfile | null };
+type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
 function realStats() {
   const attempts = getAttempts();
   const answered = totalAnswered();
@@ -772,8 +772,10 @@ function TutorMessage({ content }: { content: string }) {
   })}</div>;
 }
 
-function Learn({ setView, profile }: Props) {
+function Learn({ setView, profile, userId }: Props) {
   type ChatMessage = { role: "user" | "assistant"; content: string };
+  const memoryKey = `funabacer.tutor.memory.v1.${userId || profile?.course || "unknown-user"}`;
+  const initialMessage: ChatMessage = { role: "assistant", content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"} in ${profile?.department || "your department"}. I’ll keep track of where we stop and continue from there.` };
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [tutorError, setTutorError] = useState("");
@@ -782,9 +784,15 @@ function Learn({ setView, profile }: Props) {
   const [showCalculator, setShowCalculator] = useState(false);
   const [expression, setExpression] = useState("");
   const [calculation, setCalculation] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "assistant", content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"}. Choose a topic or ask me a question. I’ll teach one step at a time using your ${profile?.department || "department"} context.` },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(memoryKey) || "null");
+      return Array.isArray(saved) && saved.length ? saved.slice(-40) : [initialMessage];
+    } catch { return [initialMessage]; }
+  });
+  useEffect(() => {
+    localStorage.setItem(memoryKey, JSON.stringify(messages.slice(-40)));
+  }, [memoryKey, messages]);
   useEffect(() => {
     const pending = localStorage.getItem("funabacer.pending-question");
     if (pending) {
@@ -797,6 +805,10 @@ function Learn({ setView, profile }: Props) {
   const askTutor = async (preset?: string) => {
     const message = (preset || question).trim();
     if (!message || isAsking) return;
+    if (!profile?.department || !profile?.course) {
+      setTutorError("Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.");
+      return;
+    }
     setIsAsking(true);
     setTutorError("");
     const nextMessages = [...messages, { role: "user" as const, content: message }];
@@ -808,9 +820,9 @@ function Learn({ setView, profile }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          history: messages,
-          department: profile?.department,
-          course: profile?.course,
+          history: messages.slice(-12),
+          department: profile.department,
+          course: profile.course,
           topic: "",
           sourceContext,
         }),
@@ -856,6 +868,7 @@ function Learn({ setView, profile }: Props) {
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
     >
       <div className="mx-auto max-w-3xl">
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><strong>Teaching context:</strong> {profile?.department || "Department missing"} · {profile?.course || "Programme missing"}. The Tutor uses this context and the saved conversation below; it will not guess a different programme.</div>
         <div className="overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
             <div className="flex items-center gap-3">
@@ -1799,7 +1812,8 @@ function App() {
       />
     );
   let content: ReactNode;
-  const props = { setView, profile };
+  const userId = typeof session === "object" && session && "user" in session ? String((session as { user?: { id?: string } }).user?.id || "") : "";
+  const props = { setView, profile, userId };
   if (view === "dashboard") content = <Home {...props} />;
   else if (view === "overview") content = <Dashboard {...props} />;
   else if (view === "courses") content = <Courses {...props} />;
