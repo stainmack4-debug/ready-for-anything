@@ -57,7 +57,8 @@ type View =
   | "results"
   | "notes"
   | "profile"
-  | "settings";
+  | "settings"
+  | "admin";
 type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null };
@@ -68,14 +69,14 @@ function realStats() {
   const studyDays = new Set(attempts.map((attempt) => new Date(attempt.at).toDateString())).size;
   return { answered, score, studyDays };
 }
-const topics = [
-  { name: "Mole Concept", course: "CHM 101", score: 92, tone: "strong" },
-  { name: "Stoichiometry", course: "CHM 101", score: 61, tone: "practice" },
-  { name: "Gas Laws", course: "CHM 101", score: 34, tone: "weak" },
-  { name: "Indices & Logarithms", course: "MTH 101", score: 88, tone: "strong" },
-  { name: "Quadratic Equations", course: "MTH 101", score: 57, tone: "practice" },
-  { name: "Comprehension", course: "GNS 101", score: 66, tone: "practice" },
-];
+function attemptedTopics() {
+  return getAttempts().map((attempt) => ({
+    name: attempt.topicId.split(":").slice(1).join(":") || attempt.topicId,
+    course: attempt.topicId.split(":")[0] || "Your course",
+    score: attempt.score,
+    tone: attempt.score >= 80 ? "strong" : attempt.score >= 50 ? "practice" : "weak",
+  }));
+}
 function Logo() {
   return (
     <div className="flex items-center gap-3">
@@ -133,6 +134,7 @@ function Sidebar({
     ["notes", "Note Cruncher", <FileText size={18} />],
     ["profile", "Profile & academic info", <UserRound size={18} />],
     ["settings", "Settings & preferences", <Settings size={18} />],
+    ["admin", "Admin Panel", <Settings size={18} />],
   ];
   return (
     <aside className="hidden w-[250px] shrink-0 border-r border-[#dcebe3] bg-white px-5 py-7 lg:flex lg:flex-col">
@@ -518,7 +520,8 @@ function Home({ setView }: Props) {
   );
 }
 
-function Dashboard({ setView }: Props) {
+function Dashboard({ setView, profile }: Props) {
+  const userTopics = attemptedTopics();
   const actions: [string, string, string, ReactNode, View][] = [
     [
       "Start learning",
@@ -708,7 +711,7 @@ function Dashboard({ setView }: Props) {
             </button>
           </div>
           <div className="mt-6 space-y-5">
-            {topics
+            {userTopics.length === 0 ? <p className="text-sm leading-6 text-[#71877d]">No weak topics yet. Start a lesson and submit practice answers before mastery is calculated.</p> : userTopics
               .filter((t) => t.tone !== "strong")
               .slice(0, 3)
               .map((t) => (
@@ -731,173 +734,31 @@ function Dashboard({ setView }: Props) {
     </div>
   );
 }
-function Courses({ setView }: Props) {
-  const [activeDomain, setActiveDomain] = useState(funaabCurriculum[0].id);
-  const domain = funaabCurriculum.find((item) => item.id === activeDomain) ?? funaabCurriculum[0];
-  return (
-    <Page
-      title="Learn"
-      eyebrow="FUNAAB COURSE LIBRARY"
-      subtitle="Verified programme information, source-backed synopses and clear evidence labels."
-    >
-      <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
-        <aside className="h-fit rounded-2xl border border-[#dcebe3] bg-white p-3 lg:sticky lg:top-5">
-          <p className="px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[.18em] text-emerald-700">
-            Academic domains
-          </p>
-          <div className="space-y-1">
-            {funaabCurriculum.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveDomain(item.id)}
-                className={`w-full rounded-xl px-3 py-3 text-left text-sm font-bold ${activeDomain === item.id ? "bg-emerald-500 text-white" : "text-[#365348] hover:bg-[#eff7f2]"}`}
-              >
-                {item.domain}
-                <span
-                  className={`mt-1 block text-xs ${activeDomain === item.id ? "text-emerald-50" : "text-[#8ca198]"}`}
-                >
-                  {item.courses.length} programmes
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
-        <div>
-          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6">
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">
-              {domain.domain}
-            </p>
-            <h2 className="mt-2 text-2xl font-extrabold">Choose a programme to study.</h2>
-            <p className="mt-2 text-sm leading-6 text-[#587166]">
-              These programme descriptions come from the FUNAAB research catalogue. Confidence and
-              source links stay visible so you know what is verified.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                {domain.courses.length} programmes
-              </span>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">
-                Source-linked
-              </span>
-            </div>
-          </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {domain.courses.map((course) => (
-              <button
-                key={course.name}
-                onClick={() => setView("topic")}
-                className="group rounded-2xl border border-[#dcebe3] bg-white p-5 text-left transition-all hover:-translate-y-1 hover:border-emerald-300 hover:shadow-[0_20px_40px_-28px_#23704d]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${course.confidence === "high" ? "bg-emerald-50 text-emerald-700" : course.confidence === "medium" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"}`}
-                  >
-                    {course.confidence} confidence
-                  </span>
-                  <ChevronRight
-                    size={18}
-                    className="text-[#8ca198] transition-transform group-hover:translate-x-1"
-                  />
-                </div>
-                <h3 className="mt-5 text-lg font-extrabold text-[#10231c]">{course.name}</h3>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#71877d]">
-                  {course.synopsis}
-                </p>
-                <div className="mt-5 flex items-center justify-between text-xs font-bold">
-                  <span className="text-emerald-700">Open study path</span>
-                  <span className="text-[#8ca198]">
-                    {course.official_sources.length} official sources
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </Page>
-  );
+function Courses({ setView, profile }: Props) {
+  const selected = profile?.course ? funaabCurriculum.flatMap((item) => item.courses.map((course) => ({ domain: item, course }))).find((item) => item.course.name.toLowerCase() === profile.course.toLowerCase()) : undefined;
+  return <Page title="Learn" eyebrow="YOUR PROGRAMME" subtitle={profile?.course ? `Showing only ${profile.course}` : "Choose your programme during onboarding."}>
+    {!selected ? <div className="rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Your programme is not selected</h2><p className="mt-2 text-sm leading-6 text-[#71877d]">Complete your academic profile before learning. FunaBAcer will then show only your programme, not every FUNAAB programme.</p></div> : <>
+      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">{selected.domain.domain}</p><h2 className="mt-2 text-2xl font-extrabold">{selected.course.name}</h2><p className="mt-2 text-sm leading-6 text-[#587166]">{selected.course.synopsis}</p><span className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">{selected.course.confidence} confidence · {selected.course.official_sources.length} official sources</span></div>
+      <div className="mt-5 rounded-2xl border border-[#dcebe3] bg-white p-7"><h3 className="text-lg font-extrabold">Start your personalised study path</h3><p className="mt-2 text-sm leading-6 text-[#71877d]">No topic is marked strong until you actually study and submit answers. Ask the Tutor to teach a topic from your {selected.course.name} programme, then practise it.</p><div className="mt-5 flex flex-wrap gap-3"><Btn onClick={() => setView("learn")}><BookOpen size={16}/> Open AI Tutor</Btn><Btn variant="outline" onClick={() => setView("practice")}><Target size={16}/> Practise a topic</Btn></div></div>
+    </>}
+  </Page>;
 }
-function Topic({ setView }: Props) {
-  return (
-    <Page
-      title="CHM 101 · Gas Laws"
-      eyebrow="TOPIC PATH"
-      subtitle="Master the idea before the app asks you to prove it."
-    >
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <section className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-white p-7">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
-            Your next best lesson
-          </span>
-          <h2 className="mt-4 text-3xl font-extrabold">Gas Laws</h2>
-          <p className="mt-3 max-w-xl leading-7 text-[#587166]">
-            You scored 34% here last time. We’ll rebuild the concept from zero, then retest the
-            exact gap we found.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Btn onClick={() => setView("learn")}>
-              <BookOpen size={17} /> Start learning
-            </Btn>
-            <Btn variant="outline" onClick={() => setView("practice")}>
-              <Target size={17} /> Practise now
-            </Btn>
-          </div>
-        </section>
-        <section className="rounded-2xl border border-[#dcebe3] bg-white p-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#71877d]">
-            Topic mastery
-          </p>
-          <div className="mt-4 flex items-end gap-3">
-            <span className="text-5xl font-extrabold">34%</span>
-            <span className="mb-2 rounded-full bg-rose-400/10 px-2 py-1 text-xs font-bold text-rose-300">
-              Needs attention
-            </span>
-          </div>
-          <div className="mt-6 h-2 rounded-full bg-[#eff7f2]">
-            <div className="h-full w-[34%] rounded-full bg-rose-400" />
-          </div>
-          <p className="mt-4 text-sm text-[#71877d]">3 of 9 checkpoints completed</p>
-        </section>
-      </div>
-      <section className="mt-6 rounded-2xl border border-[#dcebe3] bg-white p-6">
-        <h2 className="font-extrabold">Topic checkpoints</h2>
-        <div className="mt-5 space-y-3">
-          {[
-            "What pressure really measures",
-            "Boyle's law and inverse relationships",
-            "Charles' law and temperature",
-            "Combined gas law",
-            "Mixed exam questions",
-          ].map((item, i) => (
-            <button
-              key={item}
-              onClick={() => setView(i < 2 ? "learn" : "practice")}
-              className="flex w-full items-center gap-4 rounded-xl border border-white/6 bg-[#fbfdfc] p-4 text-left hover:border-emerald-400/30"
-            >
-              <span
-                className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${i < 2 ? "bg-emerald-500 text-white" : "border border-[#c9ddd2] text-[#71877d]"}`}
-              >
-                {i < 2 ? <Check size={15} /> : i + 1}
-              </span>
-              <span className="flex-1">
-                <span className="block text-sm font-bold text-[#244138]">{item}</span>
-                <span className="mt-1 block text-xs text-[#71877d]">
-                  {i < 2
-                    ? "Completed · strong foundation"
-                    : i === 2
-                      ? "Next up · 4 min"
-                      : "Locked until you continue"}
-                </span>
-              </span>
-              <ChevronRight size={17} className="text-[#8ca198]" />
-            </button>
-          ))}
-        </div>
-      </section>
-    </Page>
-  );
+function Topic({ setView, profile }: Props) {
+  const userTopics = attemptedTopics();
+  return <Page title={profile?.course || "Your topic"} eyebrow="TOPIC PATH" subtitle="Mastery is calculated only from your submitted practice answers.">
+    <div className="rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-2xl font-extrabold">No topic selected yet</h2><p className="mt-3 leading-7 text-[#71877d]">{userTopics.length ? "Choose one of your studied topics from Progress, or ask the AI Tutor to teach a new topic." : "You have not studied or submitted practice for any topic yet, so every topic is currently 0% and unclassified."}</p><div className="mt-6 flex flex-wrap gap-3"><Btn onClick={() => setView("learn")}><BookOpen size={16}/> Ask the AI Tutor to teach</Btn><Btn variant="outline" onClick={() => setView("practice")}><Target size={16}/> Start topic practice</Btn></div></div>
+  </Page>;
 }
 
+function AdminPanel() {
+  const [password, setPassword] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
+  const [freeDays, setFreeDays] = useState(() => localStorage.getItem("funabacer-admin-free-days") || "30");
+  const [announcement, setAnnouncement] = useState(() => localStorage.getItem("funabacer-admin-announcement") || "");
+  const save = () => { localStorage.setItem("funabacer-admin-free-days", freeDays); localStorage.setItem("funabacer-admin-announcement", announcement); alert("Admin settings saved on this device."); };
+  if (!unlocked) return <Page title="Admin Panel" eyebrow="ADMIN ACCESS" subtitle="Restricted settings"><div className="mx-auto max-w-md rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Enter admin password</h2><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" className="mt-5 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/><Btn className="mt-4 w-full" onClick={() => password === "808254" ? setUnlocked(true) : alert("Incorrect password")}>Open Admin Panel</Btn><p className="mt-4 text-xs leading-5 text-[#71877d]">This panel currently controls this browser only. Server-side multi-user announcements and unlock codes still need a protected Supabase admin table.</p></div></Page>;
+  return <Page title="Admin Panel" eyebrow="ADMIN CONTROLS" subtitle="Manage the current announcement and free access period."><div className="max-w-2xl space-y-5"><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Free access period (days)<input value={freeDays} onChange={(e) => setFreeDays(e.target.value)} type="number" min="0" className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Announcement shown to users<textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} rows={4} placeholder="You have free access for 30 days." className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><Btn onClick={save}>Save admin settings</Btn></div></Page>;
+}
 function TutorMessage({ content }: { content: string }) {
   const lines = content.replace(/\r/g, "").split("\n");
   const inline = (value: string) => value.split(/(\*\*[^*]+\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
@@ -1266,7 +1127,7 @@ function Results({ setView }: Props) {
           </Btn>
         </div>
         <div className="mt-7 space-y-5">
-          {topics.map((t) => (
+          {attemptedTopics().length === 0 ? <p className="mt-6 rounded-xl bg-[#fbfdfc] p-5 text-sm leading-6 text-[#71877d]">No mastery data yet. Scores will appear here only after you submit real practice answers.</p> : attemptedTopics().map((t) => (
             <div key={t.name}>
               <div className="flex justify-between gap-4">
                 <div>
@@ -1981,7 +1842,7 @@ function App() {
       />
     );
   let content: ReactNode;
-  const props = { setView };
+  const props = { setView, profile };
   if (view === "dashboard") content = <Home {...props} />;
   else if (view === "overview") content = <Dashboard {...props} />;
   else if (view === "courses") content = <Courses {...props} />;
@@ -1992,6 +1853,7 @@ function App() {
   else if (view === "results") content = <Results {...props} />;
   else if (view === "notes") content = <Notes />;
   else if (view === "profile") content = <Profile {...props} profile={profile} />;
+  else if (view === "admin") content = <AdminPanel />;
   else
     content = (
       <SettingsPage
@@ -2029,6 +1891,7 @@ function App() {
                 ["notes", "Note Cruncher"],
                 ["profile", "Profile"],
                 ["settings", "Settings"],
+                ["admin", "Admin Panel"],
               ].map(([id, label]) => (
                 <button
                   key={id}
