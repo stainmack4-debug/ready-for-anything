@@ -134,7 +134,6 @@ function Sidebar({
     ["notes", "Note Cruncher", <FileText size={18} />],
     ["profile", "Profile & academic info", <UserRound size={18} />],
     ["settings", "Settings & preferences", <Settings size={18} />],
-    ["admin", "Admin Panel", <Settings size={18} />],
   ];
   return (
     <aside className="hidden w-[250px] shrink-0 border-r border-[#dcebe3] bg-white px-5 py-7 lg:flex lg:flex-col">
@@ -1715,6 +1714,7 @@ function App() {
         Loading your study space…
       </div>
     );
+  if (typeof window !== "undefined" && window.location.pathname === "/admin") return <AdminPanel />;
   if (!session)
     return authOpen ? (
       <Auth done={() => setSession({ loggedIn: true })} />
@@ -1781,7 +1781,6 @@ function App() {
                 ["notes", "Note Cruncher"],
                 ["profile", "Profile"],
                 ["settings", "Settings"],
-                ["admin", "Admin Panel"],
               ].map(([id, label]) => (
                 <button
                   key={id}
