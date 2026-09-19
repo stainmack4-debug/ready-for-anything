@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const topic = String(body.topic || "").trim();
   const count = Math.min(Math.max(Number(body.count) || 10, 1), 10);
   if (!course || !topic) return res.status(400).json({ error: "Choose a course and topic first." });
-  const prompt = `Create ${count} original university practice questions for the course "${course}" on the topic "${topic}". Return JSON only as an array of objects with exactly these keys: question (string), options (array of four strings), answer (integer 0-3), explanation (string). Do not use a topic from another course. Do not include markdown fences.`;
+  const prompt = `Create ${count} original university practice questions for the course "${course}" on the topic "${topic}". Return JSON only as an array of objects with exactly these keys: topic (string naming the specific concept tested), question (string), options (array of four strings), answer (integer 0-3), explanation (string). Do not use a topic from another course. Do not include markdown fences.`;
   let lastError = "";
   for (const provider of providers()) {
     try {
