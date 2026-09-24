@@ -24,6 +24,38 @@ function providers(): Provider[] {
 const RETRYABLE = new Set([429, 500, 503]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const SUPERSCRIPTS: Record<string, string> = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻", "+": "⁺", n: "ⁿ", x: "ˣ" };
+const SYMBOLS: Record<string, string> = {
+  times: "×", cdot: "·", div: "÷", pm: "±", mp: "∓", le: "≤", leq: "≤", ge: "≥", geq: "≥", neq: "≠", ne: "≠",
+  approx: "≈", infty: "∞", pi: "π", theta: "θ", alpha: "α", beta: "β", gamma: "γ", delta: "δ", Delta: "Δ",
+  lambda: "λ", mu: "μ", sigma: "σ", omega: "ω", Omega: "Ω", rho: "ρ", phi: "φ", epsilon: "ε", degree: "°",
+  circ: "°", rightarrow: "→", to: "→", Rightarrow: "⇒", therefore: "∴", sum: "Σ", int: "∫", partial: "∂",
+};
+const toSuper = (s: string) => ([...s].every((c) => SUPERSCRIPTS[c]) ? [...s].map((c) => SUPERSCRIPTS[c]).join("") : `^(${s})`);
+// Wrap multi-character pieces in brackets so √(3x+1) and (a+b)/(c) stay unambiguous.
+const group = (s: string) => (/^[\w.√]+$/.test(s) ? s : `(${s})`);
+
+// The Practice screen shows plain text, so convert LaTeX the AI may still emit into readable Unicode math.
+function cleanMath(input: string): string {
+  let s = input.replace(/\$\$?/g, "").replace(/\\\(|\\\)|\\\[|\\\]/g, "");
+  s = s.replace(/\\(?:left|right|displaystyle|,|;|!|quad|qquad)/g, " ");
+  s = s.replace(/\\text\{([^{}]*)\}|\\mathrm\{([^{}]*)\}/g, (_m, a, b) => a ?? b);
+  // Resolve innermost commands first so nested fractions and roots work.
+  for (let i = 0; i < 10; i++) {
+    const before = s;
+    s = s.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (_m, a, b) => `${group(a)}/${group(b)}`);
+    s = s.replace(/\\sqrt\[([^\]]*)\]\{([^{}]*)\}/g, (_m, n, x) => `${toSuper(n)}√${group(x)}`);
+    s = s.replace(/\\sqrt\{([^{}]*)\}/g, (_m, x) => `√${group(x)}`);
+    s = s.replace(/\^\{([^{}]*)\}/g, (_m, x) => toSuper(x));
+    s = s.replace(/_\{([^{}]*)\}/g, (_m, x) => `_${x}`);
+    if (s === before) break;
+  }
+  s = s.replace(/\\sqrt\s*(\w)/g, "√$1");
+  s = s.replace(/\^(\w)/g, (_m, x) => toSuper(x));
+  s = s.replace(/\\([A-Za-z]+)/g, (m, name) => SYMBOLS[name] ?? m.slice(1));
+  return s.replace(/[{}]/g, "").replace(/[ \t]{2,}/g, " ").trim();
+}
+
 type RawQuestion = { topic?: unknown; question?: unknown; options?: unknown; answer?: unknown; explanation?: unknown };
 
 function extractJson(text: string): unknown {
@@ -36,7 +68,7 @@ function extractJson(text: string): unknown {
   return null;
 }
 
-// Accept either a bare array or {"questions":[...]}, and drop malformed items.
+// Accept either a bare array or {"questions":[...]}, drop malformed items, and clean up math notation.
 function normalise(parsed: unknown, fallbackTopic: string) {
   const items: unknown[] = Array.isArray(parsed)
     ? parsed
@@ -47,11 +79,11 @@ function normalise(parsed: unknown, fallbackTopic: string) {
     .map((item) => item as RawQuestion)
     .filter((q) => typeof q.question === "string" && Array.isArray(q.options) && q.options.length === 4)
     .map((q) => ({
-      topic: typeof q.topic === "string" ? q.topic : fallbackTopic,
-      question: String(q.question),
-      options: (q.options as unknown[]).map(String),
+      topic: cleanMath(typeof q.topic === "string" ? q.topic : fallbackTopic),
+      question: cleanMath(String(q.question)),
+      options: (q.options as unknown[]).map((o) => cleanMath(String(o))),
       answer: Math.min(Math.max(Number(q.answer) || 0, 0), 3),
-      explanation: typeof q.explanation === "string" ? q.explanation : "",
+      explanation: typeof q.explanation === "string" ? cleanMath(q.explanation) : "",
     }));
 }
 
@@ -72,7 +104,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const prompt = `Create ${count} original FUNAAB (Federal University of Agriculture, Abeokuta) style exam practice questions for the course "${course}" on the topic "${topic}".
 Reply with ONLY a JSON array like:
 [{"topic":"specific concept","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"why the correct option is right"}]
-Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".`;
+Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".
+IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT LaTeX. Use √ for roots (√75, √(3x+1)), ² ³ for powers, / for fractions ((3√5 + 2√3)/11), ×, ÷, ±, π, θ, ≤, ≥. Never use $, backslashes or commands like \\sqrt or \\frac. Do not put letter labels like "A." inside the options.`;
 
   const errors: string[] = [];
   for (const provider of list) {
