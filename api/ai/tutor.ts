@@ -23,11 +23,11 @@ Operating rules:
 type Provider = { name: string; baseUrl: string; key?: string; model: string; timeoutMs?: number };
 function providerList(): Provider[] {
   const gemini: Provider = { name: "gemini-fast", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_TUTOR_MODEL || "gemini-3.5-flash-lite" };
-  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash" };
-  const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", timeoutMs: 8000 };
+  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash" };
+  const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "qwen/qwen3-next-80b-a3b-instruct", timeoutMs: 8000 };
   const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
   const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-  return selected === "grok" ? [grok, gemini, geminiFallback, nvidia] : [gemini, geminiFallback, nvidia, grok];
+  return selected === "grok" ? [grok, gemini, geminiFallback, nvidia] : [gemini, geminiFallback, nvidia];
 }
 function cleanBaseUrl(value: string) { return value.replace(/\/$/, ""); }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
