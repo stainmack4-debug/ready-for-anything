@@ -2,14 +2,22 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 declare const process: { env: Record<string, string | undefined> };
 
-// Same endpoint, key and default model as the working AI tutor (api/ai/tutor.ts).
-function baseUrl() {
-  return (process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai").replace(/\/$/, "");
-}
-// Primary model, then Google's rolling aliases which always point at a currently available model.
-function models(): string[] {
-  const list = [process.env.GEMINI_MODEL || "gemini-3.6-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];
-  return [...new Set(list.filter(Boolean))];
+type Provider = { name: string; url: string; key?: string; model: string; timeoutMs: number };
+
+// Gemini first (with Google's rolling aliases), then NVIDIA as the backup when Gemini is overloaded.
+function providers(): Provider[] {
+  const geminiUrl = (process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai").replace(/\/$/, "");
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiModels = [...new Set([process.env.GEMINI_MODEL || "gemini-3.6-flash", "gemini-flash-latest", "gemini-flash-lite-latest"])];
+  const list: Provider[] = geminiModels.map((model) => ({ name: "gemini", url: geminiUrl, key: geminiKey, model, timeoutMs: 25000 }));
+  list.push({
+    name: "nvidia",
+    url: (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/$/, ""),
+    key: process.env.NVIDIA_API_KEY,
+    model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct",
+    timeoutMs: 40000,
+  });
+  return list.filter((p) => p.key);
 }
 
 // 503 (overloaded) and 429 (rate limited) are temporary, so they are worth retrying.
@@ -57,8 +65,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const count = Math.min(Math.max(Number(body.count) || 10, 1), 20);
   if (!course || !topic) return res.status(400).json({ error: "Choose a course and topic first." });
 
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(503).json({ error: "GEMINI_API_KEY is missing on Vercel." });
+  const list = providers();
+  if (list.length === 0) return res.status(503).json({ error: "No AI key (GEMINI_API_KEY or NVIDIA_API_KEY) is set on Vercel." });
 
   const system = "You write university exam practice questions. You reply with a raw JSON array only. No markdown, no commentary.";
   const prompt = `Create ${count} original FUNAAB (Federal University of Agriculture, Abeokuta) style exam practice questions for the course "${course}" on the topic "${topic}".
@@ -67,39 +75,42 @@ Reply with ONLY a JSON array like:
 Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".`;
 
   const errors: string[] = [];
-  for (const model of models()) {
-    // Up to 3 tries per model when Google reports it is busy.
-    for (let attempt = 1; attempt <= 3; attempt++) {
+  for (const provider of list) {
+    // Up to 2 tries per model when the provider reports it is busy.
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const upstream = await fetch(`${baseUrl()}/chat/completions`, {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), provider.timeoutMs);
+        const upstream = await fetch(`${provider.url}/chat/completions`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model,
+            model: provider.model,
             temperature: 0.3,
-            max_tokens: 8000,
+            max_tokens: 6000,
             messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
           }),
-        });
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timer));
         const payload = await upstream.json().catch(() => ({}));
         if (!upstream.ok) {
-          const reason = String(payload?.error?.message || payload?.[0]?.error?.message || "rejected").slice(0, 120);
-          console.error("Gemini error", model, attempt, upstream.status, JSON.stringify(payload));
-          if (RETRYABLE.has(upstream.status) && attempt < 3) { await sleep(1500 * attempt); continue; }
-          errors.push(`${model} ${upstream.status}: ${reason}`);
+          const reason = String(payload?.error?.message || payload?.detail || payload?.[0]?.error?.message || "rejected").slice(0, 120);
+          console.error("Question provider error", provider.name, provider.model, attempt, upstream.status, JSON.stringify(payload));
+          if (RETRYABLE.has(upstream.status) && attempt < 2) { await sleep(1500); continue; }
+          errors.push(`${provider.model} ${upstream.status}: ${reason}`);
           break;
         }
         const text = String(payload?.choices?.[0]?.message?.content || "");
         const questions = normalise(extractJson(text), topic);
         if (questions.length === 0) {
-          console.error("Gemini returned no usable questions", model, text.slice(0, 1500));
-          if (attempt < 3) continue;
-          errors.push(`${model}: no usable questions`);
+          console.error("No usable questions", provider.model, text.slice(0, 1500));
+          errors.push(`${provider.model}: no usable questions`);
           break;
         }
-        return res.status(200).json({ questions: questions.slice(0, count), provider: model });
+        return res.status(200).json({ questions: questions.slice(0, count), provider: provider.model });
       } catch (error) {
-        errors.push(`${model}: ${error instanceof Error ? error.message : "request failed"}`);
+        const aborted = error instanceof Error && error.name === "AbortError";
+        errors.push(`${provider.model}: ${aborted ? "timed out" : error instanceof Error ? error.message : "request failed"}`);
         break;
       }
     }
@@ -107,8 +118,6 @@ Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the
   const detail = errors.join(" | ");
   console.error("Question generation failed", detail);
   const busy = errors.some((e) => / (429|503):/.test(e));
-  const message = busy
-    ? "Gemini is very busy right now. Please try again in a minute."
-    : "Questions could not be generated right now.";
+  const message = busy ? "The AI is very busy right now. Please try again in a minute." : "Questions could not be generated right now.";
   return res.status(502).json({ error: `${message} (${detail})`, detail });
 }
