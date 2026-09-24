@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-type DocumentBody = { name?: string; type?: string; dataUrl?: string };
+type DocumentBody = { name?: string; type?: string; dataUrl?: string; department?: string; course?: string };
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -51,7 +51,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const mimeType = (type || match[1]).toLowerCase().replace("image/jpg", "image/jpeg");
   const isPdf = mimeType === "application/pdf";
-  const prompt = `Read this study document carefully for a university AI tutor. Return clean plain text with a short first line naming the document. Preserve readable headings, definitions, formulas, labels, diagrams, charts, tables, worked examples, and question/answer pairs. Explain important visual relationships when present. Do not invent missing content; clearly mark anything unreadable or uncertain. This output will be used as source context by another tutor.`;
+  const learnerContext = [body.department ? `Department: ${body.department}` : "", body.course ? `Course: ${body.course}` : ""].filter(Boolean).join("\n");
+  const prompt = `You are an adaptive university AI tutor. Read this study document carefully and respond directly to the student with a useful teaching explanation. ${learnerContext ? `Use this learner context:\n${learnerContext}\n` : ""}
+
+Start with a short summary, then teach the most important concepts from the document. Preserve and explain readable headings, definitions, formulas, labels, diagrams, charts, tables, worked examples, and question/answer pairs. Explain important visual relationships when present. Use short headings, numbered steps, and bullets where useful. Mention anything unreadable or uncertain. Do not invent missing content. End with one small follow-up question or next action for the student.`;
   const model = process.env.GEMINI_DOCUMENT_MODEL || process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const baseUrl = (process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, "");
 
@@ -77,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const text = outputText(payload).trim();
     if (!text) return res.status(502).json({ error: "Gemini returned no readable content from that file." });
-    return res.status(200).json({ text: text.slice(0, 30000), name, provider: "gemini", model });
+    return res.status(200).json({ text: text.slice(0, 30000), answer: text.slice(0, 30000), name, provider: "gemini", model });
   } catch (error) {
     console.error("Gemini document processing error", error);
     return res.status(502).json({ error: "The document could not be processed right now." });

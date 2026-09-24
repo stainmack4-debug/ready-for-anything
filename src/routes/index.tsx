@@ -890,14 +890,16 @@ function Learn({ setView, profile, userId }: Props) {
     setTutorFileBusy(true); setTutorFileError("");
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
-      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
+      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl, department: profile?.department, course: profile?.course }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "The file could not be read.");
       const extractedContext = data.text || "";
       const attachedName = data.name || file.name;
       if (!extractedContext) throw new Error("Gemini returned no readable content from that file.");
       setSourceContext(extractedContext);
       setSourceName(attachedName);
       setTutorFileName(attachedName);
-      await askTutor(`Please explain the uploaded file “${attachedName}” in detail. Start with a short summary, then teach the most important concepts, formulas, diagrams, or examples in it. Mention anything that is unclear.`, extractedContext);
+      setMessages((current) => [...current, { role: "user", content: `Explain the uploaded file “${attachedName}”.` }, { role: "assistant", content: data.answer || extractedContext }]);
     } catch (error) { setTutorFileError(error instanceof Error ? error.message : "The file could not be read."); }
     finally { setTutorFileBusy(false); }
   };
