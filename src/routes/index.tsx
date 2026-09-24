@@ -824,7 +824,7 @@ function Learn({ setView, profile, userId }: Props) {
     }
   }, []);
 
-  const askTutor = async (preset?: string) => {
+  const askTutor = async (preset?: string, sourceContextOverride?: string) => {
     const message = (preset || question).trim();
     if (!message || isAsking) return;
     if (!profile?.department || !profile?.course) {
@@ -852,7 +852,7 @@ function Learn({ setView, profile, userId }: Props) {
           department: profile.department,
           course: profile.course,
           topic: "",
-          sourceContext,
+          sourceContext: sourceContextOverride ?? sourceContext,
         }),
       });
       const data = await response.json();
@@ -891,8 +891,13 @@ function Learn({ setView, profile, userId }: Props) {
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
       const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || "The file could not be read.");
-      setSourceContext(data.text || ""); setSourceName(data.name || file.name);
+      const extractedContext = data.text || "";
+      const attachedName = data.name || file.name;
+      if (!extractedContext) throw new Error("Gemini returned no readable content from that file.");
+      setSourceContext(extractedContext);
+      setSourceName(attachedName);
+      setTutorFileName(attachedName);
+      await askTutor(`Please explain the uploaded file “${attachedName}” in detail. Start with a short summary, then teach the most important concepts, formulas, diagrams, or examples in it. Mention anything that is unclear.`, extractedContext);
     } catch (error) { setTutorFileError(error instanceof Error ? error.message : "The file could not be read."); }
     finally { setTutorFileBusy(false); }
   };
@@ -1009,7 +1014,8 @@ function Learn({ setView, profile, userId }: Props) {
                 </p>
               </div>
             )}
-            {tutorFileName && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Attached: {tutorFileName}. Gemini has read it and will use it as tutor context.</p>}
+            {tutorFileBusy && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Gemini is reading your file and preparing an explanation…</p>}
+            {tutorFileName && !tutorFileBusy && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Attached: {tutorFileName}. Gemini has read it and the tutor is using it as context.</p>}
             {tutorFileError && <p className="mb-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-100">{tutorFileError}</p>}
             {tutorError && (
               <p className="mb-3 rounded-xl bg-rose-400/15 p-3 text-xs font-semibold text-rose-100">
