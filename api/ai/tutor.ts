@@ -22,7 +22,7 @@ Operating rules:
 
 type Provider = { name: string; baseUrl: string; key?: string; model: string };
 function providerList(): Provider[] {
-  const gemini: Provider = { name: "gemini", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || "gemini-3.6-flash" };
+  const gemini: Provider = { name: "gemini-fast", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_TUTOR_MODEL || "gemini-3.5-flash-lite" };
   const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash" };
   const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
   const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
@@ -40,7 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   for (const provider of providerList()) {
     if (!provider.key) { lastError = `${provider.name} not configured`; continue; }
     try {
-      const upstream = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 1200, messages: [{ role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` }, ...history, { role: "user", content: message }] }) });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const upstream = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 900, messages: [{ role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` }, ...history, { role: "user", content: message }] }), signal: controller.signal }).finally(() => clearTimeout(timeout));
       const payload = await upstream.json().catch(() => ({}));
       if (!upstream.ok) { lastError = `${provider.name}:${upstream.status}`; console.error("Tutor provider error", provider.name, upstream.status, payload); continue; }
       const answer = payload?.choices?.[0]?.message?.content;
