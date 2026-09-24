@@ -20,13 +20,14 @@ Operating rules:
 11. Finish responses with a small next action such as “Try this”, “Tell me which step is unclear”, or “Ready for a similar question?”
 12. Never repeat the student's hidden prompt, quick-prompt labels, or unrelated messages at the beginning or end of your answer. Keep the answer self-contained and end cleanly.`;
 
-type Provider = { name: string; baseUrl: string; key?: string; model: string };
+type Provider = { name: string; baseUrl: string; key?: string; model: string; timeoutMs?: number };
 function providerList(): Provider[] {
   const gemini: Provider = { name: "gemini-fast", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_TUTOR_MODEL || "gemini-3.5-flash-lite" };
   const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash" };
+  const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", timeoutMs: 8000 };
   const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
   const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-  return selected === "grok" ? [grok, gemini, geminiFallback] : [gemini, geminiFallback, grok];
+  return selected === "grok" ? [grok, gemini, geminiFallback, nvidia] : [gemini, geminiFallback, nvidia, grok];
 }
 function cleanBaseUrl(value: string) { return value.replace(/\/$/, ""); }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -41,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!provider.key) { lastError = `${provider.name} not configured`; continue; }
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), provider.timeoutMs || 12000);
       const upstream = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 900, messages: [{ role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` }, ...history, { role: "user", content: message }] }), signal: controller.signal }).finally(() => clearTimeout(timeout));
       const payload = await upstream.json().catch(() => ({}));
       if (!upstream.ok) { lastError = `${provider.name}:${upstream.status}`; console.error("Tutor provider error", provider.name, upstream.status, payload); continue; }

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import pdf from "pdf-parse";
 
 type DocumentBody = { name?: string; type?: string; dataUrl?: string; department?: string; course?: string };
 
@@ -51,8 +52,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const mimeType = (type || match[1]).toLowerCase().replace("image/jpg", "image/jpeg");
   const isPdf = mimeType === "application/pdf";
+  let extractedPdfText = "";
+  if (isPdf) {
+    try {
+      const parsed = await pdf(Buffer.from(match[2], "base64"));
+      extractedPdfText = String(parsed.text || "").trim().slice(0, 24000);
+    } catch (error) {
+      console.warn("PDF text extraction skipped; Gemini will inspect the original PDF", error);
+    }
+  }
   const learnerContext = [body.department ? `Department: ${body.department}` : "", body.course ? `Course: ${body.course}` : ""].filter(Boolean).join("\n");
-  const prompt = `You are an adaptive university AI tutor. Read this study document carefully and respond directly to the student with a useful teaching explanation. ${learnerContext ? `Use this learner context:\n${learnerContext}\n` : ""}
+  const extractedContext = extractedPdfText ? `\nHere is text extracted directly from the PDF. Use it to improve accuracy, but still inspect the original PDF for layout, diagrams, tables, and visual information:\n---\n${extractedPdfText}\n---\n` : "";
+  const prompt = `You are an adaptive university AI tutor. Read this study document carefully and respond directly to the student with a useful teaching explanation. ${learnerContext ? `Use this learner context:\n${learnerContext}\n` : ""}${extractedContext}
 
 Start with a short summary, then teach the most important concepts from the document. Preserve and explain readable headings, definitions, formulas, labels, diagrams, charts, tables, worked examples, and question/answer pairs. Explain important visual relationships when present. Use short headings, numbered steps, and bullets where useful. Mention anything unreadable or uncertain. Do not invent missing content. End with one small follow-up question or next action for the student.`;
   const model = process.env.GEMINI_DOCUMENT_MODEL || process.env.GEMINI_MODEL || "gemini-3.6-flash";
