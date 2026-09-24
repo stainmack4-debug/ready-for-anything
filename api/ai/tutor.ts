@@ -27,7 +27,9 @@ function providerList(): Provider[] {
   const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "qwen/qwen3-next-80b-a3b-instruct", timeoutMs: 8000 };
   const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
   const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-  return selected === "grok" ? [grok, gemini, geminiFallback, nvidia] : [gemini, geminiFallback, nvidia];
+  if (selected === "grok") return [grok, gemini, geminiFallback, nvidia];
+  if (selected === "nvidia") return [nvidia, gemini, geminiFallback];
+  return [gemini, geminiFallback, nvidia];
 }
 function cleanBaseUrl(value: string) { return value.replace(/\/$/, ""); }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
