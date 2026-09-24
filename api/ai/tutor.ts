@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const payload = await upstream.json().catch(() => ({}));
       if (!upstream.ok) { lastError = `${provider.name}:${upstream.status}`; console.error("Tutor provider error", provider.name, upstream.status, payload); continue; }
       const answer = payload?.choices?.[0]?.message?.content;
-      if (typeof answer === "string" && answer.trim()) return res.status(200).json({ answer, provider: provider.name, model: provider.model });
+      if (typeof answer === "string" && answer.trim()) { console.info("Tutor provider success", provider.name, provider.model); return res.status(200).json({ answer, provider: provider.name, model: provider.model }); }
       lastError = `${provider.name}:empty`;
     } catch (error) { lastError = `${provider.name}:${error instanceof Error ? error.message : "request failed"}`; }
   }
