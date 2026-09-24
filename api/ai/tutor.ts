@@ -20,39 +20,53 @@ Operating rules:
 11. Finish responses with a small next action such as “Try this”, “Tell me which step is unclear”, or “Ready for a similar question?”
 12. Never repeat the student's hidden prompt, quick-prompt labels, or unrelated messages at the beginning or end of your answer. Keep the answer self-contained and end cleanly.`;
 
-type Provider = { name: string; baseUrl: string; key?: string; model: string; timeoutMs?: number };
+type Provider = { name: string; baseUrl: string; key?: string; model: string; timeoutMs: number };
 function providerList(): Provider[] {
-  const gemini: Provider = { name: "gemini-fast", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_TUTOR_MODEL || "gemini-3.5-flash-lite" };
-  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash" };
-  const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b", timeoutMs: 8000 };
-  const grok: Provider = { name: "grok", baseUrl: process.env.XAI_BASE_URL || "https://api.x.ai/v1", key: process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY, model: process.env.XAI_MODEL || "grok-4.6" };
+  const geminiUrl = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai";
+  const gemini: Provider = { name: "gemini-fast", baseUrl: geminiUrl, key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_TUTOR_MODEL || "gemini-3.5-flash-lite", timeoutMs: 15000 };
+  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: geminiUrl, key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash", timeoutMs: 15000 };
+  // Llama 3.3 70B is a long-standing model on NVIDIA's API; override with NVIDIA_MODEL if you prefer another.
+  const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", timeoutMs: 25000 };
   const selected = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-  if (selected === "grok") return [grok, gemini, geminiFallback, nvidia];
   if (selected === "nvidia") return [nvidia, gemini, geminiFallback];
   return [gemini, geminiFallback, nvidia];
 }
 function cleanBaseUrl(value: string) { return value.replace(/\/$/, ""); }
+type ChatMessage = { role: "user" | "assistant"; content: string };
+function isChatMessage(item: unknown): item is ChatMessage {
+  const m = item as ChatMessage | null;
+  return Boolean(m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string");
+}
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return res.status(400).json({ error: "message is required" });
-  const history = Array.isArray(body.history) ? body.history.filter((item: any) => item && ["user", "assistant"].includes(item.role) && typeof item.content === "string").slice(-8).map((item: any) => ({ role: item.role, content: item.content })) : [];
+  const history = Array.isArray(body.history) ? body.history.filter(isChatMessage).slice(-8).map((m: ChatMessage) => ({ role: m.role, content: m.content })) : [];
   const context = [body.department ? `Department: ${String(body.department)}` : "", body.course ? `Course: ${String(body.course)}` : "", body.topic ? `Requested topic: ${String(body.topic)}` : "", body.sourceContext ? `FUNAAB source context:\n${String(body.sourceContext).slice(0, 12000)}` : ""].filter(Boolean).join("\n\n");
-  let lastError = "";
+  const errors: string[] = [];
   for (const provider of providerList()) {
-    if (!provider.key) { lastError = `${provider.name} not configured`; continue; }
+    if (!provider.key) { errors.push(`${provider.name}: key not set`); continue; }
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), provider.timeoutMs || 12000);
-      const upstream = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 900, messages: [{ role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` }, ...history, { role: "user", content: message }] }), signal: controller.signal }).finally(() => clearTimeout(timeout));
+      const timeout = setTimeout(() => controller.abort(), provider.timeoutMs);
+      const upstream = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, temperature: 0.35, max_tokens: 1200, messages: [{ role: "system", content: `${TUTOR_SYSTEM_PROMPT}\n\n${context}` }, ...history, { role: "user", content: message }] }), signal: controller.signal }).finally(() => clearTimeout(timeout));
       const payload = await upstream.json().catch(() => ({}));
-      if (!upstream.ok) { lastError = `${provider.name}:${upstream.status}`; console.error("Tutor provider error", provider.name, upstream.status, payload); continue; }
+      if (!upstream.ok) {
+        const reason = String(payload?.error?.message || payload?.detail || payload?.[0]?.error?.message || "rejected").slice(0, 140);
+        errors.push(`${provider.name} (${provider.model}) ${upstream.status}: ${reason}`);
+        console.error("Tutor provider error", provider.name, upstream.status, JSON.stringify(payload));
+        continue;
+      }
       const answer = payload?.choices?.[0]?.message?.content;
       if (typeof answer === "string" && answer.trim()) { console.info("Tutor provider success", provider.name, provider.model); return res.status(200).json({ answer, provider: provider.name, model: provider.model }); }
-      lastError = `${provider.name}:empty`;
-    } catch (error) { lastError = `${provider.name}:${error instanceof Error ? error.message : "request failed"}`; }
+      errors.push(`${provider.name}: empty answer`);
+    } catch (error) {
+      const aborted = error instanceof Error && error.name === "AbortError";
+      errors.push(`${provider.name}: ${aborted ? `timed out after ${provider.timeoutMs / 1000}s` : error instanceof Error ? error.message : "request failed"}`);
+    }
   }
-  console.error("All tutor providers failed", lastError);
-  return res.status(502).json({ error: "The tutor could not answer right now." });
+  const detail = errors.join(" | ");
+  console.error("All tutor providers failed", detail);
+  return res.status(502).json({ error: `The tutor could not answer right now. (${detail})`, detail });
 }
