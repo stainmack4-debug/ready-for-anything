@@ -2,78 +2,86 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 type DocumentBody = { name?: string; type?: string; dataUrl?: string };
 
+declare const process: { env: Record<string, string | undefined> };
+
 function outputText(payload: any): string {
-  const direct = payload?.output_text;
-  if (typeof direct === "string") return direct;
-  const output = Array.isArray(payload?.output) ? payload.output : [];
-  const text = output.flatMap((item: any) => Array.isArray(item?.content) ? item.content : [])
-    .filter((part: any) => part?.type === "output_text" && typeof part.text === "string")
+  if (typeof payload?.output_text === "string") return payload.output_text;
+  const interactionOutputs = Array.isArray(payload?.outputs) ? payload.outputs : [];
+  const interactionText = interactionOutputs
+    .filter((item: any) => item?.type === "text" && typeof item?.text === "string")
+    .map((item: any) => item.text)
+    .join("\n");
+  if (interactionText) return interactionText;
+
+  const steps = Array.isArray(payload?.steps) ? payload.steps : [];
+  const stepText = steps
+    .flatMap((step: any) => Array.isArray(step?.content) ? step.content : [])
+    .filter((part: any) => typeof part?.text === "string")
     .map((part: any) => part.text)
     .join("\n");
-  if (text) return text;
-  return payload?.choices?.[0]?.message?.content || "";
+  if (stepText) return stepText;
+
+  const choicesText = payload?.choices?.[0]?.message?.content;
+  return typeof choicesText === "string" ? choicesText : "";
+}
+
+function parseBody(req: VercelRequest): DocumentBody | null {
+  try {
+    return (typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}) as DocumentBody;
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const key = process.env.Grok_api_key || process.env.GROK_API_KEY || process.env.XAI_API_KEY;
-  if (!key) return res.status(503).json({ error: "Document reading is not configured yet." });
 
-  let body: DocumentBody;
-  try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}; }
-  catch { return res.status(400).json({ error: "Invalid upload request." }); }
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(503).json({ error: "Gemini document reading is not configured yet." });
+
+  const body = parseBody(req);
+  if (!body) return res.status(400).json({ error: "Invalid upload request." });
+
   const dataUrl = typeof body.dataUrl === "string" ? body.dataUrl : "";
   const name = typeof body.name === "string" ? body.name : "study-document";
   const type = typeof body.type === "string" ? body.type : "";
-  if (!dataUrl || !/^data:(application\/pdf|image\/(png|jpeg|jpg));base64,/i.test(dataUrl))
-    return res.status(400).json({ error: "Please upload a PDF, PNG, or JPG file." });
+  const match = dataUrl.match(/^data:(application\/pdf|image\/(?:png|jpeg|jpg|webp|heic|heif));base64,(.+)$/i);
+  if (!match) return res.status(400).json({ error: "Please upload a PDF, PNG, JPG, WEBP, HEIC, or HEIF file." });
   if (dataUrl.length > 6_000_000) return res.status(413).json({ error: "That file is too large. Please use a file under 4 MB." });
 
-  const model = process.env.XAI_DOCUMENT_MODEL || "grok-4.6";
-  const prompt = `Read this study document carefully. Extract the useful educational content for a university tutor. Preserve formulas, definitions, worked examples, headings, and question/answer pairs. Ignore decorative text. Return clean plain text with a short first line naming the document. Do not invent missing content.`;
-  try {
-    let input: any[];
-    if (type === "application/pdf" || dataUrl.startsWith("data:application/pdf")) {
-      const comma = dataUrl.indexOf(",");
-      const bytes = Buffer.from(dataUrl.slice(comma + 1), "base64");
-      const form = new FormData();
-      form.append("file", new Blob([bytes], { type: "application/pdf" }), name.endsWith(".pdf") ? name : `${name}.pdf`);
-      form.append("purpose", "assistants");
-      const upload = await fetch("https://api.x.ai/v1/files", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
-      const uploaded = await upload.json().catch(() => ({}));
-      if (!upload.ok || !uploaded?.id) {
-        console.error("xAI file upload error", upload.status, uploaded);
-        return res.status(502).json({ error: "Grok could not receive that PDF." });
-      }
-      const upstream = await fetch("https://api.x.ai/v1/responses", {
-        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, input: [{ role: "user", content: [{ type: "input_text", text: prompt }, { type: "input_file", file_id: uploaded.id }] }] }),
-      });
-      const payload = await upstream.json().catch(() => ({}));
-      await fetch(`https://api.x.ai/v1/files/${uploaded.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${key}` } }).catch(() => undefined);
-      if (!upstream.ok) { console.error("xAI PDF reading error", upstream.status, payload); return res.status(502).json({ error: "Grok could not read that PDF." }); }
-      const text = outputText(payload).trim();
-      if (!text) return res.status(502).json({ error: "Grok returned no readable text from that PDF." });
-      return res.status(200).json({ text: text.slice(0, 30000), name });
-    }
+  const mimeType = (type || match[1]).toLowerCase().replace("image/jpg", "image/jpeg");
+  const isPdf = mimeType === "application/pdf";
+  const prompt = `Read this study document carefully for a university AI tutor. Return clean plain text with a short first line naming the document. Preserve readable headings, definitions, formulas, labels, diagrams, charts, tables, worked examples, and question/answer pairs. Explain important visual relationships when present. Do not invent missing content; clearly mark anything unreadable or uncertain. This output will be used as source context by another tutor.`;
+  const model = process.env.GEMINI_DOCUMENT_MODEL || process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  const baseUrl = (process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, "");
 
-    input = [{ role: "user", content: [{ type: "input_image", image_url: dataUrl, detail: "high" }, { type: "input_text", text: prompt }] }];
-    const upstream = await fetch("https://api.x.ai/v1/responses", {
-      method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, input }),
+  try {
+    const upstream = await fetch(`${baseUrl}/interactions`, {
+      method: "POST",
+      headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        input: [
+          { type: "text", text: prompt },
+          isPdf
+            ? { type: "document", data: match[2], mime_type: "application/pdf" }
+            : { type: "image", data: match[2], mime_type: mimeType },
+        ],
+      }),
     });
     const payload = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) { console.error("xAI image reading error", upstream.status, payload); return res.status(502).json({ error: "Grok could not read that image." }); }
+    if (!upstream.ok) {
+      console.error("Gemini document reading error", upstream.status, payload);
+      return res.status(502).json({ error: "Gemini could not read that file." });
+    }
+
     const text = outputText(payload).trim();
-    if (!text) return res.status(502).json({ error: "Grok returned no readable text from that image." });
-    return res.status(200).json({ text: text.slice(0, 30000), name });
+    if (!text) return res.status(502).json({ error: "Gemini returned no readable content from that file." });
+    return res.status(200).json({ text: text.slice(0, 30000), name, provider: "gemini", model });
   } catch (error) {
-    console.error("Document processing error", error);
+    console.error("Gemini document processing error", error);
     return res.status(502).json({ error: "The document could not be processed right now." });
   }
 }
 
 export const config = { api: { bodyParser: { sizeLimit: "6mb" } } };
-
-// Vercel's Node types are not available in this project tsconfig, but runtime env is provided.
-declare const process: { env: Record<string, string | undefined> };
