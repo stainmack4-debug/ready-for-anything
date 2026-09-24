@@ -6,10 +6,15 @@ declare const process: { env: Record<string, string | undefined> };
 function baseUrl() {
   return (process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai").replace(/\/$/, "");
 }
+// Primary model, then Google's rolling aliases which always point at a currently available model.
 function models(): string[] {
-  const list = [process.env.GEMINI_MODEL || "gemini-3.6-flash", "gemini-2.5-flash"];
+  const list = [process.env.GEMINI_MODEL || "gemini-3.6-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];
   return [...new Set(list.filter(Boolean))];
 }
+
+// 503 (overloaded) and 429 (rate limited) are temporary, so they are worth retrying.
+const RETRYABLE = new Set([429, 500, 503]);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type RawQuestion = { topic?: unknown; question?: unknown; options?: unknown; answer?: unknown; explanation?: unknown };
 
@@ -63,39 +68,47 @@ Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the
 
   const errors: string[] = [];
   for (const model of models()) {
-    try {
-      // Mirrors the tutor request shape exactly (no response_format), which is proven to work.
-      const upstream = await fetch(`${baseUrl()}/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          temperature: 0.3,
-          max_tokens: 8000,
-          messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
-        }),
-      });
-      const payload = await upstream.json().catch(() => ({}));
-      if (!upstream.ok) {
-        const reason = String(payload?.error?.message || payload?.[0]?.error?.message || "rejected").slice(0, 160);
-        errors.push(`${model} ${upstream.status}: ${reason}`);
-        console.error("Gemini error", model, upstream.status, JSON.stringify(payload));
-        continue;
+    // Up to 3 tries per model when Google reports it is busy.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const upstream = await fetch(`${baseUrl()}/chat/completions`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            temperature: 0.3,
+            max_tokens: 8000,
+            messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+          }),
+        });
+        const payload = await upstream.json().catch(() => ({}));
+        if (!upstream.ok) {
+          const reason = String(payload?.error?.message || payload?.[0]?.error?.message || "rejected").slice(0, 120);
+          console.error("Gemini error", model, attempt, upstream.status, JSON.stringify(payload));
+          if (RETRYABLE.has(upstream.status) && attempt < 3) { await sleep(1500 * attempt); continue; }
+          errors.push(`${model} ${upstream.status}: ${reason}`);
+          break;
+        }
+        const text = String(payload?.choices?.[0]?.message?.content || "");
+        const questions = normalise(extractJson(text), topic);
+        if (questions.length === 0) {
+          console.error("Gemini returned no usable questions", model, text.slice(0, 1500));
+          if (attempt < 3) continue;
+          errors.push(`${model}: no usable questions`);
+          break;
+        }
+        return res.status(200).json({ questions: questions.slice(0, count), provider: model });
+      } catch (error) {
+        errors.push(`${model}: ${error instanceof Error ? error.message : "request failed"}`);
+        break;
       }
-      const text = String(payload?.choices?.[0]?.message?.content || "");
-      const questions = normalise(extractJson(text), topic);
-      if (questions.length === 0) {
-        const finish = payload?.choices?.[0]?.finish_reason || "unknown";
-        errors.push(`${model}: no usable questions (finish: ${finish}, ${text.length} chars)`);
-        console.error("Gemini returned no usable questions", model, text.slice(0, 1500));
-        continue;
-      }
-      return res.status(200).json({ questions: questions.slice(0, count), provider: model });
-    } catch (error) {
-      errors.push(`${model}: ${error instanceof Error ? error.message : "request failed"}`);
     }
   }
   const detail = errors.join(" | ");
   console.error("Question generation failed", detail);
-  return res.status(502).json({ error: `Questions could not be generated right now. (${detail})`, detail });
+  const busy = errors.some((e) => / (429|503):/.test(e));
+  const message = busy
+    ? "Gemini is very busy right now. Please try again in a minute."
+    : "Questions could not be generated right now.";
+  return res.status(502).json({ error: `${message} (${detail})`, detail });
 }
