@@ -1083,7 +1083,7 @@ function Practice({ setView, profile }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
-  useEffect(() => { if (secondsLeft === null || secondsLeft <= 0) return; const timer = window.setInterval(() => setSecondsLeft((value) => value === null ? null : Math.max(value - 1, 0)), 1000); return () => window.clearInterval(timer); }, [secondsLeft]);
+  useEffect(() => { if (submitted || secondsLeft === null || secondsLeft <= 0) return; const timer = window.setInterval(() => setSecondsLeft((value) => value === null ? null : Math.max(value - 1, 0)), 1000); return () => window.clearInterval(timer); }, [secondsLeft, submitted]);
   useEffect(() => {
     const pending = localStorage.getItem("funabacer.pending-practice");
     if (!pending) return;
@@ -1107,10 +1107,12 @@ function Practice({ setView, profile }: Props) {
     void generate();
   }, [autoStart, topic]);
   const submit = async () => {
+    if (submitted) return;
     const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
     const score = questions.length ? Math.round((correct / questions.length) * 100) : 0;
     saveAttempt({ topicId: `${profile?.course}:${topic.trim()}`, score, total: questions.length, correct, at: Date.now() });
     setSubmitted(true);
+    setSecondsLeft(0);
     setBusy(true);
     try {
       const marking = questions.map((q, i) => `Question ${i + 1}: ${q.question}\nStudent answer: ${q.options[answers[i]]}\nCorrect answer: ${q.options[q.answer]}\nBuilt-in explanation: ${q.explanation}`).join("\n\n");
@@ -1124,7 +1126,7 @@ function Practice({ setView, profile }: Props) {
   return <Page title="Practice" eyebrow="AI-GENERATED PRACTICE" subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}>
     <div className="mx-auto max-w-3xl space-y-5">
       <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold text-[#365348]">Topic to practise<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic from your course scheme" className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400" /></label><div className="mt-4 flex flex-wrap gap-3"><Btn onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>{busy ? "Generating questions…" : "Select topic and start 10-minute sprint"}</Btn>{topic.trim() && <Btn variant="outline" onClick={openReteach}>I don’t understand this topic</Btn>}</div></div>
-      {questions.length > 0 && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">10-minute sprint · {secondsLeft === null ? "Not started" : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`} · Questions are generated for {topic}</div>}
+      {questions.length > 0 && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">10-minute sprint · {submitted ? "Completed" : secondsLeft === null ? "Not started" : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`} · Questions are generated for {topic}</div>}
       {questions.map((q, i) => <div key={i} className={`rounded-2xl border p-6 ${submitted ? answers[i] === q.answer ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50" : "border-[#dcebe3] bg-white"}`}><div className="flex items-start justify-between gap-3"><p className="font-bold leading-7">{i + 1}. {q.question}</p>{submitted && <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${answers[i] === q.answer ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}>{answers[i] === q.answer ? "Correct" : "Incorrect"}</span>}</div><div className="mt-4 space-y-2">{q.options.map((option, j) => <button key={option} disabled={submitted} onClick={() => setAnswers({ ...answers, [i]: j })} className={`w-full rounded-xl border p-3 text-left text-sm ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3]"}`}>{String.fromCharCode(65 + j)}. {option}{submitted && j === q.answer ? " · Correct answer" : ""}</button>)}</div>{submitted && <p className="mt-4 rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#365348]"><strong>Explanation:</strong> {q.explanation}</p>}<button onClick={() => openReteach(q.topic || topic)} className="mt-4 text-sm font-extrabold text-emerald-700 underline">I don’t understand this topic</button></div>)}
       {questions.length > 0 && <Btn onClick={submit} disabled={Object.keys(answers).length !== questions.length}>Submit all answers to the tutor <ArrowRight size={16} /></Btn>}
       {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800"><span className="mb-2 block text-xs uppercase tracking-wider text-emerald-700">Saved to today’s progress</span>{feedback} <button className="ml-2 underline" onClick={() => setView("learn")}>Open AI Tutor</button>{questions.length > 0 && Math.round((questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) / questions.length) * 100) < 10 && <button className="ml-2 rounded-lg bg-emerald-600 px-3 py-2 text-white" onClick={openReteach}>Teach me from the beginning</button>}</div>}
