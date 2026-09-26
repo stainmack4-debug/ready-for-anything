@@ -35309,16 +35309,46 @@ const aliases: Record<string, string[]> = {
   "library and information science": ["library and information studies"],
 };
 
+const verifiedCommonCodes = new Set([
+  "MTS 101",
+  "MTS 102",
+  "MTS 103",
+  "MTS 104",
+  "MTS 105",
+  "MTS 106",
+  "PHS 101",
+  "PHS 102",
+  "PHS 105",
+  "PHS 106",
+  "PHS 191",
+  "PHS 192",
+]);
+
 export function courseBankFor(programme: string, level?: string) {
   const key = normalise(programme);
   const candidates = [key, ...(aliases[key] || []).map(normalise)];
+  const programmePrefixes = new Set(
+    funaabCourseBank
+      .filter(
+        (row) =>
+          row.college !== "University timetable" &&
+          candidates.some((candidate) => {
+            const rowKey = normalise(row.programme);
+            return rowKey === candidate || rowKey.includes(candidate) || candidate.includes(rowKey);
+          }),
+      )
+      .map((row) => row.code.trim().split(/\s+/)[0]),
+  );
   const rows = funaabCourseBank.filter((row) => {
-    if (row.college === "University timetable") return true;
     const rowKey = normalise(row.programme);
-    return candidates.some(
+    const matchesProgramme = candidates.some(
       (candidate) =>
         rowKey === candidate || rowKey.includes(candidate) || candidate.includes(rowKey),
     );
+    if (row.college !== "University timetable") return matchesProgramme;
+    const code = row.code.trim();
+    const prefix = code.split(/\s+/)[0];
+    return matchesProgramme || verifiedCommonCodes.has(code) || programmePrefixes.has(prefix);
   });
   if (!level) return rows;
   return rows.filter((row) => row.level.toLowerCase() === level.toLowerCase());
