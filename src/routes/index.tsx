@@ -1328,6 +1328,11 @@ function Notes({ userId }: Props) {
   const [completed, setCompleted] = useState(false);
   const cacheKey = `funabacer.note-cruncher.sets.${userId || "local"}`;
   const legacyCacheKey = "funabacer.note-cruncher.sets";
+  const loadCards = (item: SavedSet) => {
+    const safeCards = Array.isArray(item.cards) ? item.cards.filter((card) => card && typeof card.front === "string" && typeof card.back === "string") : [];
+    const safeCurrent = Math.min(Math.max(item.current || 0, 0), Math.max(safeCards.length - 1, 0));
+    setCards(safeCards); setSourceName(item.name); setCurrent(safeCurrent); setFlipped(false); setKnown(item.known || []); setReview(item.review || []); setCompleted(Boolean(item.completed || !safeCards.length));
+  };
   useEffect(() => {
     try {
       const cached = JSON.parse(localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]");
@@ -1339,9 +1344,9 @@ function Notes({ userId }: Props) {
     void (async () => {
       const { data: remote } = await supabase.from("flashcard_sets").select("id, file_name, cards, known_cards, review_cards, current_position, completed").eq("user_id", userId).order("updated_at", { ascending: false }).limit(20);
       if (remote?.length) {
-        const next = remote.map((item) => ({ id: item.id, name: item.file_name, cards: item.cards as unknown as Flashcard[], known: item.known_cards as unknown as number[], review: item.review_cards as unknown as number[], current: item.current_position, completed: item.completed }));
+        const next = remote.map((item) => ({ id: item.id, name: item.file_name, cards: Array.isArray(item.cards) ? item.cards as unknown as Flashcard[] : [], known: Array.isArray(item.known_cards) ? item.known_cards as unknown as number[] : [], review: Array.isArray(item.review_cards) ? item.review_cards as unknown as number[] : [], current: item.current_position, completed: item.completed }));
         setSavedSets(next);
-        loadCards(next[0]);
+        if (next[0]) loadCards(next[0]);
       } else {
         const cached = (() => { try { return JSON.parse(localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]"); } catch { return []; } })();
         for (const item of Array.isArray(cached) ? cached.slice(0, 10) : []) {
@@ -1351,7 +1356,6 @@ function Notes({ userId }: Props) {
     })();
   }, [userId]);
   useEffect(() => { localStorage.setItem(cacheKey, JSON.stringify(savedSets)); }, [cacheKey, savedSets]);
-  const loadCards = (item: SavedSet) => { setCards(item.cards); setSourceName(item.name); setCurrent(item.current); setFlipped(false); setKnown(item.known); setReview(item.review); setCompleted(item.completed); };
   const saveSet = async (nextCards: Flashcard[], name: string) => {
     const localSet: SavedSet = { name, cards: nextCards, known: [], review: [], current: 0, completed: false };
     if (userId) {
@@ -1362,6 +1366,7 @@ function Notes({ userId }: Props) {
     setSavedSets(nextSets); loadCards(localSet);
   };
   const markCard = (kind: "known" | "review") => {
+    if (!cards.length || !cards[current]) return;
     const nextKnown = kind === "known" && !known.includes(current) ? [...known, current] : known;
     const nextReview = kind === "review" && !review.includes(current) ? [...review, current] : review;
     const nextCurrent = current < cards.length - 1 ? current + 1 : current;
