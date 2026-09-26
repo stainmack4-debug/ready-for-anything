@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -807,6 +807,9 @@ function Learn({ setView, profile, userId }: Props) {
   const [tutorFileBusy, setTutorFileBusy] = useState(false);
   const [tutorFileError, setTutorFileError] = useState("");
   const [tutorFileName, setTutorFileName] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationReady, setConversationReady] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(memoryKey) || "null");
@@ -817,17 +820,51 @@ function Learn({ setView, profile, userId }: Props) {
     localStorage.setItem(memoryKey, JSON.stringify(messages.slice(-40)));
   }, [memoryKey, messages]);
   useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [messages, isAsking]);
+  useEffect(() => {
+    let cancelled = false;
+    setConversationReady(false);
+    setConversationId(null);
+    if (!userId) return;
+    void (async () => {
+      const { data: conversation } = await supabase.from("tutor_conversations").select("id").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      if (cancelled) return;
+      if (conversation?.id) {
+        const { data: savedMessages } = await supabase.from("tutor_messages").select("role, content").eq("conversation_id", conversation.id).order("created_at", { ascending: true }).limit(100);
+        if (!cancelled) {
+          setConversationId(conversation.id);
+          if (savedMessages?.length) setMessages(savedMessages.map((message) => ({ role: message.role as ChatMessage["role"], content: message.content })).slice(-40));
+        }
+      } else {
+        const cached = (() => { try { const value = JSON.parse(localStorage.getItem(memoryKey) || "null"); return Array.isArray(value) && value.length ? value.slice(-40) : [initialMessage]; } catch { return [initialMessage]; } })();
+        const { data: created } = await supabase.from("tutor_conversations").insert({ user_id: userId, course: profile?.course || "", title: "Tutor conversation" }).select("id").single();
+        if (created?.id) {
+          await supabase.from("tutor_messages").insert(cached.map((message: ChatMessage) => ({ conversation_id: created.id, user_id: userId, role: message.role, content: message.content })));
+          if (!cancelled) { setConversationId(created.id); setMessages(cached); }
+        }
+      }
+      if (!cancelled) setConversationReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+  const saveTutorMessages = async (newMessages: ChatMessage[]) => {
+    if (!userId || !conversationId) return;
+    const additions = newMessages.slice(-2);
+    await supabase.from("tutor_messages").insert(additions.map((message) => ({ conversation_id: conversationId, user_id: userId, role: message.role, content: message.content })));
+    await supabase.from("tutor_conversations").update({ course: profile?.course || "" }).eq("id", conversationId).eq("user_id", userId);
+  };
+  useEffect(() => {
     const pending = localStorage.getItem("funabacer.pending-question");
     if (pending) {
       localStorage.removeItem("funabacer.pending-question");
       setQuestion(pending);
-      void (async () => { await new Promise((resolve) => setTimeout(resolve, 0)); })();
     }
   }, []);
 
   const askTutor = async (preset?: string, sourceContextOverride?: string) => {
     const message = (preset || question).trim();
-    if (!message || isAsking) return;
+    if (!message || isAsking || !conversationReady) return;
     if (!profile?.department || !profile?.course) {
       setTutorError("Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.");
       return;
@@ -842,6 +879,7 @@ function Learn({ setView, profile, userId }: Props) {
     setTutorError("");
     const nextMessages = [...messages, { role: "user" as const, content: message }];
     setMessages(nextMessages);
+    void saveTutorMessages([nextMessages[nextMessages.length - 1]]);
     setQuestion("");
     try {
       const response = await fetch("/api/ai/tutor", {
@@ -858,7 +896,9 @@ function Learn({ setView, profile, userId }: Props) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
-      setMessages([...nextMessages, { role: "assistant", content: data.answer }]);
+      const assistantMessage = { role: "assistant" as const, content: data.answer };
+      setMessages([...nextMessages, assistantMessage]);
+      void saveTutorMessages([assistantMessage]);
     } catch (error) {
       setTutorError(
         error instanceof Error ? error.message : "The tutor could not answer right now.",
@@ -900,7 +940,9 @@ function Learn({ setView, profile, userId }: Props) {
       setSourceContext(extractedContext);
       setSourceName(attachedName);
       setTutorFileName(attachedName);
-      setMessages((current) => [...current, { role: "user", content: `Explain the uploaded file “${attachedName}”.` }, { role: "assistant", content: data.answer || extractedContext }]);
+      const fileMessages = [{ role: "user" as const, content: `Explain the uploaded file “${attachedName}”.` }, { role: "assistant" as const, content: data.answer || extractedContext }];
+      setMessages((current) => [...current, ...fileMessages]);
+      void saveTutorMessages(fileMessages);
     } catch (error) { setTutorFileError(error instanceof Error ? error.message : "The file could not be read."); }
     finally { setTutorFileBusy(false); }
   };
@@ -918,7 +960,7 @@ function Learn({ setView, profile, userId }: Props) {
     >
       <div className="mx-auto max-w-3xl">
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><strong>Teaching context:</strong> {profile?.department || "Department missing"} · {profile?.course || "Programme missing"}. The Tutor uses this context and the saved conversation below; it will not guess a different programme.</div>
-        <div className="overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
+        <div className="flex max-h-[calc(100dvh-10rem)] min-h-[34rem] flex-col overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500">
@@ -939,7 +981,7 @@ function Learn({ setView, profile, userId }: Props) {
               ∑
             </button>
           </div>
-          <div className="max-h-[58vh] space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
@@ -952,6 +994,7 @@ function Learn({ setView, profile, userId }: Props) {
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
             {isAsking && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-sm text-emerald-100/70">
@@ -960,7 +1003,7 @@ function Learn({ setView, profile, userId }: Props) {
               </div>
             )}
           </div>
-          <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-6">
+          <div className="sticky bottom-0 border-t border-white/10 bg-[#071612] px-4 pb-4 pt-3 sm:px-6">
             {messages.length <= 1 && !question.trim() && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {quickPrompts.map((prompt) => (
@@ -1050,7 +1093,7 @@ function Learn({ setView, profile, userId }: Props) {
               />
               <button
                 onClick={() => askTutor()}
-                disabled={!question.trim() || isAsking}
+                disabled={!question.trim() || isAsking || !conversationReady}
                 className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#071612] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
               >
@@ -1273,32 +1316,74 @@ function DocumentAttachment({ onProcessed, name }: { onProcessed: (cards: Flashc
   </div>;
 }
 
-function Notes() {
-  const [cards, setCards] = useState<Flashcard[]>(() => { try { return JSON.parse(localStorage.getItem("funabacer.note-cruncher.cards") || "[]"); } catch { return []; } });
-  const [sourceName, setSourceName] = useState(() => localStorage.getItem("funabacer.note-cruncher.name") || "");
-  const [savedSets, setSavedSets] = useState<{ name: string; cards: Flashcard[] }[]>(() => { try { return JSON.parse(localStorage.getItem("funabacer.note-cruncher.sets") || "[]"); } catch { return []; } });
+function Notes({ userId }: Props) {
+  type SavedSet = { id?: string; name: string; cards: Flashcard[]; known: number[]; review: number[]; current: number; completed: boolean };
+  const [cards, setCards] = useState<Flashcard[]>([]);
+  const [sourceName, setSourceName] = useState("");
+  const [savedSets, setSavedSets] = useState<SavedSet[]>([]);
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState<number[]>([]);
   const [review, setReview] = useState<number[]>([]);
-  const [completed, setCompleted] = useState(() => localStorage.getItem("funabacer.note-cruncher.completed") === "true");
-  useEffect(() => { if (cards.length) { localStorage.setItem("funabacer.note-cruncher.cards", JSON.stringify(cards)); localStorage.setItem("funabacer.note-cruncher.name", sourceName); } }, [cards, sourceName]);
-  useEffect(() => { localStorage.setItem("funabacer.note-cruncher.completed", String(completed)); }, [completed]);
-  const loadCards = (nextCards: Flashcard[], name: string) => { setCards(nextCards); setSourceName(name); setCurrent(0); setFlipped(false); setKnown([]); setReview([]); setCompleted(false); };
-  const saveSet = (nextCards: Flashcard[], name: string) => { const nextSets = [{ name, cards: nextCards }, ...savedSets.filter((item) => item.name !== name)].slice(0, 10); setSavedSets(nextSets); localStorage.setItem("funabacer.note-cruncher.sets", JSON.stringify(nextSets)); loadCards(nextCards, name); };
-  const markCard = (kind: "known" | "review") => { const update = kind === "known" ? setKnown : setReview; update((previous) => previous.includes(current) ? previous : [...previous, current]); if (current < cards.length - 1) { setFlipped(false); window.setTimeout(() => setCurrent((value) => value + 1), 220); } else { setCompleted(true); } };
-  const finished = completed;
+  const [completed, setCompleted] = useState(false);
+  const cacheKey = `funabacer.note-cruncher.sets.${userId || "local"}`;
+  const legacyCacheKey = "funabacer.note-cruncher.sets";
+  useEffect(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]");
+      if (Array.isArray(cached)) setSavedSets(cached.map((item) => ({ ...item, known: item.known || [], review: item.review || [], current: item.current || 0, completed: Boolean(item.completed) })));
+    } catch { /* use empty state */ }
+  }, [cacheKey, legacyCacheKey]);
+  useEffect(() => {
+    if (!userId) return;
+    void (async () => {
+      const { data: remote } = await supabase.from("flashcard_sets").select("id, file_name, cards, known_cards, review_cards, current_position, completed").eq("user_id", userId).order("updated_at", { ascending: false }).limit(20);
+      if (remote?.length) {
+        const next = remote.map((item) => ({ id: item.id, name: item.file_name, cards: item.cards as unknown as Flashcard[], known: item.known_cards as unknown as number[], review: item.review_cards as unknown as number[], current: item.current_position, completed: item.completed }));
+        setSavedSets(next);
+        loadCards(next[0]);
+      } else {
+        const cached = (() => { try { return JSON.parse(localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]"); } catch { return []; } })();
+        for (const item of Array.isArray(cached) ? cached.slice(0, 10) : []) {
+          await supabase.from("flashcard_sets").insert({ user_id: userId, file_name: item.name, cards: item.cards, known_cards: item.known || [], review_cards: item.review || [], current_position: item.current || 0, completed: Boolean(item.completed) });
+        }
+      }
+    })();
+  }, [userId]);
+  useEffect(() => { localStorage.setItem(cacheKey, JSON.stringify(savedSets)); }, [cacheKey, savedSets]);
+  const loadCards = (item: SavedSet) => { setCards(item.cards); setSourceName(item.name); setCurrent(item.current); setFlipped(false); setKnown(item.known); setReview(item.review); setCompleted(item.completed); };
+  const saveSet = async (nextCards: Flashcard[], name: string) => {
+    const localSet: SavedSet = { name, cards: nextCards, known: [], review: [], current: 0, completed: false };
+    if (userId) {
+      const { data } = await supabase.from("flashcard_sets").insert({ user_id: userId, file_name: name, cards: nextCards, known_cards: [], review_cards: [], current_position: 0, completed: false }).select("id").single();
+      if (data?.id) localSet.id = data.id;
+    }
+    const nextSets = [localSet, ...savedSets.filter((item) => item.name !== name)].slice(0, 20);
+    setSavedSets(nextSets); loadCards(localSet);
+  };
+  const markCard = (kind: "known" | "review") => {
+    const nextKnown = kind === "known" && !known.includes(current) ? [...known, current] : known;
+    const nextReview = kind === "review" && !review.includes(current) ? [...review, current] : review;
+    const nextCurrent = current < cards.length - 1 ? current + 1 : current;
+    const nextCompleted = current >= cards.length - 1;
+    setKnown(nextKnown); setReview(nextReview); setCompleted(nextCompleted);
+    setSavedSets((previous) => previous.map((item) => item.name === sourceName ? { ...item, known: nextKnown, review: nextReview, current: nextCurrent, completed: nextCompleted } : item));
+    const active = savedSets.find((item) => item.name === sourceName);
+    if (userId && active?.id) void supabase.from("flashcard_sets").update({ known_cards: nextKnown, review_cards: nextReview, current_position: nextCurrent, completed: nextCompleted }).eq("id", active.id).eq("user_id", userId);
+    if (!nextCompleted) { setFlipped(false); window.setTimeout(() => setCurrent(nextCurrent), 220); }
+  };
   return <Page title="Note Cruncher" eyebrow="STUDY MATERIALS" subtitle="Turn your class notes into flashcards you can actually revise.">
     <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
       <div>
-        <DocumentAttachment onProcessed={(nextCards, name) => saveSet(nextCards, name)} name={sourceName} />
+        <DocumentAttachment onProcessed={(nextCards, name) => void saveSet(nextCards, name)} name={sourceName} />
         {cards.length > 0 && !completed && <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">{sourceName}</p><span className="text-xs font-bold text-emerald-700">{current + 1}/{cards.length}</span></div><div className="mt-3 flex gap-1">{cards.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div><button onClick={() => setFlipped((value) => !value)} className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">{flipped ? "Answer" : "Question"}</p><div className="mt-4 text-base leading-7 text-[#244138]"><TutorMessage content={flipped ? cards[current].back : cards[current].front} light /></div><p className="mt-5 text-xs font-semibold text-[#71877d]">Tap the card to {flipped ? "see the question" : "reveal the answer"}</p></button><div className="mt-4 flex gap-2"><Btn variant="outline" className="flex-1" onClick={() => markCard("review")} disabled={!flipped}>Review again</Btn><Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>I know this</Btn></div></div>}
-        {finished && <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">You finished this study set. It is saved under Recent study sets. Known: {known.length} · Review again: {review.length}</div>}
+        {completed && cards.length > 0 && <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">You finished this study set. It is saved under Recent study sets. Known: {known.length} · Review again: {review.length}</div>}
       </div>
-      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.name} onClick={() => loadCards(item.cards, item.name)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.id || item.name} onClick={() => loadCards(item)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
     </div>
   </Page>;
 }
+
 function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
   return (
     <Page
@@ -1864,7 +1949,7 @@ function App() {
   else if (view === "reteach") content = <Reteach {...props} profile={profile} />;
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
-  else if (view === "notes") content = <Notes />;
+  else if (view === "notes") content = <Notes {...props} />;
   else if (view === "profile") content = <Profile {...props} profile={profile} onEdit={async () => { await supabase.auth.updateUser({ data: { department: null, course: null } }); localStorage.removeItem("funabacer-profile"); setProfile(null); setNeedsOnboarding(true); }} />;
   else if (view === "admin") content = <AdminPanel />;
   else

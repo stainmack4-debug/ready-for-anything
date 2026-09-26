@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      flashcard_sets: {
+        Row: { cards: Json; completed: boolean; created_at: string; current_position: number; file_name: string; id: string; known_cards: Json; review_cards: Json; updated_at: string; user_id: string }
+        Insert: { cards?: Json; completed?: boolean; created_at?: string; current_position?: number; file_name: string; id?: string; known_cards?: Json; review_cards?: Json; updated_at?: string; user_id: string }
+        Update: { cards?: Json; completed?: boolean; created_at?: string; current_position?: number; file_name?: string; id?: string; known_cards?: Json; review_cards?: Json; updated_at?: string; user_id?: string }
+        Relationships: []
+      }
+      student_profiles: {
+        Row: { course: string; department: string; full_name: string | null; updated_at: string; user_id: string }
+        Insert: { course: string; department: string; full_name?: string | null; updated_at?: string; user_id: string }
+        Update: { course?: string; department?: string; full_name?: string | null; updated_at?: string; user_id?: string }
+        Relationships: []
+      }
+      study_attempts: {
+        Row: { attempted_at: string; correct: number; id: string; score: number; topic_id: string; total: number; user_id: string }
+        Insert: { attempted_at?: string; correct: number; id?: string; score: number; topic_id: string; total: number; user_id: string }
+        Update: { attempted_at?: string; correct?: number; id?: string; score?: number; topic_id?: string; total?: number; user_id?: string }
+        Relationships: []
+      }
+      tutor_conversations: {
+        Row: { course: string; created_at: string; id: string; title: string; updated_at: string; user_id: string }
+        Insert: { course?: string; created_at?: string; id?: string; title?: string; updated_at?: string; user_id: string }
+        Update: { course?: string; created_at?: string; id?: string; title?: string; updated_at?: string; user_id?: string }
+        Relationships: []
+      }
+      tutor_messages: {
+        Row: { content: string; conversation_id: string; created_at: string; id: string; role: string; user_id: string }
+        Insert: { content: string; conversation_id: string; created_at?: string; id?: string; role: string; user_id: string }
+        Update: { content?: string; conversation_id?: string; created_at?: string; id?: string; role?: string; user_id?: string }
+        Relationships: [{ foreignKeyName: "tutor_messages_conversation_id_fkey"; columns: ["conversation_id"]; isOneToOne: false; referencedRelation: "tutor_conversations"; referencedColumns: ["id"] }]
+      }
     }
     Views: {
       [_ in never]: never
