@@ -784,7 +784,8 @@ function TutorMessage({ content, light = false }: { content: string; light?: boo
     if (!trimmed) return <div key={i} className="h-2" />;
     if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed)) return <hr key={i} className={`my-3 ${light ? "border-[#c9ddd2]" : "border-white/15"}`} />;
     if (/^\$\$.*\$\$$/.test(trimmed)) return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
-    if (/^#{1,3} /.test(trimmed)) return <h3 key={i} className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}><TutorInline value={trimmed.replace(/^#{1,3} /, "")} /></h3>;
+    const heading = trimmed.match(/^#{1,6}\s*(.+)$/);
+    if (heading) return <h3 key={i} className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}><TutorInline value={heading[1]} /></h3>;
     if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.slice(2)} /></div>;
     if (/^\d+[.)] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.replace(/^\d+[.)] /, "")} /></div>;
     return <p key={i}><TutorInline value={trimmed} /></p>;
