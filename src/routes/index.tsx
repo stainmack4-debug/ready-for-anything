@@ -776,15 +776,15 @@ function TutorInline({ value }: { value: string }) {
     return <span key={i}>{bold}</span>;
   })}</>;
 }
-function TutorMessage({ content }: { content: string }) {
+function TutorMessage({ content, light = false }: { content: string; light?: boolean }) {
   const cleaned = content.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
   const lines = cleaned.split("\n");
-  return <div className="space-y-1">{lines.map((line, i) => {
+  return <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>{lines.map((line, i) => {
     const trimmed = line.trim();
     if (!trimmed) return <div key={i} className="h-2" />;
-    if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed)) return <hr key={i} className="my-3 border-white/15" />;
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed)) return <hr key={i} className={`my-3 ${light ? "border-[#c9ddd2]" : "border-white/15"}`} />;
     if (/^\$\$.*\$\$$/.test(trimmed)) return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
-    if (/^#{1,3} /.test(trimmed)) return <h3 key={i} className="mt-3 font-extrabold text-white"><TutorInline value={trimmed.replace(/^#{1,3} /, "")} /></h3>;
+    if (/^#{1,3} /.test(trimmed)) return <h3 key={i} className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}><TutorInline value={trimmed.replace(/^#{1,3} /, "")} /></h3>;
     if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.slice(2)} /></div>;
     if (/^\d+[.)] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.replace(/^\d+[.)] /, "")} /></div>;
     return <p key={i}><TutorInline value={trimmed} /></p>;
@@ -1137,7 +1137,7 @@ function Practice({ setView, profile }: Props) {
       {!submitted && questions.length > 0 && renderQuestion(questions[currentIndex], currentIndex)}
       {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && <Btn onClick={submit} disabled={Object.keys(answers).length !== questions.length || busy} className="w-full">Submit all answers to the tutor <ArrowRight size={16} /></Btn>}
       {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
-      {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800"><span className="mb-2 block text-xs uppercase tracking-wider text-emerald-700">Saved to today’s progress</span>{feedback} <button className="ml-2 underline" onClick={() => setView("learn")}>Open AI Tutor</button>{questions.length > 0 && Math.round((questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) / questions.length) * 100) < 10 && <button className="ml-2 rounded-lg bg-emerald-600 px-3 py-2 text-white" onClick={openReteach}>Teach me from the beginning</button>}</div>}
+      {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800"><span className="mb-3 block text-xs uppercase tracking-wider text-emerald-700">Saved to today’s progress</span><TutorMessage content={feedback} light /><div className="mt-4 flex flex-wrap items-center gap-3"><button className="underline" onClick={() => setView("learn")}>Open AI Tutor</button>{questions.length > 0 && Math.round((questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) / questions.length) * 100) < 10 && <button className="rounded-lg bg-emerald-600 px-3 py-2 text-white" onClick={openReteach}>Teach me from the beginning</button>}</div></div>}
     </div>
   </Page>;
 }
