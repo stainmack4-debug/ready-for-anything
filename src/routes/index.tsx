@@ -1283,7 +1283,7 @@ function Notes() {
       <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
         <div>
           <DocumentAttachment onProcessed={(text, name) => setSource({ text, name })} />
-          {source && <div className="mt-4 rounded-xl bg-white p-4 text-left"><p className="text-sm font-bold">{source.name} is ready for Gemini</p><p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-5 text-[#71877d]">{source.text}</p></div>}
+          {source && <div className="mt-4 rounded-xl bg-white p-4 text-left"><p className="text-sm font-bold">{source.name} is ready for Gemini</p><div className="mt-2 max-h-64 overflow-auto text-xs leading-5 text-[#71877d]"><TutorMessage content={source.text} light /></div></div>}
         </div>
         <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
           <h2 className="font-extrabold">Recent study sets</h2>
