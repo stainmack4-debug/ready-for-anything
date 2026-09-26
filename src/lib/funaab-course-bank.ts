@@ -11689,6 +11689,7 @@ export const funaabCourseBank: CourseBankRow[] = [
     college: "College of Food Sciences and Human Ecology",
     level: "100",
     code: "CHM 192",
+    title: "",
     units: "",
     type: "unknown",
     status: "unknown",
@@ -23281,6 +23282,14 @@ const verifiedCommonCodes = new Set([
 // Common first-year subjects used by Engineering students at FUNAAB. These
 // prefixes are matched by course code, because the source bank may catalogue
 // a shared course under the department that owns it.
+const verifiedEngineeringTerms = [
+  "engineering",
+  "mechanical",
+  "mechatronic",
+  "civil",
+  "electrical",
+  "agricultural engineering",
+];
 const verifiedCommonPrefixes = new Set([
   "MTS",
   "PHS",
@@ -23320,7 +23329,7 @@ export function courseBankFor(programme: string, level?: string) {
     );
     if (row.college !== "University timetable") return matchesProgramme;
     const code = row.code.trim();
-    const prefix = code.split(/\s+/)[0];
+    const prefix = code.split(/\s+/)[0] || "";
     return (
       matchesProgramme ||
       verifiedCommonCodes.has(code) ||
