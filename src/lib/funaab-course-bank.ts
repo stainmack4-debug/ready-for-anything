@@ -35322,11 +35322,36 @@ const verifiedCommonCodes = new Set([
   "PHS 106",
   "PHS 191",
   "PHS 192",
+  "GNS 101",
+  "GNS 102",
+  "GNS 105",
+  "GNS 107",
+  "GNS 111",
+  "GNS 204",
+]);
+
+// Common first-year subjects used by Engineering students at FUNAAB. These
+// prefixes are matched by course code, because the source bank may catalogue
+// a shared course under the department that owns it.
+const verifiedCommonPrefixes = new Set([
+  "MTS",
+  "PHS",
+  "PHY",
+  "CHM",
+  "PCP",
+  "GNS",
+  "GST",
+  "AUD",
+  "GET",
+  "MEE",
 ]);
 
 export function courseBankFor(programme: string, level?: string) {
   const key = normalise(programme);
   const candidates = [key, ...(aliases[key] || []).map(normalise)];
+  const isEngineeringProgramme = verifiedEngineeringTerms.some((term) =>
+    candidates.some((candidate) => candidate.includes(normalise(term))),
+  );
   const programmePrefixes = new Set(
     funaabCourseBank
       .filter(
@@ -35348,7 +35373,12 @@ export function courseBankFor(programme: string, level?: string) {
     if (row.college !== "University timetable") return matchesProgramme;
     const code = row.code.trim();
     const prefix = code.split(/\s+/)[0];
-    return matchesProgramme || verifiedCommonCodes.has(code) || programmePrefixes.has(prefix);
+    return (
+      matchesProgramme ||
+      verifiedCommonCodes.has(code) ||
+      (isEngineeringProgramme && verifiedCommonPrefixes.has(prefix)) ||
+      programmePrefixes.has(prefix)
+    );
   });
   if (!level) return rows;
   return rows.filter((row) => row.level.toLowerCase() === level.toLowerCase());
