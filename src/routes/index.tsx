@@ -1369,13 +1369,14 @@ function Notes({ userId }: Props) {
     if (!cards.length || !cards[current]) return;
     const nextKnown = kind === "known" && !known.includes(current) ? [...known, current] : known;
     const nextReview = kind === "review" && !review.includes(current) ? [...review, current] : review;
-    const nextCurrent = current < cards.length - 1 ? current + 1 : current;
-    const nextCompleted = current >= cards.length - 1;
+    const nextCurrent = kind === "review" ? current : current < cards.length - 1 ? current + 1 : current;
+    const nextCompleted = kind === "review" ? false : current >= cards.length - 1;
     setKnown(nextKnown); setReview(nextReview); setCompleted(nextCompleted);
     setSavedSets((previous) => previous.map((item) => item.name === sourceName ? { ...item, known: nextKnown, review: nextReview, current: nextCurrent, completed: nextCompleted } : item));
     const active = savedSets.find((item) => item.name === sourceName);
     if (userId && active?.id) void supabase.from("flashcard_sets").update({ known_cards: nextKnown, review_cards: nextReview, current_position: nextCurrent, completed: nextCompleted }).eq("id", active.id).eq("user_id", userId);
-    if (!nextCompleted) { setFlipped(false); window.setTimeout(() => setCurrent(nextCurrent), 220); }
+    setFlipped(false);
+    if (kind === "known" && !nextCompleted) window.setTimeout(() => setCurrent(nextCurrent), 220);
   };
   return <Page title="Note Cruncher" eyebrow="STUDY MATERIALS" subtitle="Turn your class notes into flashcards you can actually revise.">
     <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
