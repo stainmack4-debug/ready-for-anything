@@ -1480,10 +1480,18 @@ function Practice({ setView, profile }: Props) {
       ),
     [profile?.course, selectedLevel],
   );
-  const courseTopics = useMemo(
-    () => [...new Set(courseRows.map((row) => row.title))].slice(0, 80),
-    [courseRows],
-  );
+  const courseTopics = useMemo(() => {
+    const unique = new Map<
+      string,
+      { key: string; label: string; status: string; subtopics: string[] }
+    >();
+    for (const row of courseRows) {
+      const key = `${row.code} — ${row.title}`;
+      if (!unique.has(key))
+        unique.set(key, { key, label: key, status: row.status, subtopics: row.subtopics });
+    }
+    return [...unique.values()];
+  }, [courseRows]);
   const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
   const [questionPool, setQuestionPool] = useState<Question[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -1774,14 +1782,15 @@ function Practice({ setView, profile }: Props) {
             <label className="block text-sm font-bold text-[#365348]">
               Topic from verified course scheme
               <select
-                value={courseTopics.includes(topic) ? topic : ""}
+                value={courseTopics.some((item) => item.key === topic) ? topic : ""}
                 onChange={(e) => setTopic(e.target.value)}
                 className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
               >
                 <option value="">Choose a course topic</option>
                 {courseTopics.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                  <option key={item.key} value={item.key}>
+                    {item.label}
+                    {item.status !== "unknown" ? ` · ${item.status}` : ""}
                   </option>
                 ))}
               </select>
@@ -1802,7 +1811,7 @@ function Practice({ setView, profile }: Props) {
           </label>
           <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
             {courseRows.length
-              ? `Verified bank: ${courseRows.length} course entries for ${selectedLevel || "this programme"}. The first AI batch is saved on this device and reused for future 10-minute sprints.`
+              ? `Verified bank: ${courseRows.length} official course rows for ${selectedLevel || "all imported levels"}. Compulsory/elective labels are shown only where FUNAAB sources publish them.`
               : "This programme has no verified levelled course rows yet, so AI topic search remains available."}
           </div>
           <div className="flex flex-wrap gap-3">
@@ -3094,7 +3103,7 @@ function App() {
   const [view, setView] = useState<View>("dashboard");
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
-    if (!session || localStorage.getItem("funabacer-curriculum-seeded-v1")) return;
+    if (!session || localStorage.getItem("funabacer-curriculum-seeded-v2")) return;
     let cancelled = false;
     void (async () => {
       for (let offset = 0; offset < funaabCourseBank.length && !cancelled; offset += 200) {
@@ -3114,7 +3123,7 @@ function App() {
           return;
         }
       }
-      if (!cancelled) localStorage.setItem("funabacer-curriculum-seeded-v1", "true");
+      if (!cancelled) localStorage.setItem("funabacer-curriculum-seeded-v2", "true");
     })();
     return () => {
       cancelled = true;
