@@ -8,6 +8,78 @@ export type Database = {
   };
   public: {
     Tables: {
+      course_contributions: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          level: string;
+          programme: string;
+          source_type: string;
+          status: string;
+          submitted_by: string;
+          title: string;
+          votes: number;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          level?: string;
+          programme: string;
+          source_type?: string;
+          status?: string;
+          submitted_by: string;
+          title?: string;
+          votes?: number;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          level?: string;
+          programme?: string;
+          source_type?: string;
+          status?: string;
+          submitted_by?: string;
+          title?: string;
+          votes?: number;
+        };
+        Relationships: [];
+      };
+      student_courses: {
+        Row: {
+          code: string;
+          created_at: string;
+          id: string;
+          level: string;
+          programme: string;
+          source: string;
+          title: string;
+          user_id: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          id?: string;
+          level?: string;
+          programme: string;
+          source?: string;
+          title?: string;
+          user_id: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          id?: string;
+          level?: string;
+          programme?: string;
+          source?: string;
+          title?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       flashcard_sets: {
         Row: {
           cards: Json;

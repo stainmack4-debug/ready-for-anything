@@ -66,6 +66,7 @@ type View =
   | "admin";
 type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string; level?: string };
+type CustomCourse = { code: string; title: string; level: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
 function realStats() {
   const attempts = getAttempts();
@@ -1461,7 +1462,7 @@ function Learn({ setView, profile, userId }: Props) {
     </Page>
   );
 }
-function Practice({ setView, profile }: Props) {
+function Practice({ setView, profile, userId }: Props) {
   type Question = {
     question: string;
     options: string[];
@@ -1470,6 +1471,7 @@ function Practice({ setView, profile }: Props) {
     topic?: string;
   };
   const [topic, setTopic] = useState("");
+  const [customRows, setCustomRows] = useState<CustomCourse[]>([]);
   const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
   const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
   const courseRows = useMemo(
@@ -1480,18 +1482,52 @@ function Practice({ setView, profile }: Props) {
       ),
     [profile?.course, selectedLevel],
   );
+  useEffect(() => {
+    if (!userId || !profile?.course) return;
+    void supabase
+      .from("student_courses")
+      .select("code,title,level")
+      .eq("user_id", userId)
+      .eq("programme", profile.course)
+      .then(({ data }) =>
+        setCustomRows(
+          (data || []).map((row) => ({
+            code: row.code,
+            title: row.title || "",
+            level: row.level || "",
+          })),
+        ),
+      );
+  }, [userId, profile?.course]);
+  const allCourseRows = useMemo(
+    () => [
+      ...courseRows,
+      ...customRows
+        .filter((row) => !selectedLevel || row.level === selectedLevel || !row.level)
+        .map((row) => ({
+          ...row,
+          programme: profile?.course || "",
+          college: "Student workspace",
+          units: "",
+          type: "custom",
+          status: "student-added",
+          subtopics: [],
+        })),
+    ],
+    [courseRows, customRows, profile?.course, selectedLevel],
+  );
   const courseTopics = useMemo(() => {
     const unique = new Map<
       string,
       { key: string; label: string; status: string; subtopics: string[] }
     >();
-    for (const row of courseRows) {
+    for (const row of allCourseRows) {
       const key = row.title ? `${row.code} — ${row.title}` : row.code;
       if (!unique.has(key))
         unique.set(key, { key, label: key, status: row.status, subtopics: row.subtopics });
     }
     return [...unique.values()];
-  }, [courseRows]);
+  }, [allCourseRows]);
   const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
   const [questionPool, setQuestionPool] = useState<Question[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -1810,8 +1846,8 @@ function Practice({ setView, profile }: Props) {
             />
           </label>
           <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
-            {courseRows.length
-              ? `Verified bank: ${courseRows.length} official course rows for ${selectedLevel || "all imported levels"}. Compulsory/elective labels are shown only where FUNAAB sources publish them.`
+            {allCourseRows.length
+              ? `Verified bank: ${allCourseRows.length} course rows for ${selectedLevel || "all imported levels"}. Compulsory/elective labels are shown only where FUNAAB sources publish them.`
               : "This programme has no verified levelled course rows yet, so AI topic search remains available."}
           </div>
           <div className="flex flex-wrap gap-3">
@@ -2697,10 +2733,20 @@ const funaabDepartments = [
   },
 ];
 
-function Onboarding({ done }: { done: (profile: { department: string; course: string }) => void }) {
+function Onboarding({
+  done,
+  userId,
+}: {
+  done: (profile: { department: string; course: string; level?: string }) => void;
+  userId?: string;
+}) {
   const [course, setCourse] = useState("");
   const [level, setLevel] = useState("");
   const [programmeSearch, setProgrammeSearch] = useState("");
+  const [customCodes, setCustomCodes] = useState("");
+  const [customTitle, setCustomTitle] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfMessage, setPdfMessage] = useState("");
   const programmes = funaabDepartments.flatMap((item) =>
     item.courses.map((name) => ({ name, department: item.group })),
   );
@@ -2720,9 +2766,66 @@ function Onboarding({ done }: { done: (profile: { department: string; course: st
       course: selected.name,
       ...(level ? { level } : {}),
     };
+    const codes = customCodes
+      .split(/[\n,;]+/)
+      .map((code) => code.trim().toUpperCase())
+      .filter(Boolean);
+    if (userId && codes.length) {
+      await supabase.from("student_courses").upsert(
+        codes.map((code) => ({
+          user_id: userId,
+          programme: selected.name,
+          level: level || "",
+          code,
+          title: customTitle.trim(),
+          source: "student",
+        })),
+        { onConflict: "user_id,programme,level,code" },
+      );
+      await supabase.from("course_contributions").upsert(
+        codes.map((code) => ({
+          submitted_by: userId,
+          programme: selected.name,
+          level: level || "",
+          code,
+          title: customTitle.trim(),
+          source_type: "student",
+        })),
+        { onConflict: "submitted_by,programme,level,code" },
+      );
+    }
     await supabase.auth.updateUser({ data: profile });
     localStorage.setItem("funabacer-profile", JSON.stringify(profile));
     done(profile);
+  };
+  const readRegistrationSlip = async (file: File) => {
+    setPdfBusy(true);
+    setPdfMessage("");
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch("/api/course-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not read this PDF");
+      setCustomCodes(data.codes.join("\n"));
+      setPdfMessage(
+        data.codes.length
+          ? `Found ${data.codes.length} course codes. Review them before continuing.`
+          : "No course codes were found. Add them manually below.",
+      );
+    } catch (error) {
+      setPdfMessage(error instanceof Error ? error.message : "Could not read this PDF");
+    } finally {
+      setPdfBusy(false);
+    }
   };
   return (
     <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12">
@@ -2814,6 +2917,42 @@ function Onboarding({ done }: { done: (profile: { department: string; course: st
                 )}
               </div>
             )}
+            <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-[#fbfdfc] p-4">
+              <p className="text-sm font-extrabold text-[#244138]">
+                Missing courses? Add your semester courses
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[#71877d]">
+                Enter codes separated by commas or one per line. They will be saved to your
+                workspace first and submitted for review.
+              </p>
+              <textarea
+                value={customCodes}
+                onChange={(event) => setCustomCodes(event.target.value)}
+                placeholder="MCE 101, MTS 101, PHS 101"
+                className="mt-3 min-h-20 w-full rounded-lg border border-[#c9ddd2] bg-white px-3 py-2 text-sm text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              <input
+                value={customTitle}
+                onChange={(event) => setCustomTitle(event.target.value)}
+                placeholder="Optional shared title, e.g. Engineering Mathematics"
+                className="mt-2 w-full rounded-lg border border-[#c9ddd2] bg-white px-3 py-2 text-sm text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-emerald-700">
+                <FileText size={15} />{" "}
+                {pdfBusy ? "Reading registration slip…" : "Upload registration-slip PDF"}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  disabled={pdfBusy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void readRegistrationSlip(file);
+                  }}
+                />
+              </label>
+              {pdfMessage && <p className="mt-2 text-xs text-emerald-800">{pdfMessage}</p>}
+            </div>
             <button
               onClick={finish}
               disabled={!selected || (levelOptions.length > 0 && !level)}
@@ -3175,6 +3314,11 @@ function App() {
   if (needsOnboarding)
     return (
       <Onboarding
+        userId={
+          typeof session === "object" && session && "user" in session
+            ? String((session as { user?: { id?: string } }).user?.id || "")
+            : ""
+        }
         done={(nextProfile) => {
           setProfile(nextProfile);
           setNeedsOnboarding(false);

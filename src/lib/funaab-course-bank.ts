@@ -23271,6 +23271,8 @@ const verifiedCommonCodes = new Set([
   "PHS 106",
   "PHS 191",
   "PHS 192",
+  "CHM 101",
+  "CHM 102",
   "GNS 101",
   "GNS 102",
   "GNS 105",
@@ -23302,6 +23304,53 @@ const verifiedCommonPrefixes = new Set([
   "GET",
   "MEE",
 ]);
+
+const verifiedSharedBaselineRows: CourseBankRow[] = [
+  {
+    programme: "Shared FUNAAB baseline",
+    college: "University-wide baseline",
+    level: "100",
+    code: "MTH 101",
+    title: "Mathematics I",
+    units: "",
+    type: "baseline",
+    status: "baseline",
+    subtopics: [],
+  },
+  {
+    programme: "Shared FUNAAB baseline",
+    college: "University-wide baseline",
+    level: "100",
+    code: "MTH 102",
+    title: "Mathematics II",
+    units: "",
+    type: "baseline",
+    status: "baseline",
+    subtopics: [],
+  },
+  {
+    programme: "Shared FUNAAB baseline",
+    college: "University-wide baseline",
+    level: "100",
+    code: "PHY 191",
+    title: "General Physics I",
+    units: "",
+    type: "baseline",
+    status: "baseline",
+    subtopics: [],
+  },
+  {
+    programme: "Shared FUNAAB baseline",
+    college: "University-wide baseline",
+    level: "100",
+    code: "PHY 192",
+    title: "General Physics II",
+    units: "",
+    type: "baseline",
+    status: "baseline",
+    subtopics: [],
+  },
+];
 
 export function courseBankFor(programme: string, level?: string) {
   const key = normalise(programme);
@@ -23337,8 +23386,9 @@ export function courseBankFor(programme: string, level?: string) {
       programmePrefixes.has(prefix)
     );
   });
-  if (!level) return rows;
-  return rows.filter((row) => row.level.toLowerCase() === level.toLowerCase());
+  const combined = [...rows, ...verifiedSharedBaselineRows];
+  if (!level) return combined;
+  return combined.filter((row) => row.level.toLowerCase() === level.toLowerCase());
 }
 
 export function courseBankLevelsFor(programme: string) {
