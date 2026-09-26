@@ -1486,7 +1486,7 @@ function Practice({ setView, profile }: Props) {
       { key: string; label: string; status: string; subtopics: string[] }
     >();
     for (const row of courseRows) {
-      const key = `${row.code} — ${row.title}`;
+      const key = row.title ? `${row.code} — ${row.title}` : row.code;
       if (!unique.has(key))
         unique.set(key, { key, label: key, status: row.status, subtopics: row.subtopics });
     }
