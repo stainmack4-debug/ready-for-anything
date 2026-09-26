@@ -1473,7 +1473,11 @@ function Practice({ setView, profile }: Props) {
   const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
   const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
   const courseRows = useMemo(
-    () => courseBankFor(profile?.course || "", selectedLevel || undefined),
+    () =>
+      courseBankFor(
+        profile?.course || "",
+        selectedLevel && selectedLevel !== "all" ? selectedLevel : undefined,
+      ),
     [profile?.course, selectedLevel],
   );
   const courseTopics = useMemo(
