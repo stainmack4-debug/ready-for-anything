@@ -1248,7 +1248,8 @@ function Results({ setView }: Props) {
   );
 }
 
-function DocumentAttachment({ onProcessed, name }: { onProcessed: (text: string, name: string) => void; name?: string }) {
+type Flashcard = { front: string; back: string };
+function DocumentAttachment({ onProcessed, name }: { onProcessed: (cards: Flashcard[], name: string) => void; name?: string }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -1258,10 +1259,10 @@ function DocumentAttachment({ onProcessed, name }: { onProcessed: (text: string,
     setBusy(true); setError(""); setStatus("Reading your document with Gemini…");
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
-      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
+      const response = await fetch("/api/ai/flashcards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Gemini could not read the file.");
-      onProcessed(data.text, data.name || file.name); setStatus("Document read. Gemini will use it as tutor context.");
+      if (!response.ok) throw new Error(data.error || "Gemini could not create flashcards.");
+      onProcessed(data.cards || [], data.name || file.name); setStatus(`${data.cards?.length || 0} flashcards are ready to study.`);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "The document could not be processed."); setStatus(""); }
     finally { setBusy(false); }
   };
@@ -1273,34 +1274,27 @@ function DocumentAttachment({ onProcessed, name }: { onProcessed: (text: string,
 }
 
 function Notes() {
-  const [source, setSource] = useState<{ text: string; name: string } | null>(null);
-  return (
-    <Page
-      title="Note Cruncher"
-      eyebrow="STUDY MATERIALS"
-      subtitle="Turn your class notes into something you can actually revise."
-    >
-      <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
-        <div>
-          <DocumentAttachment onProcessed={(text, name) => setSource({ text, name })} />
-          {source && <div className="mt-4 rounded-xl bg-white p-4 text-left"><p className="text-sm font-bold">{source.name} is ready for Gemini</p><div className="mt-2 max-h-64 overflow-auto text-xs leading-5 text-[#71877d]"><TutorMessage content={source.text} light /></div></div>}
-        </div>
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
-          <h2 className="font-extrabold">Recent study sets</h2>
-          <div className="mt-5 space-y-3">
-            {[].map((item) => (
-              <div key={item} className="flex items-center gap-3 rounded-xl bg-[#fbfdfc] p-3">
-                <BookOpen size={16} className="text-emerald-700" />
-                <span className="flex-1 text-sm font-semibold text-[#365348]">{item}</span>
-                <ChevronRight size={16} className="text-[#8ca198]" />
-              </div>
-            ))}
-          </div>
-          <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>
-        </div>
+  const [cards, setCards] = useState<Flashcard[]>(() => { try { return JSON.parse(localStorage.getItem("funabacer.note-cruncher.cards") || "[]"); } catch { return []; } });
+  const [sourceName, setSourceName] = useState(() => localStorage.getItem("funabacer.note-cruncher.name") || "");
+  const [savedSets, setSavedSets] = useState<{ name: string; cards: Flashcard[] }[]>(() => { try { return JSON.parse(localStorage.getItem("funabacer.note-cruncher.sets") || "[]"); } catch { return []; } });
+  const [current, setCurrent] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown] = useState<number[]>([]);
+  const [review, setReview] = useState<number[]>([]);
+  useEffect(() => { if (cards.length) { localStorage.setItem("funabacer.note-cruncher.cards", JSON.stringify(cards)); localStorage.setItem("funabacer.note-cruncher.name", sourceName); } }, [cards, sourceName]);
+  const loadCards = (nextCards: Flashcard[], name: string) => { setCards(nextCards); setSourceName(name); setCurrent(0); setFlipped(false); setKnown([]); setReview([]); };
+  const saveSet = (nextCards: Flashcard[], name: string) => { const nextSets = [{ name, cards: nextCards }, ...savedSets.filter((item) => item.name !== name)].slice(0, 10); setSavedSets(nextSets); localStorage.setItem("funabacer.note-cruncher.sets", JSON.stringify(nextSets)); loadCards(nextCards, name); };
+  const markCard = (kind: "known" | "review") => { const update = kind === "known" ? setKnown : setReview; update((previous) => previous.includes(current) ? previous : [...previous, current]); if (current < cards.length - 1) { setFlipped(false); window.setTimeout(() => setCurrent((value) => value + 1), 220); } };
+  const finished = current === cards.length - 1 && flipped;
+  return <Page title="Note Cruncher" eyebrow="STUDY MATERIALS" subtitle="Turn your class notes into flashcards you can actually revise.">
+    <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
+      <div>
+        <DocumentAttachment onProcessed={(nextCards, name) => saveSet(nextCards, name)} name={sourceName} />
+        {cards.length > 0 && <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">{sourceName}</p><span className="text-xs font-bold text-emerald-700">{current + 1}/{cards.length}</span></div><div className="mt-3 flex gap-1">{cards.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div><button onClick={() => setFlipped((value) => !value)} className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">{flipped ? "Answer" : "Question"}</p><div className="mt-4 text-base leading-7 text-[#244138]"><TutorMessage content={flipped ? cards[current].back : cards[current].front} light /></div><p className="mt-5 text-xs font-semibold text-[#71877d]">Tap the card to {flipped ? "see the question" : "reveal the answer"}</p></button><div className="mt-4 flex gap-2"><Btn variant="outline" className="flex-1" onClick={() => markCard("review")} disabled={!flipped}>Review again</Btn><Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>I know this</Btn></div>{finished && <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">Set complete. Known: {known.length} · Review again: {review.length}</div>}</div>}
       </div>
-    </Page>
-  );
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.name} onClick={() => loadCards(item.cards, item.name)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
+    </div>
+  </Page>;
 }
 function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
   return (
