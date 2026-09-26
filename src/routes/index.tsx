@@ -1083,22 +1083,37 @@ function Practice({ setView, profile }: Props) {
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
-  useEffect(() => { if (submitted || secondsLeft === null || secondsLeft <= 0) return; const timer = window.setInterval(() => setSecondsLeft((value) => value === null ? null : Math.max(value - 1, 0)), 1000); return () => window.clearInterval(timer); }, [secondsLeft, submitted]);
+  const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}`;
+  useEffect(() => { if (submitted || sessionEndsAt === null) return; const update = () => setSecondsLeft(Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0)); update(); const timer = window.setInterval(update, 1000); return () => window.clearInterval(timer); }, [sessionEndsAt, submitted]);
   useEffect(() => {
+    const saved = localStorage.getItem(practiceSessionKey);
+    if (saved) {
+      try {
+        const session = JSON.parse(saved);
+        if (session.topic && Array.isArray(session.questions) && session.questions.length) {
+          setTopic(session.topic); setQuestions(session.questions); setAnswers(session.answers || {}); setCurrentIndex(Math.min(session.currentIndex || 0, session.questions.length - 1)); setSubmitted(Boolean(session.submitted)); setFeedback(session.feedback || ""); setSessionEndsAt(session.sessionEndsAt || null); setSecondsLeft(session.sessionEndsAt ? Math.max(Math.ceil((session.sessionEndsAt - Date.now()) / 1000), 0) : session.secondsLeft ?? null); return;
+        }
+      } catch { localStorage.removeItem(practiceSessionKey); }
+    }
     const pending = localStorage.getItem("funabacer.pending-practice");
     if (!pending) return;
     localStorage.removeItem("funabacer.pending-practice");
     try { const request = JSON.parse(pending); if (request.topic) { setTopic(request.topic); setAutoStart(true); } } catch {}
-  }, []);
+  }, [practiceSessionKey]);
+  useEffect(() => {
+    if (!questions.length) return;
+    localStorage.setItem(practiceSessionKey, JSON.stringify({ topic, questions, answers, currentIndex, submitted, feedback, sessionEndsAt, secondsLeft }));
+  }, [practiceSessionKey, topic, questions, answers, currentIndex, submitted, feedback, sessionEndsAt, secondsLeft]);
   const generate = async () => {
     if (!profile?.course || !topic.trim()) return;
-    setBusy(true); setFeedback(""); setQuestions([]); setAnswers({}); setCurrentIndex(0); setSubmitted(false);
+    setBusy(true); setFeedback(""); setQuestions([]); setAnswers({}); setCurrentIndex(0); setSubmitted(false); setSessionEndsAt(null); localStorage.removeItem(practiceSessionKey);
     try {
       const response = await fetch("/api/ai/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ course: profile.course, topic, count: 10 }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not generate questions");
       setQuestions(data.questions || []);
-      setSecondsLeft(600);
+      setSessionEndsAt(Date.now() + 600_000); setSecondsLeft(600);
     } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not generate questions"); }
     finally { setBusy(false); }
   };
