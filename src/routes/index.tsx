@@ -4,6 +4,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
+import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
 import { averageScore, getAttempts, saveAttempt, totalAnswered } from "@/lib/progress";
 import {
@@ -64,7 +65,7 @@ type View =
   | "settings"
   | "admin";
 type Theme = "day" | "night";
-type StudentProfile = { department: string; course: string };
+type StudentProfile = { department: string; course: string; level?: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
 function realStats() {
   const attempts = getAttempts();
@@ -464,7 +465,9 @@ function Home({ setView }: Props) {
               <div key={`${d}${i}`} className="flex-1 text-center">
                 <div
                   className={`flex h-10 items-center justify-center rounded-xl text-xs font-bold ${
-                    i < stats.studyDays ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#8ca198]"
+                    i < stats.studyDays
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[#eff7f2] text-[#8ca198]"
                   }`}
                 >
                   {i < stats.studyDays ? <Check size={16} /> : d}
@@ -474,7 +477,9 @@ function Home({ setView }: Props) {
             ))}
           </div>
           <p className="mt-5 text-xs leading-5 text-[#71877d]">
-            {stats.answered ? "Your study activity is recorded from submitted work." : "You have not studied any topics yet. Start your first lesson to begin tracking progress."}
+            {stats.answered
+              ? "Your study activity is recorded from submitted work."
+              : "You have not studied any topics yet. Start your first lesson to begin tracking progress."}
           </p>
         </div>
 
@@ -488,12 +493,23 @@ function Home({ setView }: Props) {
               Focus area
             </p>
           </div>
-          <h2 className="mt-4 text-2xl font-extrabold">{stats.answered ? "Continue your study" : "Your first study session"}</h2>
+          <h2 className="mt-4 text-2xl font-extrabold">
+            {stats.answered ? "Continue your study" : "Your first study session"}
+          </h2>
           <p className="mt-2 text-sm leading-6 text-emerald-50">
-            {stats.answered ? `Your current average is ${stats.score ?? 0}%. Keep going from your last submitted work.` : "No topic mastery has been recorded yet. Choose your course to begin."}
+            {stats.answered
+              ? `Your current average is ${stats.score ?? 0}%. Keep going from your last submitted work.`
+              : "No topic mastery has been recorded yet. Choose your course to begin."}
           </p>
-          <div className="mt-6 h-2 rounded-full bg-white/25"><div className="h-full rounded-full bg-white" style={{ width: `${stats.score ?? 0}%` }} /></div>
-          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">{stats.answered ? "Continue learning" : "Choose a course"} <ArrowRight size={15} /></span>
+          <div className="mt-6 h-2 rounded-full bg-white/25">
+            <div
+              className="h-full rounded-full bg-white"
+              style={{ width: `${stats.score ?? 0}%` }}
+            />
+          </div>
+          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">
+            {stats.answered ? "Continue learning" : "Choose a course"} <ArrowRight size={15} />
+          </span>
         </button>
       </section>
 
@@ -714,23 +730,34 @@ function Dashboard({ setView, profile }: Props) {
             </button>
           </div>
           <div className="mt-6 space-y-5">
-            {userTopics.length === 0 ? <p className="text-sm leading-6 text-[#71877d]">No weak topics yet. Start a lesson and submit practice answers before mastery is calculated.</p> : userTopics
-              .filter((t) => t.tone !== "strong")
-              .slice(0, 3)
-              .map((t) => (
-                <button key={t.name} onClick={() => setView("topic")} className="w-full text-left">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-semibold text-[#244138]">{t.name}</span>
-                    <span className="text-xs text-[#71877d]">{t.score}%</span>
-                  </div>
-                  <div className="mt-2 h-1.5 rounded-full bg-emerald-50">
-                    <div
-                      className={`h-full rounded-full ${t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
-                      style={{ width: `${t.score}%` }}
-                    />
-                  </div>
-                </button>
-              ))}
+            {userTopics.length === 0 ? (
+              <p className="text-sm leading-6 text-[#71877d]">
+                No weak topics yet. Start a lesson and submit practice answers before mastery is
+                calculated.
+              </p>
+            ) : (
+              userTopics
+                .filter((t) => t.tone !== "strong")
+                .slice(0, 3)
+                .map((t) => (
+                  <button
+                    key={t.name}
+                    onClick={() => setView("topic")}
+                    className="w-full text-left"
+                  >
+                    <div className="flex justify-between text-sm">
+                      <span className="font-semibold text-[#244138]">{t.name}</span>
+                      <span className="text-xs text-[#71877d]">{t.score}%</span>
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-emerald-50">
+                      <div
+                        className={`h-full rounded-full ${t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
+                        style={{ width: `${t.score}%` }}
+                      />
+                    </div>
+                  </button>
+                ))
+            )}
           </div>
         </div>
       </section>
@@ -738,65 +765,263 @@ function Dashboard({ setView, profile }: Props) {
   );
 }
 function Courses({ setView, profile }: Props) {
-  const selected = profile?.course ? funaabCurriculum.flatMap((item) => item.courses.map((course) => ({ domain: item, course }))).find((item) => item.course.name.toLowerCase() === profile.course.toLowerCase()) : undefined;
-  return <Page title="Learn" eyebrow="YOUR PROGRAMME" subtitle={profile?.course ? `Showing only ${profile.course}` : "Choose your programme during onboarding."}>
-    {!selected ? <div className="rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Your programme is not selected</h2><p className="mt-2 text-sm leading-6 text-[#71877d]">Complete your academic profile before learning. FunaBAcer will then show only your programme, not every FUNAAB programme.</p></div> : <>
-      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">{selected.domain.domain}</p><h2 className="mt-2 text-2xl font-extrabold">{selected.course.name}</h2><p className="mt-2 text-sm leading-6 text-[#587166]">{selected.course.synopsis}</p><span className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">{selected.course.confidence} confidence · {selected.course.official_sources.length} official sources</span></div>
-      <div className="mt-5 rounded-2xl border border-[#dcebe3] bg-white p-7"><h3 className="text-lg font-extrabold">Start your personalised study path</h3><p className="mt-2 text-sm leading-6 text-[#71877d]">No topic is marked strong until you actually study and submit answers. Ask the Tutor to teach a topic from your {selected.course.name} programme, then practise it.</p><div className="mt-5 flex flex-wrap gap-3"><Btn onClick={() => setView("learn")}><BookOpen size={16}/> Open AI Tutor</Btn><Btn variant="outline" onClick={() => setView("practice")}><Target size={16}/> Practise a topic</Btn></div></div>
-    </>}
-  </Page>;
+  const selected = profile?.course
+    ? funaabCurriculum
+        .flatMap((item) => item.courses.map((course) => ({ domain: item, course })))
+        .find((item) => item.course.name.toLowerCase() === profile.course.toLowerCase())
+    : undefined;
+  return (
+    <Page
+      title="Learn"
+      eyebrow="YOUR PROGRAMME"
+      subtitle={
+        profile?.course
+          ? `Showing only ${profile.course}`
+          : "Choose your programme during onboarding."
+      }
+    >
+      {!selected ? (
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-7">
+          <h2 className="text-xl font-extrabold">Your programme is not selected</h2>
+          <p className="mt-2 text-sm leading-6 text-[#71877d]">
+            Complete your academic profile before learning. FunaBAcer will then show only your
+            programme, not every FUNAAB programme.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6">
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">
+              {selected.domain.domain}
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold">{selected.course.name}</h2>
+            <p className="mt-2 text-sm leading-6 text-[#587166]">{selected.course.synopsis}</p>
+            <span className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">
+              {selected.course.confidence} confidence · {selected.course.official_sources.length}{" "}
+              official sources
+            </span>
+          </div>
+          <div className="mt-5 rounded-2xl border border-[#dcebe3] bg-white p-7">
+            <h3 className="text-lg font-extrabold">Start your personalised study path</h3>
+            <p className="mt-2 text-sm leading-6 text-[#71877d]">
+              No topic is marked strong until you actually study and submit answers. Ask the Tutor
+              to teach a topic from your {selected.course.name} programme, then practise it.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Btn onClick={() => setView("learn")}>
+                <BookOpen size={16} /> Open AI Tutor
+              </Btn>
+              <Btn variant="outline" onClick={() => setView("practice")}>
+                <Target size={16} /> Practise a topic
+              </Btn>
+            </div>
+          </div>
+        </>
+      )}
+    </Page>
+  );
 }
 function Topic({ setView, profile }: Props) {
   const userTopics = attemptedTopics();
-  return <Page title={profile?.course || "Your topic"} eyebrow="TOPIC PATH" subtitle="Mastery is calculated only from your submitted practice answers.">
-    <div className="rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-2xl font-extrabold">No topic selected yet</h2><p className="mt-3 leading-7 text-[#71877d]">{userTopics.length ? "Choose one of your studied topics from Progress, or ask the AI Tutor to teach a new topic." : "You have not studied or submitted practice for any topic yet, so every topic is currently 0% and unclassified."}</p><div className="mt-6 flex flex-wrap gap-3"><Btn onClick={() => setView("learn")}><BookOpen size={16}/> Ask the AI Tutor to teach</Btn><Btn variant="outline" onClick={() => setView("practice")}><Target size={16}/> Start topic practice</Btn></div></div>
-  </Page>;
+  return (
+    <Page
+      title={profile?.course || "Your topic"}
+      eyebrow="TOPIC PATH"
+      subtitle="Mastery is calculated only from your submitted practice answers."
+    >
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-7">
+        <h2 className="text-2xl font-extrabold">No topic selected yet</h2>
+        <p className="mt-3 leading-7 text-[#71877d]">
+          {userTopics.length
+            ? "Choose one of your studied topics from Progress, or ask the AI Tutor to teach a new topic."
+            : "You have not studied or submitted practice for any topic yet, so every topic is currently 0% and unclassified."}
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Btn onClick={() => setView("learn")}>
+            <BookOpen size={16} /> Ask the AI Tutor to teach
+          </Btn>
+          <Btn variant="outline" onClick={() => setView("practice")}>
+            <Target size={16} /> Start topic practice
+          </Btn>
+        </div>
+      </div>
+    </Page>
+  );
 }
 
 function AdminPanel() {
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
-  const [freeDays, setFreeDays] = useState(() => localStorage.getItem("funabacer-admin-free-days") || "30");
-  const [announcement, setAnnouncement] = useState(() => localStorage.getItem("funabacer-admin-announcement") || "");
-  const save = () => { localStorage.setItem("funabacer-admin-free-days", freeDays); localStorage.setItem("funabacer-admin-announcement", announcement); alert("Admin settings saved on this device."); };
-  if (!unlocked) return <Page title="Admin Panel" eyebrow="ADMIN ACCESS" subtitle="Restricted settings"><div className="mx-auto max-w-md rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Enter admin password</h2><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" className="mt-5 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/><Btn className="mt-4 w-full" onClick={() => password === "808254" ? setUnlocked(true) : alert("Incorrect password")}>Open Admin Panel</Btn><p className="mt-4 text-xs leading-5 text-[#71877d]">This panel currently controls this browser only. Server-side multi-user announcements and unlock codes still need a protected Supabase admin table.</p></div></Page>;
-  return <Page title="Admin Panel" eyebrow="ADMIN CONTROLS" subtitle="Manage the current announcement and free access period."><div className="max-w-2xl space-y-5"><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Free access period (days)<input value={freeDays} onChange={(e) => setFreeDays(e.target.value)} type="number" min="0" className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Announcement shown to users<textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} rows={4} placeholder="You have free access for 30 days." className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><Btn onClick={save}>Save admin settings</Btn></div></Page>;
+  const [freeDays, setFreeDays] = useState(
+    () => localStorage.getItem("funabacer-admin-free-days") || "30",
+  );
+  const [announcement, setAnnouncement] = useState(
+    () => localStorage.getItem("funabacer-admin-announcement") || "",
+  );
+  const save = () => {
+    localStorage.setItem("funabacer-admin-free-days", freeDays);
+    localStorage.setItem("funabacer-admin-announcement", announcement);
+    alert("Admin settings saved on this device.");
+  };
+  if (!unlocked)
+    return (
+      <Page title="Admin Panel" eyebrow="ADMIN ACCESS" subtitle="Restricted settings">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#dcebe3] bg-white p-7">
+          <h2 className="text-xl font-extrabold">Enter admin password</h2>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Admin password"
+            className="mt-5 w-full rounded-xl border border-[#dcebe3] px-4 py-3"
+          />
+          <Btn
+            className="mt-4 w-full"
+            onClick={() =>
+              password === "808254" ? setUnlocked(true) : alert("Incorrect password")
+            }
+          >
+            Open Admin Panel
+          </Btn>
+          <p className="mt-4 text-xs leading-5 text-[#71877d]">
+            This panel currently controls this browser only. Server-side multi-user announcements
+            and unlock codes still need a protected Supabase admin table.
+          </p>
+        </div>
+      </Page>
+    );
+  return (
+    <Page
+      title="Admin Panel"
+      eyebrow="ADMIN CONTROLS"
+      subtitle="Manage the current announcement and free access period."
+    >
+      <div className="max-w-2xl space-y-5">
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+          <label className="block text-sm font-bold">
+            Free access period (days)
+            <input
+              value={freeDays}
+              onChange={(e) => setFreeDays(e.target.value)}
+              type="number"
+              min="0"
+              className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"
+            />
+          </label>
+        </div>
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+          <label className="block text-sm font-bold">
+            Announcement shown to users
+            <textarea
+              value={announcement}
+              onChange={(e) => setAnnouncement(e.target.value)}
+              rows={4}
+              placeholder="You have free access for 30 days."
+              className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"
+            />
+          </label>
+        </div>
+        <Btn onClick={save}>Save admin settings</Btn>
+      </div>
+    </Page>
+  );
 }
 function TutorMath({ expression, display }: { expression: string; display?: boolean }) {
-  const html = katex.renderToString(expression.trim(), { displayMode: Boolean(display), throwOnError: false, strict: "ignore" });
-  return <span className={display ? "my-4 block overflow-x-auto text-center" : "align-middle"} dangerouslySetInnerHTML={{ __html: html }} />;
+  const html = katex.renderToString(expression.trim(), {
+    displayMode: Boolean(display),
+    throwOnError: false,
+    strict: "ignore",
+  });
+  return (
+    <span
+      className={display ? "my-4 block overflow-x-auto text-center" : "align-middle"}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }
 function TutorInline({ value }: { value: string }) {
   const parts = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\))/g);
-  return <>{parts.map((part, i) => {
-    if (part.startsWith("$$") && part.endsWith("$$")) return <TutorMath key={i} expression={part.slice(2, -2)} display />;
-    if (part.startsWith("$") && part.endsWith("$")) return <TutorMath key={i} expression={part.slice(1, -1)} />;
-    if (part.startsWith("\\[") && part.endsWith("\\]")) return <TutorMath key={i} expression={part.slice(2, -2)} display />;
-    if (part.startsWith("\\(") && part.endsWith("\\)")) return <TutorMath key={i} expression={part.slice(2, -2)} />;
-    const bold = part.split(/(\*\*[^*]+\*\*)/g).map((piece, j) => piece.startsWith("**") && piece.endsWith("**") ? <strong key={j}>{piece.slice(2, -2)}</strong> : piece);
-    return <span key={i}>{bold}</span>;
-  })}</>;
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("$$") && part.endsWith("$$"))
+          return <TutorMath key={i} expression={part.slice(2, -2)} display />;
+        if (part.startsWith("$") && part.endsWith("$"))
+          return <TutorMath key={i} expression={part.slice(1, -1)} />;
+        if (part.startsWith("\\[") && part.endsWith("\\]"))
+          return <TutorMath key={i} expression={part.slice(2, -2)} display />;
+        if (part.startsWith("\\(") && part.endsWith("\\)"))
+          return <TutorMath key={i} expression={part.slice(2, -2)} />;
+        const bold = part
+          .split(/(\*\*[^*]+\*\*)/g)
+          .map((piece, j) =>
+            piece.startsWith("**") && piece.endsWith("**") ? (
+              <strong key={j}>{piece.slice(2, -2)}</strong>
+            ) : (
+              piece
+            ),
+          );
+        return <span key={i}>{bold}</span>;
+      })}
+    </>
+  );
 }
 function TutorMessage({ content, light = false }: { content: string; light?: boolean }) {
-  const cleaned = content.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const cleaned = content
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   const lines = cleaned.split("\n");
-  return <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>{lines.map((line, i) => {
-    const trimmed = line.trim();
-    if (!trimmed) return <div key={i} className="h-2" />;
-    if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed)) return <hr key={i} className={`my-3 ${light ? "border-[#c9ddd2]" : "border-white/15"}`} />;
-    if (/^\$\$.*\$\$$/.test(trimmed)) return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
-    const heading = trimmed.match(/^#{1,6}\s*(.+)$/);
-    if (heading) return <h3 key={i} className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}><TutorInline value={heading[1]} /></h3>;
-    if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.slice(2)} /></div>;
-    if (/^\d+[.)] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.replace(/^\d+[.)] /, "")} /></div>;
-    return <p key={i}><TutorInline value={trimmed} /></p>;
-  })}</div>;
+  return (
+    <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="h-2" />;
+        if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed))
+          return (
+            <hr key={i} className={`my-3 ${light ? "border-[#c9ddd2]" : "border-white/15"}`} />
+          );
+        if (/^\$\$.*\$\$$/.test(trimmed))
+          return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
+        const heading = trimmed.match(/^#{1,6}\s*(.+)$/);
+        if (heading)
+          return (
+            <h3
+              key={i}
+              className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}
+            >
+              <TutorInline value={heading[1]} />
+            </h3>
+          );
+        if (/^[-*] /.test(trimmed))
+          return (
+            <div key={i} className="ml-4 list-item">
+              <TutorInline value={trimmed.slice(2)} />
+            </div>
+          );
+        if (/^\d+[.)] /.test(trimmed))
+          return (
+            <div key={i} className="ml-4 list-item">
+              <TutorInline value={trimmed.replace(/^\d+[.)] /, "")} />
+            </div>
+          );
+        return (
+          <p key={i}>
+            <TutorInline value={trimmed} />
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 function Learn({ setView, profile, userId }: Props) {
   type ChatMessage = { role: "user" | "assistant"; content: string };
   const memoryKey = `funabacer.tutor.memory.v1.${userId || profile?.course || "unknown-user"}`;
-  const initialMessage: ChatMessage = { role: "assistant", content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"} in ${profile?.department || "your department"}. I’ll keep track of where we stop and continue from there.` };
+  const initialMessage: ChatMessage = {
+    role: "assistant",
+    content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"} in ${profile?.department || "your department"}. I’ll keep track of where we stop and continue from there.`,
+  };
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [tutorError, setTutorError] = useState("");
@@ -815,7 +1040,9 @@ function Learn({ setView, profile, userId }: Props) {
     try {
       const saved = JSON.parse(localStorage.getItem(memoryKey) || "null");
       return Array.isArray(saved) && saved.length ? saved.slice(-40) : [initialMessage];
-    } catch { return [initialMessage]; }
+    } catch {
+      return [initialMessage];
+    }
   });
   useEffect(() => {
     localStorage.setItem(memoryKey, JSON.stringify(messages.slice(-40)));
@@ -829,31 +1056,84 @@ function Learn({ setView, profile, userId }: Props) {
     setConversationId(null);
     if (!userId) return;
     void (async () => {
-      const { data: conversation } = await supabase.from("tutor_conversations").select("id").eq("user_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      const { data: conversation } = await supabase
+        .from("tutor_conversations")
+        .select("id")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (cancelled) return;
       if (conversation?.id) {
-        const { data: savedMessages } = await supabase.from("tutor_messages").select("role, content").eq("conversation_id", conversation.id).order("created_at", { ascending: true }).limit(100);
+        const { data: savedMessages } = await supabase
+          .from("tutor_messages")
+          .select("role, content")
+          .eq("conversation_id", conversation.id)
+          .order("created_at", { ascending: true })
+          .limit(100);
         if (!cancelled) {
           setConversationId(conversation.id);
-          if (savedMessages?.length) setMessages(savedMessages.map((message) => ({ role: message.role as ChatMessage["role"], content: message.content })).slice(-40));
+          if (savedMessages?.length)
+            setMessages(
+              savedMessages
+                .map((message) => ({
+                  role: message.role as ChatMessage["role"],
+                  content: message.content,
+                }))
+                .slice(-40),
+            );
         }
       } else {
-        const cached = (() => { try { const value = JSON.parse(localStorage.getItem(memoryKey) || "null"); return Array.isArray(value) && value.length ? value.slice(-40) : [initialMessage]; } catch { return [initialMessage]; } })();
-        const { data: created } = await supabase.from("tutor_conversations").insert({ user_id: userId, course: profile?.course || "", title: "Tutor conversation" }).select("id").single();
+        const cached = (() => {
+          try {
+            const value = JSON.parse(localStorage.getItem(memoryKey) || "null");
+            return Array.isArray(value) && value.length ? value.slice(-40) : [initialMessage];
+          } catch {
+            return [initialMessage];
+          }
+        })();
+        const { data: created } = await supabase
+          .from("tutor_conversations")
+          .insert({ user_id: userId, course: profile?.course || "", title: "Tutor conversation" })
+          .select("id")
+          .single();
         if (created?.id) {
-          await supabase.from("tutor_messages").insert(cached.map((message: ChatMessage) => ({ conversation_id: created.id, user_id: userId, role: message.role, content: message.content })));
-          if (!cancelled) { setConversationId(created.id); setMessages(cached); }
+          await supabase.from("tutor_messages").insert(
+            cached.map((message: ChatMessage) => ({
+              conversation_id: created.id,
+              user_id: userId,
+              role: message.role,
+              content: message.content,
+            })),
+          );
+          if (!cancelled) {
+            setConversationId(created.id);
+            setMessages(cached);
+          }
         }
       }
       if (!cancelled) setConversationReady(true);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
   const saveTutorMessages = async (newMessages: ChatMessage[]) => {
     if (!userId || !conversationId) return;
     const additions = newMessages.slice(-2);
-    await supabase.from("tutor_messages").insert(additions.map((message) => ({ conversation_id: conversationId, user_id: userId, role: message.role, content: message.content })));
-    await supabase.from("tutor_conversations").update({ course: profile?.course || "" }).eq("id", conversationId).eq("user_id", userId);
+    await supabase.from("tutor_messages").insert(
+      additions.map((message) => ({
+        conversation_id: conversationId,
+        user_id: userId,
+        role: message.role,
+        content: message.content,
+      })),
+    );
+    await supabase
+      .from("tutor_conversations")
+      .update({ course: profile?.course || "" })
+      .eq("id", conversationId)
+      .eq("user_id", userId);
   };
   useEffect(() => {
     const pending = localStorage.getItem("funabacer.pending-question");
@@ -867,12 +1147,20 @@ function Learn({ setView, profile, userId }: Props) {
     const message = (preset || question).trim();
     if (!message || isAsking || !conversationReady) return;
     if (!profile?.department || !profile?.course) {
-      setTutorError("Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.");
+      setTutorError(
+        "Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.",
+      );
       return;
     }
-    const asksForPractice = /\b(10|ten)\b.*\b(question|questions)\b|\b(question|questions)\b.*\b(10|ten)\b|set.*practice/i.test(message);
+    const asksForPractice =
+      /\b(10|ten)\b.*\b(question|questions)\b|\b(question|questions)\b.*\b(10|ten)\b|set.*practice/i.test(
+        message,
+      );
     if (asksForPractice) {
-      localStorage.setItem("funabacer.pending-practice", JSON.stringify({ topic: profile.course, count: 10 }));
+      localStorage.setItem(
+        "funabacer.pending-practice",
+        JSON.stringify({ topic: profile.course, count: 10 }),
+      );
       setView("practice");
       return;
     }
@@ -927,12 +1215,34 @@ function Learn({ setView, profile, userId }: Props) {
   };
 
   const attachTutorFile = async (file: File) => {
-    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) { setTutorFileError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file."); return; }
-    if (file.size > 4 * 1024 * 1024) { setTutorFileError("Please use a file under 4 MB."); return; }
-    setTutorFileBusy(true); setTutorFileError("");
+    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) {
+      setTutorFileError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file.");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setTutorFileError("Please use a file under 4 MB.");
+      return;
+    }
+    setTutorFileBusy(true);
+    setTutorFileError("");
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
-      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl, department: profile?.department, course: profile?.course }) });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read the file."));
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch("/api/ai/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          type: file.type,
+          dataUrl,
+          department: profile?.department,
+          course: profile?.course,
+        }),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The file could not be read.");
       const extractedContext = data.text || "";
@@ -941,11 +1251,17 @@ function Learn({ setView, profile, userId }: Props) {
       setSourceContext(extractedContext);
       setSourceName(attachedName);
       setTutorFileName(attachedName);
-      const fileMessages = [{ role: "user" as const, content: `Explain the uploaded file “${attachedName}”.` }, { role: "assistant" as const, content: data.answer || extractedContext }];
+      const fileMessages = [
+        { role: "user" as const, content: `Explain the uploaded file “${attachedName}”.` },
+        { role: "assistant" as const, content: data.answer || extractedContext },
+      ];
       setMessages((current) => [...current, ...fileMessages]);
       void saveTutorMessages(fileMessages);
-    } catch (error) { setTutorFileError(error instanceof Error ? error.message : "The file could not be read."); }
-    finally { setTutorFileBusy(false); }
+    } catch (error) {
+      setTutorFileError(error instanceof Error ? error.message : "The file could not be read.");
+    } finally {
+      setTutorFileBusy(false);
+    }
   };
 
   const quickPrompts = [
@@ -960,7 +1276,11 @@ function Learn({ setView, profile, userId }: Props) {
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
     >
       <div className="mx-auto max-w-3xl">
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><strong>Teaching context:</strong> {profile?.department || "Department missing"} · {profile?.course || "Programme missing"}. The Tutor uses this context and the saved conversation below; it will not guess a different programme.</div>
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <strong>Teaching context:</strong> {profile?.department || "Department missing"} ·{" "}
+          {profile?.course || "Programme missing"}. The Tutor uses this context and the saved
+          conversation below; it will not guess a different programme.
+        </div>
         <div className="flex max-h-[calc(100dvh-10rem)] min-h-[34rem] flex-col overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
             <div className="flex items-center gap-3">
@@ -1061,9 +1381,21 @@ function Learn({ setView, profile, userId }: Props) {
                 </p>
               </div>
             )}
-            {tutorFileBusy && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Gemini is reading your file and preparing an explanation…</p>}
-            {tutorFileName && !tutorFileBusy && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Attached: {tutorFileName}. Gemini has read it and the tutor is using it as context.</p>}
-            {tutorFileError && <p className="mb-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-100">{tutorFileError}</p>}
+            {tutorFileBusy && (
+              <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">
+                Gemini is reading your file and preparing an explanation…
+              </p>
+            )}
+            {tutorFileName && !tutorFileBusy && (
+              <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">
+                Attached: {tutorFileName}. Gemini has read it and the tutor is using it as context.
+              </p>
+            )}
+            {tutorFileError && (
+              <p className="mb-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-100">
+                {tutorFileError}
+              </p>
+            )}
             {tutorError && (
               <p className="mb-3 rounded-xl bg-rose-400/15 p-3 text-xs font-semibold text-rose-100">
                 {tutorError}
@@ -1078,7 +1410,18 @@ function Learn({ setView, profile, userId }: Props) {
               >
                 <Paperclip size={19} />
               </button>
-              <input id="tutor-upload" className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif" disabled={tutorFileBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void attachTutorFile(file); event.currentTarget.value = ""; }} />
+              <input
+                id="tutor-upload"
+                className="sr-only"
+                type="file"
+                accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif"
+                disabled={tutorFileBusy}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void attachTutorFile(file);
+                  event.currentTarget.value = "";
+                }}
+              />
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
@@ -1119,8 +1462,26 @@ function Learn({ setView, profile, userId }: Props) {
   );
 }
 function Practice({ setView, profile }: Props) {
-  type Question = { question: string; options: string[]; answer: number; explanation: string; topic?: string };
+  type Question = {
+    question: string;
+    options: string[];
+    answer: number;
+    explanation: string;
+    topic?: string;
+  };
   const [topic, setTopic] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
+  const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
+  const courseRows = useMemo(
+    () => courseBankFor(profile?.course || "", selectedLevel || undefined),
+    [profile?.course, selectedLevel],
+  );
+  const courseTopics = useMemo(
+    () => [...new Set(courseRows.map((row) => row.title))].slice(0, 80),
+    [courseRows],
+  );
+  const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
+  const [questionPool, setQuestionPool] = useState<Question[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1130,37 +1491,131 @@ function Practice({ setView, profile }: Props) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
-  const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}`;
-  useEffect(() => { if (submitted || sessionEndsAt === null) return; const update = () => setSecondsLeft(Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0)); update(); const timer = window.setInterval(update, 1000); return () => window.clearInterval(timer); }, [sessionEndsAt, submitted]);
+  const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}`;
+  useEffect(() => {
+    if (!selectedLevel && courseLevels[0]) setSelectedLevel(courseLevels[0]);
+  }, [selectedLevel, courseLevels]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(questionBankKey) || "[]");
+      setQuestionPool(Array.isArray(saved) ? saved : []);
+    } catch {
+      setQuestionPool([]);
+    }
+  }, [questionBankKey]);
+  useEffect(() => {
+    if (submitted || sessionEndsAt === null) return;
+    const update = () =>
+      setSecondsLeft(Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [sessionEndsAt, submitted]);
   useEffect(() => {
     const saved = localStorage.getItem(practiceSessionKey);
     if (saved) {
       try {
         const session = JSON.parse(saved);
         if (session.topic && Array.isArray(session.questions) && session.questions.length) {
-          setTopic(session.topic); setQuestions(session.questions); setAnswers(session.answers || {}); setCurrentIndex(Math.min(session.currentIndex || 0, session.questions.length - 1)); setSubmitted(Boolean(session.submitted)); setFeedback(session.feedback || ""); setSessionEndsAt(session.sessionEndsAt || null); setSecondsLeft(session.sessionEndsAt ? Math.max(Math.ceil((session.sessionEndsAt - Date.now()) / 1000), 0) : session.secondsLeft ?? null); return;
+          setTopic(session.topic);
+          setQuestions(session.questions);
+          setAnswers(session.answers || {});
+          setCurrentIndex(Math.min(session.currentIndex || 0, session.questions.length - 1));
+          setSubmitted(Boolean(session.submitted));
+          setFeedback(session.feedback || "");
+          setSessionEndsAt(session.sessionEndsAt || null);
+          setSecondsLeft(
+            session.sessionEndsAt
+              ? Math.max(Math.ceil((session.sessionEndsAt - Date.now()) / 1000), 0)
+              : (session.secondsLeft ?? null),
+          );
+          return;
         }
-      } catch { localStorage.removeItem(practiceSessionKey); }
+      } catch {
+        localStorage.removeItem(practiceSessionKey);
+      }
     }
     const pending = localStorage.getItem("funabacer.pending-practice");
     if (!pending) return;
     localStorage.removeItem("funabacer.pending-practice");
-    try { const request = JSON.parse(pending); if (request.topic) { setTopic(request.topic); setAutoStart(true); } } catch {}
+    try {
+      const request = JSON.parse(pending);
+      if (request.topic) {
+        setTopic(request.topic);
+        setAutoStart(true);
+      }
+    } catch {
+      localStorage.removeItem("funabacer.pending-practice");
+    }
   }, [practiceSessionKey]);
   useEffect(() => {
     if (!questions.length) return;
-    localStorage.setItem(practiceSessionKey, JSON.stringify({ topic, questions, answers, currentIndex, submitted, feedback, sessionEndsAt, secondsLeft }));
-  }, [practiceSessionKey, topic, questions, answers, currentIndex, submitted, feedback, sessionEndsAt, secondsLeft]);
+    localStorage.setItem(
+      practiceSessionKey,
+      JSON.stringify({
+        topic,
+        questions,
+        answers,
+        currentIndex,
+        submitted,
+        feedback,
+        sessionEndsAt,
+        secondsLeft,
+      }),
+    );
+  }, [
+    practiceSessionKey,
+    topic,
+    questions,
+    answers,
+    currentIndex,
+    submitted,
+    feedback,
+    sessionEndsAt,
+    secondsLeft,
+  ]);
   const generate = async () => {
     if (!profile?.course || !topic.trim()) return;
-    setBusy(true); setFeedback(""); setQuestions([]); setAnswers({}); setCurrentIndex(0); setSubmitted(false); setSessionEndsAt(null); localStorage.removeItem(practiceSessionKey);
+    setBusy(true);
+    setFeedback("");
+    setQuestions([]);
+    setAnswers({});
+    setCurrentIndex(0);
+    setSubmitted(false);
+    setSessionEndsAt(null);
+    localStorage.removeItem(practiceSessionKey);
     try {
-      const response = await fetch("/api/ai/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ course: profile.course, topic, count: 10 }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not generate questions");
-      setQuestions(data.questions || []);
-      setSessionEndsAt(Date.now() + 600_000); setSecondsLeft(600);
-    } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not generate questions"); }
-    finally { setBusy(false); }
+      let pool = questionPool;
+      if (pool.length < 10) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const response = await fetch("/api/ai/questions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(sessionData.session?.access_token
+              ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: 100 }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not generate questions");
+        pool = Array.isArray(data.questions) ? data.questions : [];
+        setQuestionPool(pool);
+        localStorage.setItem(questionBankKey, JSON.stringify(pool));
+      }
+      if (pool.length < 10)
+        throw new Error(
+          "The question bank returned fewer than 10 usable questions. Try the topic again.",
+        );
+      setQuestions(pool.slice(0, 10));
+      setSessionEndsAt(Date.now() + 600_000);
+      setSecondsLeft(600);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Could not generate questions");
+    } finally {
+      setBusy(false);
+    }
   };
   useEffect(() => {
     if (!autoStart || !topic.trim()) return;
@@ -1171,68 +1626,368 @@ function Practice({ setView, profile }: Props) {
     if (submitted) return;
     const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
     const score = questions.length ? Math.round((correct / questions.length) * 100) : 0;
-    saveAttempt({ topicId: `${profile?.course}:${topic.trim()}`, score, total: questions.length, correct, at: Date.now() });
+    saveAttempt({
+      topicId: `${profile?.course}:${topic.trim()}`,
+      score,
+      total: questions.length,
+      correct,
+      at: Date.now(),
+    });
     setSubmitted(true);
     setSecondsLeft(0);
     setBusy(true);
     try {
-      const marking = questions.map((q, i) => `Question ${i + 1}: ${q.question}\nStudent answer: ${q.options[answers[i]]}\nCorrect answer: ${q.options[q.answer]}\nBuilt-in explanation: ${q.explanation}`).join("\n\n");
-      const response = await fetch("/api/ai/tutor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `Mark my submitted ${topic} practice carefully. I scored ${correct}/${questions.length}. Explain every mistake, why it is wrong, the correct method, and what I should study next.\n\n${marking}`, history: [], department: profile?.department, course: profile?.course, topic }) });
+      const marking = questions
+        .map(
+          (q, i) =>
+            `Question ${i + 1}: ${q.question}\nStudent answer: ${q.options[answers[i]]}\nCorrect answer: ${q.options[q.answer]}\nBuilt-in explanation: ${q.explanation}`,
+        )
+        .join("\n\n");
+      const response = await fetch("/api/ai/tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Mark my submitted ${topic} practice carefully. I scored ${correct}/${questions.length}. Explain every mistake, why it is wrong, the correct method, and what I should study next.\n\n${marking}`,
+          history: [],
+          department: profile?.department,
+          course: profile?.course,
+          topic,
+        }),
+      });
       const data = await response.json();
-      setFeedback(response.ok ? data.answer : `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`);
-    } catch { setFeedback(`You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`); }
-    finally { setBusy(false); }
+      setFeedback(
+        response.ok
+          ? data.answer
+          : `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`,
+      );
+    } catch {
+      setFeedback(
+        `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`,
+      );
+    } finally {
+      setBusy(false);
+    }
   };
   const chooseAnswer = (answer: number) => {
     if (submitted) return;
     setAnswers((previous) => ({ ...previous, [currentIndex]: answer }));
-    if (currentIndex < questions.length - 1) window.setTimeout(() => setCurrentIndex((index) => Math.min(index + 1, questions.length - 1)), 220);
+    if (currentIndex < questions.length - 1)
+      window.setTimeout(
+        () => setCurrentIndex((index) => Math.min(index + 1, questions.length - 1)),
+        220,
+      );
   };
   const startNewPractice = () => {
-    if (questions.length && !window.confirm("Start a new practice test? Your current saved test will be cleared.")) return;
-    localStorage.removeItem(practiceSessionKey); setTopic(""); setQuestions([]); setAnswers({}); setCurrentIndex(0); setFeedback(""); setSubmitted(false); setSecondsLeft(null); setSessionEndsAt(null);
+    if (
+      questions.length &&
+      !window.confirm("Start a new practice test? Your current saved test will be cleared.")
+    )
+      return;
+    localStorage.removeItem(practiceSessionKey);
+    setTopic("");
+    setQuestions([]);
+    setAnswers({});
+    setCurrentIndex(0);
+    setFeedback("");
+    setSubmitted(false);
+    setSecondsLeft(null);
+    setSessionEndsAt(null);
   };
-  const openReteach = (questionTopic?: string) => { localStorage.setItem("funabacer.reteach-topic", (questionTopic || topic).trim()); setView("reteach"); };
-  const renderQuestion = (q: Question, i: number, review = false) => <div key={i} className={`rounded-2xl border p-6 ${review && submitted ? answers[i] === q.answer ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50" : "border-[#dcebe3] bg-white"}`}><div className="flex items-start justify-between gap-3"><p className="font-bold leading-7">{i + 1}. {q.question}</p>{submitted && <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${answers[i] === q.answer ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}>{answers[i] === q.answer ? "✓ Correct" : "× Incorrect"}</span>}</div><div className="mt-4 space-y-2">{q.options.map((option, j) => <button key={option} disabled={submitted || review} onClick={() => chooseAnswer(j)} className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}>{String.fromCharCode(65 + j)}. {option}{submitted && j === q.answer ? " · Correct answer" : ""}</button>)}</div>{submitted && <p className="mt-4 rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#365348]"><strong>Explanation:</strong> {q.explanation}</p>}<button onClick={() => openReteach(q.topic || topic)} className="mt-4 text-sm font-extrabold text-emerald-700 underline">I don’t understand this topic</button></div>;
-  return <Page title="Practice" eyebrow="AI-GENERATED PRACTICE" subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}>
-    <div className="mx-auto max-w-3xl space-y-5">
-      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold text-[#365348]">Topic to practise<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic from your course scheme" className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400" /></label><div className="mt-4 flex flex-wrap gap-3"><Btn onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>{busy ? "Generating questions…" : "Select topic and start 10-minute sprint"}</Btn>{topic.trim() && <Btn variant="outline" onClick={openReteach}>I don’t understand this topic</Btn>}{questions.length > 0 && <Btn variant="outline" onClick={startNewPractice}><RotateCcw size={16} /> Start a new practice</Btn>}</div></div>
-      {questions.length > 0 && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"><div className="flex items-center justify-between gap-3"><span>10-minute sprint · {submitted ? "Completed" : secondsLeft === null ? "Not started" : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}</span><span>{submitted ? questions.length : currentIndex + 1}/{questions.length}</span></div><div className="mt-3 flex gap-1">{questions.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${submitted || i < currentIndex ? "bg-emerald-500" : i === currentIndex ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div></div>}
-      {!submitted && questions.length > 0 && renderQuestion(questions[currentIndex], currentIndex)}
-      {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && <Btn onClick={submit} disabled={Object.keys(answers).length !== questions.length || busy} className="w-full">Submit all answers to the tutor <ArrowRight size={16} /></Btn>}
-      {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
-      {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800"><span className="mb-3 block text-xs uppercase tracking-wider text-emerald-700">Saved to today’s progress</span><TutorMessage content={feedback} light /><div className="mt-4 flex flex-wrap items-center gap-3"><button className="underline" onClick={() => setView("learn")}>Open AI Tutor</button>{questions.length > 0 && Math.round((questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) / questions.length) * 100) < 10 && <button className="rounded-lg bg-emerald-600 px-3 py-2 text-white" onClick={openReteach}>Teach me from the beginning</button>}</div></div>}
+  const openReteach = (questionTopic?: string) => {
+    localStorage.setItem("funabacer.reteach-topic", (questionTopic || topic).trim());
+    setView("reteach");
+  };
+  const renderQuestion = (q: Question, i: number, review = false) => (
+    <div
+      key={i}
+      className={`rounded-2xl border p-6 ${review && submitted ? (answers[i] === q.answer ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50") : "border-[#dcebe3] bg-white"}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-bold leading-7">
+          {i + 1}. {q.question}
+        </p>
+        {submitted && (
+          <span
+            className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${answers[i] === q.answer ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}
+          >
+            {answers[i] === q.answer ? "✓ Correct" : "× Incorrect"}
+          </span>
+        )}
+      </div>
+      <div className="mt-4 space-y-2">
+        {q.options.map((option, j) => (
+          <button
+            key={option}
+            disabled={submitted || review}
+            onClick={() => chooseAnswer(j)}
+            className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}
+          >
+            {String.fromCharCode(65 + j)}. {option}
+            {submitted && j === q.answer ? " · Correct answer" : ""}
+          </button>
+        ))}
+      </div>
+      {submitted && (
+        <p className="mt-4 rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#365348]">
+          <strong>Explanation:</strong> {q.explanation}
+        </p>
+      )}
+      <button
+        onClick={() => openReteach(q.topic || topic)}
+        className="mt-4 text-sm font-extrabold text-emerald-700 underline"
+      >
+        I don’t understand this topic
+      </button>
     </div>
-  </Page>;
+  );
+  return (
+    <Page
+      title="Practice"
+      eyebrow="AI-GENERATED PRACTICE"
+      subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}
+    >
+      <div className="mx-auto max-w-3xl space-y-5">
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6 space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-bold text-[#365348]">
+              Academic level
+              <select
+                value={selectedLevel}
+                onChange={(e) => {
+                  setSelectedLevel(e.target.value);
+                  setTopic("");
+                }}
+                className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="">Choose level</option>
+                {courseLevels.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-bold text-[#365348]">
+              Topic from verified course scheme
+              <select
+                value={courseTopics.includes(topic) ? topic : ""}
+                onChange={(e) => setTopic(e.target.value)}
+                className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="">Choose a course topic</option>
+                {courseTopics.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block text-sm font-bold text-[#365348]">
+            Or search any topic with AI
+            <input
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder={
+                courseRows.length
+                  ? "Type a different topic to ask AI"
+                  : "Enter a topic from your course"
+              }
+              className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </label>
+          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
+            {courseRows.length
+              ? `Verified bank: ${courseRows.length} course entries for ${selectedLevel || "this programme"}. The first AI batch is saved on this device and reused for future 10-minute sprints.`
+              : "This programme has no verified levelled course rows yet, so AI topic search remains available."}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Btn onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>
+              {busy
+                ? "Preparing question bank…"
+                : questionPool.length >= 10
+                  ? "Start 10-minute sprint"
+                  : "Build question bank and start sprint"}
+            </Btn>
+            {topic.trim() && (
+              <Btn variant="outline" onClick={openReteach}>
+                I don’t understand this topic
+              </Btn>
+            )}
+            {questions.length > 0 && (
+              <Btn variant="outline" onClick={startNewPractice}>
+                <RotateCcw size={16} /> Start a new practice
+              </Btn>
+            )}
+          </div>
+        </div>
+        {questions.length > 0 && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                10-minute sprint ·{" "}
+                {submitted
+                  ? "Completed"
+                  : secondsLeft === null
+                    ? "Not started"
+                    : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}
+              </span>
+              <span>
+                {submitted ? questions.length : currentIndex + 1}/{questions.length}
+              </span>
+            </div>
+            <div className="mt-3 flex gap-1">
+              {questions.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 flex-1 rounded-full ${submitted || i < currentIndex ? "bg-emerald-500" : i === currentIndex ? "bg-emerald-300" : "bg-emerald-100"}`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {!submitted &&
+          questions.length > 0 &&
+          renderQuestion(questions[currentIndex], currentIndex)}
+        {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && (
+          <Btn
+            onClick={submit}
+            disabled={Object.keys(answers).length !== questions.length || busy}
+            className="w-full"
+          >
+            Submit all answers to the tutor <ArrowRight size={16} />
+          </Btn>
+        )}
+        {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
+        {feedback && (
+          <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
+            <span className="mb-3 block text-xs uppercase tracking-wider text-emerald-700">
+              Saved to today’s progress
+            </span>
+            <TutorMessage content={feedback} light />
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button className="underline" onClick={() => setView("learn")}>
+                Open AI Tutor
+              </button>
+              {questions.length > 0 &&
+                Math.round(
+                  (questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) /
+                    questions.length) *
+                    100,
+                ) < 10 && (
+                  <button
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-white"
+                    onClick={openReteach}
+                  >
+                    Teach me from the beginning
+                  </button>
+                )}
+            </div>
+          </div>
+        )}
+      </div>
+    </Page>
+  );
 }
 function Reteach({ setView, profile }: Props) {
-  const [topic, setTopic] = useState(() => localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic");
+  const [topic, setTopic] = useState(
+    () => localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic",
+  );
   const [lesson, setLesson] = useState("");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
-    const requestedTopic = localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic";
+    const requestedTopic =
+      localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic";
     localStorage.removeItem("funabacer.reteach-topic");
     setTopic(requestedTopic);
     void (async () => {
       try {
-        const response = await fetch("/api/ai/tutor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `Teach me ${requestedTopic} from the absolute beginning. Assume I am a beginner, like a 10-year-old, but do not be childish. Build a complete lesson: define the idea in simple words, explain why it matters, introduce every symbol and unit, show a very easy example, then a Mechanical Engineering example, common mistakes, a short recap, and one tiny check question at the end. Do not ask me to choose a topic and do not refer me to another page.`, history: [], department: profile?.department, course: profile?.course, topic: requestedTopic }) });
-        const data = await response.json(); if (!response.ok) throw new Error(data.error || "The Tutor could not prepare this lesson.");
+        const response = await fetch("/api/ai/tutor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: `Teach me ${requestedTopic} from the absolute beginning. Assume I am a beginner, like a 10-year-old, but do not be childish. Build a complete lesson: define the idea in simple words, explain why it matters, introduce every symbol and unit, show a very easy example, then a Mechanical Engineering example, common mistakes, a short recap, and one tiny check question at the end. Do not ask me to choose a topic and do not refer me to another page.`,
+            history: [],
+            department: profile?.department,
+            course: profile?.course,
+            topic: requestedTopic,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "The Tutor could not prepare this lesson.");
         setLesson(data.answer || "");
-      } catch (caught) { setError(caught instanceof Error ? caught.message : "The Tutor could not prepare this lesson."); }
-      finally { setBusy(false); }
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "The Tutor could not prepare this lesson.",
+        );
+      } finally {
+        setBusy(false);
+      }
     })();
   }, [profile?.course, profile?.department]);
-  const retest = () => { localStorage.setItem("funabacer.reteach-topic", topic); setView("practice"); };
-  return <Page title={topic} eyebrow="UNDERSTAND IT FIRST" subtitle={`A beginner-friendly lesson for ${profile?.course || "your programme"}`}>
-    <div className="relative mx-auto max-w-3xl pb-24"><div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-sm sm:p-10">{busy ? <div className="py-20 text-center text-[#71877d]">Building your lesson from the beginning…</div> : error ? <div className="rounded-2xl bg-rose-50 p-5 text-sm font-semibold text-rose-800">{error}</div> : <TutorMessage content={lesson} />}</div><div className="fixed bottom-24 right-4 z-20 flex flex-col gap-2 sm:right-8"><button onClick={retest} className="rounded-full bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg">Return to practice test</button><button onClick={() => setView("learn")} className="rounded-full border border-[#c9ddd2] bg-white px-4 py-3 text-sm font-extrabold text-[#244138] shadow-lg">Back to study</button></div></div>
-  </Page>;
+  const retest = () => {
+    localStorage.setItem("funabacer.reteach-topic", topic);
+    setView("practice");
+  };
+  return (
+    <Page
+      title={topic}
+      eyebrow="UNDERSTAND IT FIRST"
+      subtitle={`A beginner-friendly lesson for ${profile?.course || "your programme"}`}
+    >
+      <div className="relative mx-auto max-w-3xl pb-24">
+        <div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-sm sm:p-10">
+          {busy ? (
+            <div className="py-20 text-center text-[#71877d]">
+              Building your lesson from the beginning…
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl bg-rose-50 p-5 text-sm font-semibold text-rose-800">
+              {error}
+            </div>
+          ) : (
+            <TutorMessage content={lesson} />
+          )}
+        </div>
+        <div className="fixed bottom-24 right-4 z-20 flex flex-col gap-2 sm:right-8">
+          <button
+            onClick={retest}
+            className="rounded-full bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg"
+          >
+            Return to practice test
+          </button>
+          <button
+            onClick={() => setView("learn")}
+            className="rounded-full border border-[#c9ddd2] bg-white px-4 py-3 text-sm font-extrabold text-[#244138] shadow-lg"
+          >
+            Back to study
+          </button>
+        </div>
+      </div>
+    </Page>
+  );
 }
 
 function Review({ setView }: Props) {
-  return <Page title="Question review" eyebrow="YOUR REVIEW" subtitle="Review is created from your submitted answers, not from demo content.">
-    <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-7 text-center"><h2 className="text-2xl font-extrabold">No submitted answers to review</h2><p className="mt-3 leading-7 text-[#71877d]">Complete a real practice session and submit it. The Tutor will then explain each mistake from your own answers.</p><Btn className="mt-6" onClick={() => setView("practice")}><Target size={16}/> Start practice</Btn></div>
-  </Page>;
+  return (
+    <Page
+      title="Question review"
+      eyebrow="YOUR REVIEW"
+      subtitle="Review is created from your submitted answers, not from demo content."
+    >
+      <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
+        <h2 className="text-2xl font-extrabold">No submitted answers to review</h2>
+        <p className="mt-3 leading-7 text-[#71877d]">
+          Complete a real practice session and submit it. The Tutor will then explain each mistake
+          from your own answers.
+        </p>
+        <Btn className="mt-6" onClick={() => setView("practice")}>
+          <Target size={16} /> Start practice
+        </Btn>
+      </div>
+    </Page>
+  );
 }
 function Results({ setView }: Props) {
   return (
@@ -1243,9 +1998,21 @@ function Results({ setView }: Props) {
     >
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          [`${realStats().score ?? 0}%`, "Overall mastery", realStats().answered ? "From submitted work" : "No submitted work yet"],
-          [String(realStats().answered), "Questions answered", realStats().answered ? "Your account" : "Start your first lesson"],
-          [`${realStats().studyDays} days`, "Study streak", realStats().studyDays ? "Based on study activity" : "No study activity yet"],
+          [
+            `${realStats().score ?? 0}%`,
+            "Overall mastery",
+            realStats().answered ? "From submitted work" : "No submitted work yet",
+          ],
+          [
+            String(realStats().answered),
+            "Questions answered",
+            realStats().answered ? "Your account" : "Start your first lesson",
+          ],
+          [
+            `${realStats().studyDays} days`,
+            "Study streak",
+            realStats().studyDays ? "Based on study activity" : "No study activity yet",
+          ],
         ].map(([v, l, d]) => (
           <div key={l} className="rounded-2xl border border-[#dcebe3] bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-widest text-[#71877d]">{l}</p>
@@ -1265,27 +2032,34 @@ function Results({ setView }: Props) {
           </Btn>
         </div>
         <div className="mt-7 space-y-5">
-          {attemptedTopics().length === 0 ? <p className="mt-6 rounded-xl bg-[#fbfdfc] p-5 text-sm leading-6 text-[#71877d]">No mastery data yet. Scores will appear here only after you submit real practice answers.</p> : attemptedTopics().map((t) => (
-            <div key={t.name}>
-              <div className="flex justify-between gap-4">
-                <div>
-                  <span className="text-sm font-bold text-[#244138]">{t.name}</span>
-                  <span className="ml-2 text-xs text-[#8ca198]">{t.course}</span>
+          {attemptedTopics().length === 0 ? (
+            <p className="mt-6 rounded-xl bg-[#fbfdfc] p-5 text-sm leading-6 text-[#71877d]">
+              No mastery data yet. Scores will appear here only after you submit real practice
+              answers.
+            </p>
+          ) : (
+            attemptedTopics().map((t) => (
+              <div key={t.name}>
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <span className="text-sm font-bold text-[#244138]">{t.name}</span>
+                    <span className="ml-2 text-xs text-[#8ca198]">{t.course}</span>
+                  </div>
+                  <span
+                    className={`text-xs font-bold ${t.tone === "strong" ? "text-emerald-700" : t.tone === "weak" ? "text-rose-300" : "text-amber-300"}`}
+                  >
+                    {t.tone === "strong" ? "Strong" : t.tone === "weak" ? "Weak" : "Needs practice"}
+                  </span>
                 </div>
-                <span
-                  className={`text-xs font-bold ${t.tone === "strong" ? "text-emerald-700" : t.tone === "weak" ? "text-rose-300" : "text-amber-300"}`}
-                >
-                  {t.tone === "strong" ? "Strong" : t.tone === "weak" ? "Weak" : "Needs practice"}
-                </span>
+                <div className="mt-2 h-2 rounded-full bg-[#eff7f2]">
+                  <div
+                    className={`h-full rounded-full ${t.tone === "strong" ? "bg-emerald-400" : t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
+                    style={{ width: `${t.score}%` }}
+                  />
+                </div>
               </div>
-              <div className="mt-2 h-2 rounded-full bg-[#eff7f2]">
-                <div
-                  className={`h-full rounded-full ${t.tone === "strong" ? "bg-emerald-400" : t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
-                  style={{ width: `${t.score}%` }}
-                />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </Page>
@@ -1293,32 +2067,93 @@ function Results({ setView }: Props) {
 }
 
 type Flashcard = { front: string; back: string };
-function DocumentAttachment({ onProcessed, name }: { onProcessed: (cards: Flashcard[], name: string) => void; name?: string }) {
+function DocumentAttachment({
+  onProcessed,
+  name,
+}: {
+  onProcessed: (cards: Flashcard[], name: string) => void;
+  name?: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const process = async (file: File) => {
-    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) { setError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file."); return; }
-    if (file.size > 4 * 1024 * 1024) { setError("Please use a file under 4 MB."); return; }
-    setBusy(true); setError(""); setStatus("Reading your document with Gemini…");
+    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) {
+      setError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file.");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Please use a file under 4 MB.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setStatus("Reading your document with Gemini…");
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
-      const response = await fetch("/api/ai/flashcards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read the file."));
+        reader.readAsDataURL(file);
+      });
+      const response = await fetch("/api/ai/flashcards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, type: file.type, dataUrl }),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Gemini could not create flashcards.");
-      onProcessed(data.cards || [], data.name || file.name); setStatus(`${data.cards?.length || 0} flashcards are ready to study.`);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "The document could not be processed."); setStatus(""); }
-    finally { setBusy(false); }
+      onProcessed(data.cards || [], data.name || file.name);
+      setStatus(`${data.cards?.length || 0} flashcards are ready to study.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The document could not be processed.");
+      setStatus("");
+    } finally {
+      setBusy(false);
+    }
   };
-  return <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-5">
-    <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-[#244138]"><span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500 text-white"><Paperclip size={18} /></span><span>{busy ? "Gemini is reading…" : name ? `Attached: ${name}` : "Attach a PDF or image"}<span className="mt-1 block text-xs font-normal text-[#71877d]">Gemini reads it and prepares tutor context · max 4 MB</span></span><input className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void process(file); event.currentTarget.value = ""; }} /></label>
-    {status && <p className="mt-3 text-xs font-semibold text-emerald-700">{status}</p>}
-    {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
-  </div>;
+  return (
+    <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-5">
+      <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-[#244138]">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
+          <Paperclip size={18} />
+        </span>
+        <span>
+          {busy ? "Gemini is reading…" : name ? `Attached: ${name}` : "Attach a PDF or image"}
+          <span className="mt-1 block text-xs font-normal text-[#71877d]">
+            Gemini reads it and prepares tutor context · max 4 MB
+          </span>
+        </span>
+        <input
+          className="sr-only"
+          type="file"
+          accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif"
+          disabled={busy}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void process(file);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
+      {status && <p className="mt-3 text-xs font-semibold text-emerald-700">{status}</p>}
+      {error && (
+        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>
+      )}
+    </div>
+  );
 }
 
 function Notes({ userId }: Props) {
-  type SavedSet = { id?: string; name: string; cards: Flashcard[]; known: number[]; review: number[]; current: number; completed: boolean };
+  type SavedSet = {
+    id?: string;
+    name: string;
+    cards: Flashcard[];
+    known: number[];
+    review: number[];
+    current: number;
+    completed: boolean;
+  };
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [sourceName, setSourceName] = useState("");
   const [savedSets, setSavedSets] = useState<SavedSet[]>([]);
@@ -1330,71 +2165,270 @@ function Notes({ userId }: Props) {
   const cacheKey = `funabacer.note-cruncher.sets.${userId || "local"}`;
   const legacyCacheKey = "funabacer.note-cruncher.sets";
   const loadCards = (item: SavedSet, reopen = false) => {
-    const safeCards = Array.isArray(item.cards) ? item.cards.filter((card) => card && typeof card.front === "string" && typeof card.back === "string") : [];
-    const safeCurrent = reopen ? 0 : Math.min(Math.max(item.current || 0, 0), Math.max(safeCards.length - 1, 0));
-    setCards(safeCards); setSourceName(item.name); setCurrent(safeCurrent); setFlipped(false); setKnown(reopen ? [] : item.known || []); setReview(reopen ? [] : item.review || []); setCompleted(reopen ? false : Boolean(item.completed || !safeCards.length));
+    const safeCards = Array.isArray(item.cards)
+      ? item.cards.filter(
+          (card) => card && typeof card.front === "string" && typeof card.back === "string",
+        )
+      : [];
+    const safeCurrent = reopen
+      ? 0
+      : Math.min(Math.max(item.current || 0, 0), Math.max(safeCards.length - 1, 0));
+    setCards(safeCards);
+    setSourceName(item.name);
+    setCurrent(safeCurrent);
+    setFlipped(false);
+    setKnown(reopen ? [] : item.known || []);
+    setReview(reopen ? [] : item.review || []);
+    setCompleted(reopen ? false : Boolean(item.completed || !safeCards.length));
   };
   useEffect(() => {
     try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]");
-      if (Array.isArray(cached)) setSavedSets(cached.map((item) => ({ ...item, known: item.known || [], review: item.review || [], current: item.current || 0, completed: Boolean(item.completed) })));
-    } catch { /* use empty state */ }
+      const cached = JSON.parse(
+        localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]",
+      );
+      if (Array.isArray(cached))
+        setSavedSets(
+          cached.map((item) => ({
+            ...item,
+            known: item.known || [],
+            review: item.review || [],
+            current: item.current || 0,
+            completed: Boolean(item.completed),
+          })),
+        );
+    } catch {
+      /* use empty state */
+    }
   }, [cacheKey, legacyCacheKey]);
   useEffect(() => {
     if (!userId) return;
     void (async () => {
-      const { data: remote } = await supabase.from("flashcard_sets").select("id, file_name, cards, known_cards, review_cards, current_position, completed").eq("user_id", userId).order("updated_at", { ascending: false }).limit(20);
+      const { data: remote } = await supabase
+        .from("flashcard_sets")
+        .select("id, file_name, cards, known_cards, review_cards, current_position, completed")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(20);
       if (remote?.length) {
-        const next = remote.map((item) => ({ id: item.id, name: item.file_name, cards: Array.isArray(item.cards) ? item.cards as unknown as Flashcard[] : [], known: Array.isArray(item.known_cards) ? item.known_cards as unknown as number[] : [], review: Array.isArray(item.review_cards) ? item.review_cards as unknown as number[] : [], current: item.current_position, completed: item.completed }));
+        const next = remote.map((item) => ({
+          id: item.id,
+          name: item.file_name,
+          cards: Array.isArray(item.cards) ? (item.cards as unknown as Flashcard[]) : [],
+          known: Array.isArray(item.known_cards) ? (item.known_cards as unknown as number[]) : [],
+          review: Array.isArray(item.review_cards)
+            ? (item.review_cards as unknown as number[])
+            : [],
+          current: item.current_position,
+          completed: item.completed,
+        }));
         setSavedSets(next);
         if (next[0]) loadCards(next[0]);
       } else {
-        const cached = (() => { try { return JSON.parse(localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]"); } catch { return []; } })();
+        const cached = (() => {
+          try {
+            return JSON.parse(
+              localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]",
+            );
+          } catch {
+            return [];
+          }
+        })();
         for (const item of Array.isArray(cached) ? cached.slice(0, 10) : []) {
-          await supabase.from("flashcard_sets").insert({ user_id: userId, file_name: item.name, cards: item.cards, known_cards: item.known || [], review_cards: item.review || [], current_position: item.current || 0, completed: Boolean(item.completed) });
+          await supabase.from("flashcard_sets").insert({
+            user_id: userId,
+            file_name: item.name,
+            cards: item.cards,
+            known_cards: item.known || [],
+            review_cards: item.review || [],
+            current_position: item.current || 0,
+            completed: Boolean(item.completed),
+          });
         }
       }
     })();
   }, [userId]);
-  useEffect(() => { localStorage.setItem(cacheKey, JSON.stringify(savedSets)); }, [cacheKey, savedSets]);
+  useEffect(() => {
+    localStorage.setItem(cacheKey, JSON.stringify(savedSets));
+  }, [cacheKey, savedSets]);
   const saveSet = async (nextCards: Flashcard[], name: string) => {
-    const localSet: SavedSet = { name, cards: nextCards, known: [], review: [], current: 0, completed: false };
+    const localSet: SavedSet = {
+      name,
+      cards: nextCards,
+      known: [],
+      review: [],
+      current: 0,
+      completed: false,
+    };
     if (userId) {
-      const { data } = await supabase.from("flashcard_sets").insert({ user_id: userId, file_name: name, cards: nextCards, known_cards: [], review_cards: [], current_position: 0, completed: false }).select("id").single();
+      const { data } = await supabase
+        .from("flashcard_sets")
+        .insert({
+          user_id: userId,
+          file_name: name,
+          cards: nextCards,
+          known_cards: [],
+          review_cards: [],
+          current_position: 0,
+          completed: false,
+        })
+        .select("id")
+        .single();
       if (data?.id) localSet.id = data.id;
     }
     const nextSets = [localSet, ...savedSets.filter((item) => item.name !== name)].slice(0, 20);
-    setSavedSets(nextSets); loadCards(localSet);
+    setSavedSets(nextSets);
+    loadCards(localSet);
   };
   const reopenSet = (item: SavedSet) => {
     const reopened = { ...item, known: [], review: [], current: 0, completed: false };
-    setSavedSets((previous) => previous.map((saved) => saved.id === item.id || saved.name === item.name ? reopened : saved));
+    setSavedSets((previous) =>
+      previous.map((saved) =>
+        saved.id === item.id || saved.name === item.name ? reopened : saved,
+      ),
+    );
     loadCards(reopened, true);
-    if (userId && item.id) void supabase.from("flashcard_sets").update({ known_cards: [], review_cards: [], current_position: 0, completed: false }).eq("id", item.id).eq("user_id", userId);
+    if (userId && item.id)
+      void supabase
+        .from("flashcard_sets")
+        .update({ known_cards: [], review_cards: [], current_position: 0, completed: false })
+        .eq("id", item.id)
+        .eq("user_id", userId);
   };
   const markCard = (kind: "known" | "review") => {
     if (!cards.length || !cards[current]) return;
     const nextKnown = kind === "known" && !known.includes(current) ? [...known, current] : known;
-    const nextReview = kind === "review" && !review.includes(current) ? [...review, current] : review;
-    const nextCurrent = kind === "review" ? current : current < cards.length - 1 ? current + 1 : current;
+    const nextReview =
+      kind === "review" && !review.includes(current) ? [...review, current] : review;
+    const nextCurrent =
+      kind === "review" ? current : current < cards.length - 1 ? current + 1 : current;
     const nextCompleted = kind === "review" ? false : current >= cards.length - 1;
-    setKnown(nextKnown); setReview(nextReview); setCompleted(nextCompleted);
-    setSavedSets((previous) => previous.map((item) => item.name === sourceName ? { ...item, known: nextKnown, review: nextReview, current: nextCurrent, completed: nextCompleted } : item));
+    setKnown(nextKnown);
+    setReview(nextReview);
+    setCompleted(nextCompleted);
+    setSavedSets((previous) =>
+      previous.map((item) =>
+        item.name === sourceName
+          ? {
+              ...item,
+              known: nextKnown,
+              review: nextReview,
+              current: nextCurrent,
+              completed: nextCompleted,
+            }
+          : item,
+      ),
+    );
     const active = savedSets.find((item) => item.name === sourceName);
-    if (userId && active?.id) void supabase.from("flashcard_sets").update({ known_cards: nextKnown, review_cards: nextReview, current_position: nextCurrent, completed: nextCompleted }).eq("id", active.id).eq("user_id", userId);
+    if (userId && active?.id)
+      void supabase
+        .from("flashcard_sets")
+        .update({
+          known_cards: nextKnown,
+          review_cards: nextReview,
+          current_position: nextCurrent,
+          completed: nextCompleted,
+        })
+        .eq("id", active.id)
+        .eq("user_id", userId);
     setFlipped(false);
     if (kind === "known" && !nextCompleted) window.setTimeout(() => setCurrent(nextCurrent), 220);
   };
-  return <Page title="Note Cruncher" eyebrow="STUDY MATERIALS" subtitle="Turn your class notes into flashcards you can actually revise.">
-    <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
-      <div>
-        <DocumentAttachment onProcessed={(nextCards, name) => void saveSet(nextCards, name)} name={sourceName} />
-        {cards.length > 0 && !completed && <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">{sourceName}</p><span className="text-xs font-bold text-emerald-700">{current + 1}/{cards.length}</span></div><div className="mt-3 flex gap-1">{cards.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div><button onClick={() => setFlipped((value) => !value)} className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">{flipped ? "Answer" : "Question"}</p><div className="mt-4 text-base leading-7 text-[#244138]"><TutorMessage content={flipped ? cards[current].back : cards[current].front} light /></div><p className="mt-5 text-xs font-semibold text-[#71877d]">Tap the card to {flipped ? "see the question" : "reveal the answer"}</p></button><div className="mt-4 flex gap-2"><Btn variant="outline" className="flex-1" onClick={() => markCard("review")} disabled={!flipped}>Review again</Btn><Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>I know this</Btn></div></div>}
-        {completed && cards.length > 0 && <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">You finished this study set. It is saved under Recent study sets. Known: {known.length} · Review again: {review.length}</div>}
+  return (
+    <Page
+      title="Note Cruncher"
+      eyebrow="STUDY MATERIALS"
+      subtitle="Turn your class notes into flashcards you can actually revise."
+    >
+      <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
+        <div>
+          <DocumentAttachment
+            onProcessed={(nextCards, name) => void saveSet(nextCards, name)}
+            name={sourceName}
+          />
+          {cards.length > 0 && !completed && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold">{sourceName}</p>
+                <span className="text-xs font-bold text-emerald-700">
+                  {current + 1}/{cards.length}
+                </span>
+              </div>
+              <div className="mt-3 flex gap-1">
+                {cards.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => setFlipped((value) => !value)}
+                className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"
+              >
+                <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">
+                  {flipped ? "Answer" : "Question"}
+                </p>
+                <div className="mt-4 text-base leading-7 text-[#244138]">
+                  <TutorMessage
+                    content={flipped ? cards[current].back : cards[current].front}
+                    light
+                  />
+                </div>
+                <p className="mt-5 text-xs font-semibold text-[#71877d]">
+                  Tap the card to {flipped ? "see the question" : "reveal the answer"}
+                </p>
+              </button>
+              <div className="mt-4 flex gap-2">
+                <Btn
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => markCard("review")}
+                  disabled={!flipped}
+                >
+                  Review again
+                </Btn>
+                <Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>
+                  I know this
+                </Btn>
+              </div>
+            </div>
+          )}
+          {completed && cards.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">
+              You finished this study set. It is saved under Recent study sets. Known:{" "}
+              {known.length} · Review again: {review.length}
+            </div>
+          )}
+        </div>
+        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
+          <h2 className="font-extrabold">Recent study sets</h2>
+          <div className="mt-5 space-y-3">
+            {savedSets.map((item) => (
+              <button
+                key={item.id || item.name}
+                onClick={() => reopenSet(item)}
+                className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"
+              >
+                <BookOpen size={16} className="text-emerald-700" />
+                <span className="flex-1 text-sm font-semibold text-[#365348]">
+                  {item.name}
+                  <span className="block text-xs font-normal text-[#71877d]">
+                    {item.cards.length} flashcards
+                  </span>
+                </span>
+                <ChevronRight size={16} className="text-[#8ca198" />
+              </button>
+            ))}
+          </div>
+          {savedSets.length === 0 && (
+            <p className="mt-5 text-sm text-[#71877d]">
+              No study sets yet. Upload your first material to create one.
+            </p>
+          )}
+        </div>
       </div>
-      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.id || item.name} onClick={() => reopenSet(item)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
-    </div>
-  </Page>;
+    </Page>
+  );
 }
 
 function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
@@ -1408,14 +2442,19 @@ function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) 
         <section className="rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
           <AvatarPicker />
           <h2 className="mt-5 text-xl font-extrabold">Your profile</h2>
-          <p className="mt-1 text-sm text-[#71877d]">{profile?.department || "Department not selected"} · {profile?.course || "Course not selected"}</p>
+          <p className="mt-1 text-sm text-[#71877d]">
+            {profile?.department || "Department not selected"} ·{" "}
+            {profile?.course || "Course not selected"}
+          </p>
           <div className="mt-7 grid grid-cols-2 gap-3 text-left">
             <div className="rounded-xl bg-[#fbfdfc] p-4">
               <p className="text-xl font-extrabold">{realStats().score ?? 0}%</p>
               <p className="mt-1 text-xs text-[#71877d]">Overall progress</p>
             </div>
             <div className="rounded-xl bg-[#fbfdfc] p-4">
-              <p className="text-xl font-extrabold text-emerald-700">{realStats().answered ? "Active" : "Not started"}</p>
+              <p className="text-xl font-extrabold text-emerald-700">
+                {realStats().answered ? "Active" : "Not started"}
+              </p>
               <p className="mt-1 text-xs text-[#71877d]">Exam status</p>
             </div>
           </div>
@@ -1497,10 +2536,38 @@ function SettingsPage({ theme, setTheme }: { theme: Theme; setTheme: (theme: The
           </select>
         </label>
         <div className="border-t border-[#dcebe3] py-5">
-          <div className="flex items-center gap-4"><Settings size={17} className="text-emerald-700" /><div><p className="font-bold">Account and Exam Pass</p><p className="mt-1 text-xs text-[#71877d]">Manual payment activation is available below.</p></div></div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-[#eff7f2] p-4"><p className="font-bold">Monthly · ₦500</p><p className="mt-1 text-xs text-[#71877d]">Limited capacity</p></div><div className="rounded-xl bg-[#eff7f2] p-4"><p className="font-bold">Semester · ₦1,500</p><p className="mt-1 text-xs text-[#71877d]">Full capacity</p></div></div>
-          <p className="mt-4 text-sm leading-6 text-[#365348]">Pay to PalmPay <strong>8130760557</strong> · <strong>Praise Onoja</strong>, then send your receipt on WhatsApp to <strong>9112834887</strong>. An unlock code will be issued after verification.</p>
-          <a href="https://wa.me/2349112834887" target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white">Send receipt on WhatsApp</a>
+          <div className="flex items-center gap-4">
+            <Settings size={17} className="text-emerald-700" />
+            <div>
+              <p className="font-bold">Account and Exam Pass</p>
+              <p className="mt-1 text-xs text-[#71877d]">
+                Manual payment activation is available below.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-[#eff7f2] p-4">
+              <p className="font-bold">Monthly · ₦500</p>
+              <p className="mt-1 text-xs text-[#71877d]">Limited capacity</p>
+            </div>
+            <div className="rounded-xl bg-[#eff7f2] p-4">
+              <p className="font-bold">Semester · ₦1,500</p>
+              <p className="mt-1 text-xs text-[#71877d]">Full capacity</p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm leading-6 text-[#365348]">
+            Pay to PalmPay <strong>8130760557</strong> · <strong>Praise Onoja</strong>, then send
+            your receipt on WhatsApp to <strong>9112834887</strong>. An unlock code will be issued
+            after verification.
+          </p>
+          <a
+            href="https://wa.me/2349112834887"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white"
+          >
+            Send receipt on WhatsApp
+          </a>
         </div>
       </div>
     </Page>
@@ -1619,18 +2686,136 @@ const funaabDepartments = [
 
 function Onboarding({ done }: { done: (profile: { department: string; course: string }) => void }) {
   const [course, setCourse] = useState("");
+  const [level, setLevel] = useState("");
   const [programmeSearch, setProgrammeSearch] = useState("");
-  const programmes = funaabDepartments.flatMap((item) => item.courses.map((name) => ({ name, department: item.group })));
+  const programmes = funaabDepartments.flatMap((item) =>
+    item.courses.map((name) => ({ name, department: item.group })),
+  );
   const selected = programmes.find((item) => item.name === course);
-  const filteredProgrammes = programmes.filter((item) => `${item.name} ${item.department}`.toLowerCase().includes(programmeSearch.trim().toLowerCase())).slice(0, 12);
+  const levelOptions = selected ? courseBankLevelsFor(selected.name) : [];
+  const filteredProgrammes = programmes
+    .filter((item) =>
+      `${item.name} ${item.department}`
+        .toLowerCase()
+        .includes(programmeSearch.trim().toLowerCase()),
+    )
+    .slice(0, 12);
   const finish = async () => {
     if (!selected) return;
-    const profile = { department: selected.department, course: selected.name };
+    const profile = {
+      department: selected.department,
+      course: selected.name,
+      ...(level ? { level } : {}),
+    };
     await supabase.auth.updateUser({ data: profile });
     localStorage.setItem("funabacer-profile", JSON.stringify(profile));
     done(profile);
   };
-  return <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12"><div className="mx-auto max-w-5xl"><Logo /><div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">PERSONALISE YOUR STUDY PLAN</p><h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">Choose your exact programme.</h1><p className="mt-5 max-w-md text-base leading-7 text-[#587166]">Select the programme you actually study. FunaBAcer will automatically attach it to the correct department and will not show unrelated programmes.</p><div className="mt-8 text-sm font-semibold text-emerald-700"><span className="mr-3 inline-flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">1</span>Programme first</div></div><div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8"><label className="block text-sm font-bold text-[#244138]">What programme are you studying?<div className="relative mt-3"><Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#71877d]" /><input value={programmeSearch} onChange={(event) => setProgrammeSearch(event.target.value)} placeholder="Search by programme or department" className="w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] py-3.5 pl-11 pr-4 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400" /></div></label><div className="mt-3 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[#eff7f2] bg-[#fbfdfc] p-2">{filteredProgrammes.length > 0 ? filteredProgrammes.map((item) => <button type="button" key={item.name} onClick={() => { setCourse(item.name); setProgrammeSearch(item.name); }} className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${course === item.name ? "bg-emerald-100 font-extrabold text-emerald-900" : "text-[#365348] hover:bg-emerald-50"}`}><span className="block">{item.name}</span><span className="mt-0.5 block text-xs font-normal text-[#71877d]">{item.department}</span></button>) : <p className="px-3 py-3 text-sm text-[#71877d]">No matching programme found. Try another search.</p>}</div>{selected && <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><strong>Department:</strong> {selected.department}<br/><strong>Programme:</strong> {selected.name}</div>}<button onClick={finish} disabled={!selected} className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]">Build my study plan <ArrowRight className="ml-2 inline-block" size={16}/></button><p className="mt-4 text-center text-xs text-[#8ca198]">You can change your programme later from Profile.</p></div></div></div></div>;
+  return (
+    <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-5xl">
+        <Logo />
+        <div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">
+              PERSONALISE YOUR STUDY PLAN
+            </p>
+            <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">
+              Choose your exact programme.
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-7 text-[#587166]">
+              Select the programme you actually study. FunaBAcer will automatically attach it to the
+              correct department and will not show unrelated programmes.
+            </p>
+            <div className="mt-8 text-sm font-semibold text-emerald-700">
+              <span className="mr-3 inline-flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">
+                1
+              </span>
+              Programme first
+            </div>
+          </div>
+          <div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8">
+            <label className="block text-sm font-bold text-[#244138]">
+              What programme are you studying?
+              <div className="relative mt-3">
+                <Search
+                  size={17}
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#71877d]"
+                />
+                <input
+                  value={programmeSearch}
+                  onChange={(event) => setProgrammeSearch(event.target.value)}
+                  placeholder="Search by programme or department"
+                  className="w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] py-3.5 pl-11 pr-4 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+            </label>
+            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[#eff7f2] bg-[#fbfdfc] p-2">
+              {filteredProgrammes.length > 0 ? (
+                filteredProgrammes.map((item) => (
+                  <button
+                    type="button"
+                    key={item.name}
+                    onClick={() => {
+                      setCourse(item.name);
+                      setProgrammeSearch(item.name);
+                    }}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${course === item.name ? "bg-emerald-100 font-extrabold text-emerald-900" : "text-[#365348] hover:bg-emerald-50"}`}
+                  >
+                    <span className="block">{item.name}</span>
+                    <span className="mt-0.5 block text-xs font-normal text-[#71877d]">
+                      {item.department}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-3 py-3 text-sm text-[#71877d]">
+                  No matching programme found. Try another search.
+                </p>
+              )}
+            </div>
+            {selected && (
+              <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
+                <strong>Department:</strong> {selected.department}
+                <br />
+                <strong>Programme:</strong> {selected.name}
+                {levelOptions.length > 0 && (
+                  <>
+                    <br />
+                    <label className="mt-3 block font-bold">
+                      What level are you in?
+                      <select
+                        value={level}
+                        onChange={(event) => setLevel(event.target.value)}
+                        className="mt-2 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[#244138]"
+                      >
+                        <option value="">Choose your level</option>
+                        {levelOptions.map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
+            <button
+              onClick={finish}
+              disabled={!selected || (levelOptions.length > 0 && !level)}
+              className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]"
+            >
+              Build my study plan <ArrowRight className="ml-2 inline-block" size={16} />
+            </button>
+            <p className="mt-4 text-center text-xs text-[#8ca198]">
+              You can change your programme later from Profile.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Landing({ onStart }: { onStart: () => void }) {
@@ -1905,11 +3090,42 @@ function App() {
   const [view, setView] = useState<View>("dashboard");
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
+    if (!session || localStorage.getItem("funabacer-curriculum-seeded-v1")) return;
+    let cancelled = false;
+    void (async () => {
+      for (let offset = 0; offset < funaabCourseBank.length && !cancelled; offset += 200) {
+        const batch = funaabCourseBank.slice(offset, offset + 200).map((row) => ({
+          programme: row.programme,
+          level: row.level,
+          code: row.code,
+          title: row.title,
+          units: row.units,
+          course_type: row.type,
+        }));
+        const { error } = await supabase
+          .from("curriculum_courses")
+          .upsert(batch, { onConflict: "programme,level,code,title", ignoreDuplicates: true });
+        if (error) {
+          console.warn("Curriculum bank sync paused", error.message);
+          return;
+        }
+      }
+      if (!cancelled) localStorage.setItem("funabacer-curriculum-seeded-v1", "true");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const metadata = data.session?.user.user_metadata as
-        { department?: string; course?: string } | undefined;
+        { department?: string; course?: string; level?: string } | undefined;
       if (metadata?.department && metadata.course) {
-        const savedProfile = { department: metadata.department, course: metadata.course };
+        const savedProfile = {
+          department: metadata.department,
+          course: metadata.course,
+          ...(metadata.level ? { level: metadata.level } : {}),
+        };
         localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
         setProfile(savedProfile);
       } else {
@@ -1953,7 +3169,10 @@ function App() {
       />
     );
   let content: ReactNode;
-  const userId = typeof session === "object" && session && "user" in session ? String((session as { user?: { id?: string } }).user?.id || "") : "";
+  const userId =
+    typeof session === "object" && session && "user" in session
+      ? String((session as { user?: { id?: string } }).user?.id || "")
+      : "";
   const props = { setView, profile, userId };
   if (view === "dashboard") content = <Home {...props} />;
   else if (view === "overview") content = <Dashboard {...props} />;
@@ -1965,7 +3184,19 @@ function App() {
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
   else if (view === "notes") content = <Notes {...props} />;
-  else if (view === "profile") content = <Profile {...props} profile={profile} onEdit={async () => { await supabase.auth.updateUser({ data: { department: null, course: null } }); localStorage.removeItem("funabacer-profile"); setProfile(null); setNeedsOnboarding(true); }} />;
+  else if (view === "profile")
+    content = (
+      <Profile
+        {...props}
+        profile={profile}
+        onEdit={async () => {
+          await supabase.auth.updateUser({ data: { department: null, course: null, level: null } });
+          localStorage.removeItem("funabacer-profile");
+          setProfile(null);
+          setNeedsOnboarding(true);
+        }}
+      />
+    );
   else if (view === "admin") content = <AdminPanel />;
   else
     content = (
