@@ -1328,10 +1328,10 @@ function Notes({ userId }: Props) {
   const [completed, setCompleted] = useState(false);
   const cacheKey = `funabacer.note-cruncher.sets.${userId || "local"}`;
   const legacyCacheKey = "funabacer.note-cruncher.sets";
-  const loadCards = (item: SavedSet) => {
+  const loadCards = (item: SavedSet, reopen = false) => {
     const safeCards = Array.isArray(item.cards) ? item.cards.filter((card) => card && typeof card.front === "string" && typeof card.back === "string") : [];
-    const safeCurrent = Math.min(Math.max(item.current || 0, 0), Math.max(safeCards.length - 1, 0));
-    setCards(safeCards); setSourceName(item.name); setCurrent(safeCurrent); setFlipped(false); setKnown(item.known || []); setReview(item.review || []); setCompleted(Boolean(item.completed || !safeCards.length));
+    const safeCurrent = reopen ? 0 : Math.min(Math.max(item.current || 0, 0), Math.max(safeCards.length - 1, 0));
+    setCards(safeCards); setSourceName(item.name); setCurrent(safeCurrent); setFlipped(false); setKnown(reopen ? [] : item.known || []); setReview(reopen ? [] : item.review || []); setCompleted(reopen ? false : Boolean(item.completed || !safeCards.length));
   };
   useEffect(() => {
     try {
@@ -1365,6 +1365,12 @@ function Notes({ userId }: Props) {
     const nextSets = [localSet, ...savedSets.filter((item) => item.name !== name)].slice(0, 20);
     setSavedSets(nextSets); loadCards(localSet);
   };
+  const reopenSet = (item: SavedSet) => {
+    const reopened = { ...item, known: [], review: [], current: 0, completed: false };
+    setSavedSets((previous) => previous.map((saved) => saved.id === item.id || saved.name === item.name ? reopened : saved));
+    loadCards(reopened, true);
+    if (userId && item.id) void supabase.from("flashcard_sets").update({ known_cards: [], review_cards: [], current_position: 0, completed: false }).eq("id", item.id).eq("user_id", userId);
+  };
   const markCard = (kind: "known" | "review") => {
     if (!cards.length || !cards[current]) return;
     const nextKnown = kind === "known" && !known.includes(current) ? [...known, current] : known;
@@ -1385,7 +1391,7 @@ function Notes({ userId }: Props) {
         {cards.length > 0 && !completed && <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">{sourceName}</p><span className="text-xs font-bold text-emerald-700">{current + 1}/{cards.length}</span></div><div className="mt-3 flex gap-1">{cards.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div><button onClick={() => setFlipped((value) => !value)} className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">{flipped ? "Answer" : "Question"}</p><div className="mt-4 text-base leading-7 text-[#244138]"><TutorMessage content={flipped ? cards[current].back : cards[current].front} light /></div><p className="mt-5 text-xs font-semibold text-[#71877d]">Tap the card to {flipped ? "see the question" : "reveal the answer"}</p></button><div className="mt-4 flex gap-2"><Btn variant="outline" className="flex-1" onClick={() => markCard("review")} disabled={!flipped}>Review again</Btn><Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>I know this</Btn></div></div>}
         {completed && cards.length > 0 && <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">You finished this study set. It is saved under Recent study sets. Known: {known.length} · Review again: {review.length}</div>}
       </div>
-      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.id || item.name} onClick={() => loadCards(item)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.id || item.name} onClick={() => reopenSet(item)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
     </div>
   </Page>;
 }
