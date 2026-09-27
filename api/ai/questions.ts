@@ -4,7 +4,7 @@ declare const process: { env: Record<string, string | undefined> };
 
 type Provider = { name: string; url: string; key?: string; model: string; timeoutMs: number };
 
-// Gemini first (with Google's rolling aliases), then NVIDIA as the backup when Gemini is overloaded.
+// NVIDIA is primary for question banks. Gemini remains a fallback if NVIDIA is unavailable.
 function providers(): Provider[] {
   const geminiUrl = (
     process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai"
@@ -17,21 +17,21 @@ function providers(): Provider[] {
       "gemini-flash-lite-latest",
     ]),
   ];
-  const list: Provider[] = geminiModels.map((model) => ({
+  const nvidia: Provider = {
+    name: "nvidia",
+    url: (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/$/, ""),
+    key: process.env.NVIDIA_API_KEY,
+    model: process.env.NVIDIA_MODEL || "openai/gpt-oss-20b",
+    timeoutMs: 45000,
+  };
+  const gemini: Provider[] = geminiModels.map((model) => ({
     name: "gemini",
     url: geminiUrl,
     key: geminiKey,
     model,
-    timeoutMs: 25000,
+    timeoutMs: 20000,
   }));
-  list.push({
-    name: "nvidia",
-    url: (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/$/, ""),
-    key: process.env.NVIDIA_API_KEY,
-    model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct",
-    timeoutMs: 40000,
-  });
-  return list.filter((p) => p.key);
+  return [nvidia, ...gemini].filter((p) => p.key);
 }
 
 // 503 (overloaded) and 429 (rate limited) are temporary, so they are worth retrying.
@@ -253,6 +253,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
             model: provider.model,
             temperature: 0.3,
             max_tokens: count > 20 ? 18000 : 6000,
+            ...(provider.name === "nvidia" ? { reasoning_effort: "low" } : {}),
             messages: [
               { role: "system", content: system },
               { role: "user", content: prompt },
