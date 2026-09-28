@@ -1644,7 +1644,7 @@ function Practice({ setView, profile, userId }: Props) {
               ? { Authorization: `Bearer ${sessionData.session.access_token}` }
               : {}),
           },
-          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: 100 }),
+          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: 30 }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate questions");

@@ -205,6 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cacheUrl = supabaseUrl
     ? `${supabaseUrl.replace(/\/$/, "")}/rest/v1/sprint_question_banks`
     : "";
+  let savedBank: RawQuestion[] = [];
   if (cacheHeaders && cacheUrl) {
     try {
       const cachedResponse = await fetch(
@@ -213,13 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       const cached = await cachedResponse.json().catch(() => []);
       const row = Array.isArray(cached) ? cached[0] : null;
-      if (row && Array.isArray(row.questions) && row.questions.length >= Math.min(count, 10)) {
-        return res.status(200).json({
-          questions: row.questions.slice(0, count),
-          provider: "shared-course-bank",
-          cached: true,
-        });
-      }
+      if (row && Array.isArray(row.questions)) savedBank = row.questions;
     } catch (error) {
       console.warn("Shared question-bank lookup failed", error);
     }
@@ -239,6 +234,10 @@ Reply with ONLY a JSON array like:
 Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".
 IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT LaTeX. Use √ for roots (√75, √(3x+1)), ² ³ for powers, / for fractions ((3√5 + 2√3)/11), ×, ÷, ±, π, θ, ≤, ≥. Never use $, backslashes or commands like \\sqrt or \\frac. Do not put letter labels like "A." inside the options.`;
 
+  const generationCount = savedBank.length >= 5 ? 5 : Math.min(count, 30);
+  const generationPrompt = prompt
+    .replace(`Create ${count} original`, `Create ${generationCount} original`)
+    .replace(`Exactly ${count} items`, `Exactly ${generationCount} items`);
   const errors: string[] = [];
   for (const provider of list) {
     // Up to 2 tries per model when the provider reports it is busy.
@@ -252,11 +251,11 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
           body: JSON.stringify({
             model: provider.model,
             temperature: 0.3,
-            max_tokens: count > 20 ? 18000 : 6000,
+            max_tokens: generationCount > 20 ? 12000 : 6000,
             ...(provider.name === "nvidia" ? { reasoning_effort: "low" } : {}),
             messages: [
               { role: "system", content: system },
-              { role: "user", content: prompt },
+              { role: "user", content: generationPrompt },
             ],
           }),
           signal: controller.signal,
@@ -291,7 +290,22 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
           errors.push(`${provider.model}: no usable questions`);
           break;
         }
-        const result = questions.slice(0, count);
+        const mergedBank = [...savedBank, ...questions]
+          .filter(
+            (question, index, all) =>
+              all.findIndex((candidate) => candidate.question === question.question) === index,
+          )
+          .slice(-100);
+        const result =
+          savedBank.length >= 5
+            ? [
+                ...questions.slice(0, 5),
+                ...savedBank
+                  .slice()
+                  .sort(() => Math.random() - 0.5)
+                  .slice(0, 5),
+              ]
+            : questions.slice(0, 10);
         if (cacheHeaders && cacheUrl && result.length >= Math.min(count, 10)) {
           try {
             await fetch(cacheUrl, {
@@ -301,8 +315,8 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
                 programme: course,
                 level,
                 topic,
-                questions: result,
-                question_count: result.length,
+                questions: mergedBank,
+                question_count: mergedBank.length,
               }),
             });
           } catch (error) {
