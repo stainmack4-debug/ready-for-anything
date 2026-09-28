@@ -2304,7 +2304,6 @@ function Notes({ userId }: Props) {
           completed: item.completed,
         }));
         setSavedSets(next);
-        if (next[0]) loadCards(next[0]);
       } else {
         const cached = (() => {
           try {
