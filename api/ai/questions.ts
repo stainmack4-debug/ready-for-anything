@@ -191,6 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const topic = String(body.topic || "").trim();
   const count = Math.min(Math.max(Number(body.count) || 10, 1), 100);
   const level = String(body.level || "").trim() || "all levels";
+  const background = body.background === true;
   if (!course || !topic) return res.status(400).json({ error: "Choose a course and topic first." });
 
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -234,7 +235,7 @@ Reply with ONLY a JSON array like:
 Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".
 IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT LaTeX. Use √ for roots (√75, √(3x+1)), ² ³ for powers, / for fractions ((3√5 + 2√3)/11), ×, ÷, ±, π, θ, ≤, ≥. Never use $, backslashes or commands like \\sqrt or \\frac. Do not put letter labels like "A." inside the options.`;
 
-  const generationCount = savedBank.length >= 5 ? 5 : Math.min(count, 30);
+  const generationCount = background ? 10 : savedBank.length >= 5 ? 5 : Math.min(count, 10);
   const generationPrompt = prompt
     .replace(`Create ${count} original`, `Create ${generationCount} original`)
     .replace(`Exactly ${count} items`, `Exactly ${generationCount} items`);
@@ -296,8 +297,9 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
               all.findIndex((candidate) => candidate.question === question.question) === index,
           )
           .slice(-100);
-        const result =
-          savedBank.length >= 5
+        const result = background
+          ? questions.slice(0, 10)
+          : savedBank.length >= 5
             ? [
                 ...questions.slice(0, 5),
                 ...savedBank
@@ -323,7 +325,12 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
             console.warn("Shared question-bank write failed", error);
           }
         }
-        return res.status(200).json({ questions: result, provider: provider.model, cached: false });
+        return res.status(200).json({
+          questions: result,
+          provider: provider.model,
+          cached: false,
+          bankSize: mergedBank.length,
+        });
       } catch (error) {
         const aborted = error instanceof Error && error.name === "AbortError";
         errors.push(

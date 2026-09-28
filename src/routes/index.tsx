@@ -1530,6 +1530,7 @@ function Practice({ setView, profile, userId }: Props) {
   }, [allCourseRows]);
   const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
   const [questionPool, setQuestionPool] = useState<Question[]>([]);
+  const bankFillInProgress = useRef(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1644,13 +1645,45 @@ function Practice({ setView, profile, userId }: Props) {
               ? { Authorization: `Bearer ${sessionData.session.access_token}` }
               : {}),
           },
-          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: 30 }),
+          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: 10 }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate questions");
         pool = Array.isArray(data.questions) ? data.questions : [];
         setQuestionPool(pool);
         localStorage.setItem(questionBankKey, JSON.stringify(pool));
+        if (!bankFillInProgress.current && Number(data.bankSize || 0) < 100) {
+          bankFillInProgress.current = true;
+          void (async () => {
+            try {
+              let bankSize = Number(data.bankSize || pool.length);
+              for (let batch = 0; batch < 10 && bankSize < 100; batch += 1) {
+                await new Promise((resolve) => setTimeout(resolve, 400));
+                const batchResponse = await fetch("/api/ai/questions", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(sessionData.session?.access_token
+                      ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+                      : {}),
+                  },
+                  body: JSON.stringify({
+                    course: profile.course,
+                    level: selectedLevel,
+                    topic,
+                    count: 10,
+                    background: true,
+                  }),
+                });
+                const batchData = await batchResponse.json().catch(() => ({}));
+                if (!batchResponse.ok) break;
+                bankSize = Number(batchData.bankSize || bankSize + 10);
+              }
+            } finally {
+              bankFillInProgress.current = false;
+            }
+          })();
+        }
       }
       if (pool.length < 10)
         throw new Error(
