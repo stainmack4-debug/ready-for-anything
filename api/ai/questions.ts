@@ -165,7 +165,7 @@ function isAcademicallyUsable(q: RawQuestion) {
   if (question.length < 20 || explanation.length < 80) return false;
   if (!Number.isInteger(answer) || answer < 0 || answer > 3) return false;
   if (options.length !== 4 || options.some((option) => typeof option !== "string" || !option.trim())) return false;
-  if (/closest option|nearest option|not listed|no correct|adjusting|cannot determine|approximately.*option/i.test(`${question} ${explanation}`)) return false;
+  if (/closest option|nearest option|not listed|no correct|adjusting|cannot determine|approximately|approx\.?|roughly|\babout\b|≈/i.test(`${question} ${explanation}`)) return false;
   return true;
 }
 
@@ -244,7 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 Reply with ONLY a JSON array like:
 [{"topic":"specific concept","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"why the correct option is right"}]
 Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".
-IMPORTANT correctness: calculate every numerical answer before writing the options. The exact correct answer MUST appear as one option. NEVER choose the closest option. If the answer is 81, include 81—not 18 or another nearby number. If the exact answer is not available, rewrite the options before replying. Explanations must be at least 2 complete sentences: show the principle or formula, substitute values, calculate the result, identify the correct option, and explain the result in beginner-friendly language.
+IMPORTANT correctness: calculate every numerical answer before writing the options. The exact correct answer MUST appear as one option. NEVER choose the closest option. If the answer is 81, include 81—not 18 or another nearby number. If the exact answer is not available, rewrite the options before replying. Explanations must be at least 2 complete sentences: show the principle or formula, substitute values, calculate the result exactly, identify the correct option, and explain the result in beginner-friendly language. Do not use approximate symbols or words such as approximately, about, roughly, or closest; if a rounded answer would be needed, rewrite the options to include the exact answer.
 IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT LaTeX. Use √ for roots (√75, √(3x+1)), ² ³ for powers, / for fractions ((3√5 + 2√3)/11), ×, ÷, ±, π, θ, ≤, ≥. Never use $, backslashes or commands like \\sqrt or \\frac. Do not put letter labels like "A." inside the options.`;
 
   const generationCount = background ? 10 : savedBank.length >= 5 ? Math.min(5, count) : Math.min(count, 20);

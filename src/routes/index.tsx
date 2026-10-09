@@ -975,7 +975,12 @@ function TutorMessage({ content, light = false }: { content: string; light?: boo
     .replace(/\r/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const lines = cleaned.split("\n");
+  // Normalize multi-line display-math blocks before line-based Markdown rendering.
+  // This prevents matrix/array LaTeX from leaking as raw source text.
+  const normalized = cleaned
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, expression: string) => `$$${expression.replace(/\n+/g, " ").trim()}$$`)
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression: string) => `\\[${expression.replace(/\n+/g, " ").trim()}\\]`);
+  const lines = normalized.split("\n");
   return (
     <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>
       {lines.map((line, i) => {
