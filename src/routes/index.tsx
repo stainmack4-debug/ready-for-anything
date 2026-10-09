@@ -18,7 +18,6 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
-  Download,
   FileText,
   Flame,
   GraduationCap,
