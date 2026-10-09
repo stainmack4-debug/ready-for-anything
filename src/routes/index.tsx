@@ -1557,6 +1557,9 @@ function Practice({ setView, profile, userId }: Props) {
   const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
   const [resultCardBusy, setResultCardBusy] = useState(false);
+  const [showQuizCalculator, setShowQuizCalculator] = useState(false);
+  const [quizExpression, setQuizExpression] = useState("");
+  const [quizCalculation, setQuizCalculation] = useState("");
   const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}`;
   useEffect(() => {
     if (!selectedLevel && courseLevels[0]) setSelectedLevel(courseLevels[0]);
@@ -1795,6 +1798,21 @@ function Practice({ setView, profile, userId }: Props) {
     localStorage.setItem("funabacer.reteach-topic", (questionTopic || topic).trim());
     setView("reteach");
   };
+  const calculateQuiz = () => {
+    const safe = quizExpression
+      .replace(/[×x]/gi, "*")
+      .replace(/÷/g, "/")
+      .replace(/[^0-9+*/().%\s-]/g, "");
+    if (!safe.trim()) return;
+    try {
+      const value = Function(`"use strict"; return (${safe})`)();
+      setQuizCalculation(
+        Number.isFinite(value) ? String(Number(value.toFixed(8))) : "Not a valid result",
+      );
+    } catch {
+      setQuizCalculation("Check the expression");
+    }
+  };
   const startAnotherSet = () => {
     localStorage.removeItem(questionBankKey);
     setQuestionPool([]);
@@ -2012,9 +2030,20 @@ function Practice({ setView, profile, userId }: Props) {
                     ? "Not started"
                     : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}
               </span>
-              <span>
-                {submitted ? questions.length : currentIndex + 1}/{questions.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuizCalculator((open) => !open)}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-black tracking-wider transition ${showQuizCalculator ? "border-emerald-300 bg-emerald-500 text-white" : "border-emerald-200 bg-white/70 text-emerald-800 hover:bg-white"}`}
+                  aria-label={`${showQuizCalculator ? "Close" : "Open"} quiz calculator`}
+                  aria-expanded={showQuizCalculator}
+                >
+                  CAL
+                </button>
+                <span>
+                  {submitted ? questions.length : currentIndex + 1}/{questions.length}
+                </span>
+              </div>
             </div>
             <div className="mt-3 flex gap-1">
               {questions.map((_, i) => (
@@ -2024,6 +2053,50 @@ function Practice({ setView, profile, userId }: Props) {
                 />
               ))}
             </div>
+          </div>
+        )}
+        {questions.length > 0 && showQuizCalculator && (
+          <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                Quiz calculator
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuizExpression("");
+                  setQuizCalculation("");
+                }}
+                className="text-xs font-semibold text-[#71877d]"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={quizExpression}
+                onChange={(event) => setQuizExpression(event.target.value)}
+                onKeyDown={(event) => event.key === "Enter" && calculateQuiz()}
+                placeholder="e.g. 10 × 9.8 × 5"
+                aria-label="Quiz calculator expression"
+                className="min-w-0 flex-1 rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-3 py-2 text-sm outline-none focus:border-emerald-400"
+              />
+              <button
+                type="button"
+                onClick={calculateQuiz}
+                className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-white"
+              >
+                =
+              </button>
+            </div>
+            {quizCalculation && (
+              <p className="mt-2 text-right text-lg font-extrabold text-emerald-700">
+                {quizCalculation}
+              </p>
+            )}
+            <p className="mt-2 text-[11px] text-[#71877d]">
+              Use +, −, ×, ÷, brackets and percentages. This helps with working; it does not choose quiz answers for you.
+            </p>
           </div>
         )}
         {!submitted &&
