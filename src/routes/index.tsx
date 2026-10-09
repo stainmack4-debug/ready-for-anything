@@ -4,6 +4,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
+import { isOnOfficialTimetable, officialTimetable } from "@/lib/funaab-timetable";
 import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
 import { averageScore, getAttempts, saveAttempt, totalAnswered } from "@/lib/progress";
@@ -1522,14 +1523,20 @@ function Practice({ setView, profile, userId }: Props) {
   const courseTopics = useMemo(() => {
     const unique = new Map<
       string,
-      { key: string; label: string; status: string; subtopics: string[] }
+      { key: string; label: string; status: string; subtopics: string[]; official: boolean }
     >();
     for (const row of allCourseRows) {
       const key = row.title ? `${row.code} — ${row.title}` : row.code;
       if (!unique.has(key))
-        unique.set(key, { key, label: key, status: row.status, subtopics: row.subtopics });
+        unique.set(key, {
+          key,
+          label: key,
+          status: row.status,
+          subtopics: row.subtopics,
+          official: isOnOfficialTimetable(row.code),
+        });
     }
-    return [...unique.values()];
+    return [...unique.values()].sort((a, b) => Number(b.official) - Number(a.official));
   }, [allCourseRows]);
   const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
   const [questionPool, setQuestionPool] = useState<Question[]>([]);
@@ -1930,7 +1937,7 @@ function Practice({ setView, profile, userId }: Props) {
                 {courseTopics.map((item) => (
                   <option key={item.key} value={item.key}>
                     {item.label}
-                    {item.status !== "unknown" ? ` · ${item.status}` : ""}
+                    {item.official ? " · official timetable" : item.status !== "unknown" ? ` · ${item.status}` : ""}
                   </option>
                 ))}
               </select>
@@ -1959,6 +1966,10 @@ function Practice({ setView, profile, userId }: Props) {
               {[5, 10, 15, 20].map((count) => <option key={count} value={count}>{count} questions</option>)}
             </select>
           </label>
+          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
+            <strong>{officialTimetable.title} · Version {officialTimetable.version}</strong><br />
+            Course codes marked “official timetable” were matched to the TIMTEC timetable supplied for this workspace. The timetable verifies scheduling, while course materials remain the authority for teaching content.
+          </div>
           <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
             {allCourseRows.length
               ? `Verified bank: ${allCourseRows.length} course rows for ${selectedLevel || "all imported levels"}. Compulsory/elective labels are shown only where FUNAAB sources publish them.`
