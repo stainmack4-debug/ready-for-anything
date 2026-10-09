@@ -35,7 +35,7 @@ function providers(): Provider[] {
 }
 
 // 503 (overloaded) and 429 (rate limited) are temporary, so they are worth retrying.
-const RETRYABLE = new Set([429, 500, 503]);
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const SUPERSCRIPTS: Record<string, string> = {
@@ -156,6 +156,19 @@ function extractJson(text: string): unknown {
   return null;
 }
 
+// Reject unsafe academic output instead of silently choosing the closest option.
+function isAcademicallyUsable(q: RawQuestion) {
+  const explanation = typeof q.explanation === "string" ? q.explanation.trim() : "";
+  const question = typeof q.question === "string" ? q.question.trim() : "";
+  const options = Array.isArray(q.options) ? q.options : [];
+  const answer = Number(q.answer);
+  if (question.length < 20 || explanation.length < 80) return false;
+  if (!Number.isInteger(answer) || answer < 0 || answer > 3) return false;
+  if (options.length !== 4 || options.some((option) => typeof option !== "string" || !option.trim())) return false;
+  if (/closest option|nearest option|not listed|no correct|adjusting|cannot determine|approximately.*option/i.test(`${question} ${explanation}`)) return false;
+  return true;
+}
+
 // Accept either a bare array or {"questions":[...]}, drop malformed items, and clean up math notation.
 function normalise(parsed: unknown, fallbackTopic: string) {
   const items: unknown[] = Array.isArray(parsed)
@@ -167,9 +180,7 @@ function normalise(parsed: unknown, fallbackTopic: string) {
       : [];
   return items
     .map((item) => item as RawQuestion)
-    .filter(
-      (q) => typeof q.question === "string" && Array.isArray(q.options) && q.options.length === 4,
-    )
+    .filter((q) => isAcademicallyUsable(q))
     .map((q) => ({
       topic: cleanMath(typeof q.topic === "string" ? q.topic : fallbackTopic),
       question: cleanMath(String(q.question)),
@@ -228,14 +239,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .json({ error: "No AI key (GEMINI_API_KEY or NVIDIA_API_KEY) is set on Vercel." });
 
   const system =
-    "You write university exam practice questions. You reply with a raw JSON array only. No markdown, no commentary.";
+    "You write university exam practice questions. You reply with a raw JSON array only. No markdown, no commentary. Academic integrity is mandatory: never invent a closest answer; calculate first and include the exact answer as an option. If an item cannot be verified, replace it before replying.";
   const prompt = `Create ${count} original FUNAAB (Federal University of Agriculture, Abeokuta) style exam practice questions for the course "${course}" at ${level} on the topic "${topic}".
 Reply with ONLY a JSON array like:
 [{"topic":"specific concept","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"why the correct option is right"}]
 Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the correct option. Stay strictly on "${topic}".
+IMPORTANT correctness: calculate every numerical answer before writing the options. The exact correct answer MUST appear as one option. NEVER choose the closest option. If the answer is 81, include 81—not 18 or another nearby number. If the exact answer is not available, rewrite the options before replying. Explanations must be at least 2 complete sentences: show the principle or formula, substitute values, calculate the result, identify the correct option, and explain the result in beginner-friendly language.
 IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT LaTeX. Use √ for roots (√75, √(3x+1)), ² ³ for powers, / for fractions ((3√5 + 2√3)/11), ×, ÷, ±, π, θ, ≤, ≥. Never use $, backslashes or commands like \\sqrt or \\frac. Do not put letter labels like "A." inside the options.`;
 
-  const generationCount = background ? 10 : savedBank.length >= 5 ? 5 : Math.min(count, 10);
+  const generationCount = background ? 10 : savedBank.length >= 5 ? Math.min(5, count) : Math.min(count, 20);
   const generationPrompt = prompt
     .replace(`Create ${count} original`, `Create ${generationCount} original`)
     .replace(`Exactly ${count} items`, `Exactly ${generationCount} items`);
@@ -252,7 +264,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
           body: JSON.stringify({
             model: provider.model,
             temperature: 0.3,
-            max_tokens: generationCount > 20 ? 12000 : 6000,
+            max_tokens: generationCount >= 15 ? 12000 : 6000,
             ...(provider.name === "nvidia" ? { reasoning_effort: "low" } : {}),
             messages: [
               { role: "system", content: system },

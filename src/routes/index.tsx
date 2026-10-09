@@ -17,6 +17,7 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
+  Download,
   FileText,
   Flame,
   GraduationCap,
@@ -31,6 +32,7 @@ import {
   RotateCcw,
   Search,
   Send,
+  Share2,
   Settings,
   Sparkles,
   Sun,
@@ -65,7 +67,7 @@ type View =
   | "settings"
   | "admin";
 type Theme = "day" | "night";
-type StudentProfile = { department: string; course: string; level?: string };
+type StudentProfile = { department: string; course: string; level?: string; name?: string };
 type CustomCourse = { code: string; title: string; level: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
 function realStats() {
@@ -1473,6 +1475,7 @@ function Practice({ setView, profile, userId }: Props) {
   const [topic, setTopic] = useState("");
   const [customRows, setCustomRows] = useState<CustomCourse[]>([]);
   const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
+  const [questionCount, setQuestionCount] = useState(10);
   const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
   const courseRows = useMemo(
     () =>
@@ -1540,6 +1543,7 @@ function Practice({ setView, profile, userId }: Props) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
+  const [resultCardBusy, setResultCardBusy] = useState(false);
   const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}`;
   useEffect(() => {
     if (!selectedLevel && courseLevels[0]) setSelectedLevel(courseLevels[0]);
@@ -1645,7 +1649,7 @@ function Practice({ setView, profile, userId }: Props) {
               ? { Authorization: `Bearer ${sessionData.session.access_token}` }
               : {}),
           },
-          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: 10 }),
+          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: questionCount }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate questions");
@@ -1685,11 +1689,11 @@ function Practice({ setView, profile, userId }: Props) {
           })();
         }
       }
-      if (pool.length < 10)
+      if (pool.length < questionCount)
         throw new Error(
-          "The question bank returned fewer than 10 usable questions. Try the topic again.",
+          `The question bank returned only ${pool.length} verified questions. No unsafe or incomplete questions were shown. Try the topic again.`,
         );
-      setQuestions(pool.slice(0, 10));
+      setQuestions(pool.slice(0, questionCount));
       setSessionEndsAt(Date.now() + 600_000);
       setSecondsLeft(600);
     } catch (error) {
@@ -1778,6 +1782,73 @@ function Practice({ setView, profile, userId }: Props) {
     localStorage.setItem("funabacer.reteach-topic", (questionTopic || topic).trim());
     setView("reteach");
   };
+  const startAnotherSet = () => {
+    localStorage.removeItem(questionBankKey);
+    setQuestionPool([]);
+    setQuestions([]);
+    setAnswers({});
+    setSubmitted(false);
+    setFeedback("");
+    setCurrentIndex(0);
+    void generate();
+  };
+  const downloadResultCard = async () => {
+    if (resultCardBusy || !questions.length) return;
+    setResultCardBusy(true);
+    try {
+      const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
+      const score = Math.round((correct / questions.length) * 100);
+      const canvas = document.createElement("canvas");
+      canvas.width = 1200;
+      canvas.height = 760;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not create result image");
+      const gradient = ctx.createLinearGradient(0, 0, 1200, 760);
+      gradient.addColorStop(0, "#063b2a");
+      gradient.addColorStop(1, "#16c978");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "rgba(255,255,255,.12)";
+      ctx.roundRect(56, 56, 1088, 648, 34);
+      ctx.fill();
+      ctx.fillStyle = "#d1fae5";
+      ctx.font = "700 28px Arial";
+      ctx.fillText("FunaBAcer", 92, 124);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 58px Arial";
+      ctx.fillText("Study result", 92, 205);
+      ctx.font = "700 34px Arial";
+      ctx.fillText(profile?.name || "FunaBAcer student", 92, 275);
+      ctx.font = "500 27px Arial";
+      ctx.fillText(`${profile?.department || "Student"} · ${profile?.course || "Course"}`, 92, 325);
+      ctx.fillText(`${profile?.level || "Level not set"} · ${topic}`, 92, 370);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 120px Arial";
+      ctx.fillText(`${score}%`, 92, 540);
+      ctx.font = "600 30px Arial";
+      ctx.fillText(`${correct}/${questions.length} correct`, 390, 530);
+      ctx.font = "500 22px Arial";
+      ctx.fillText("Learn. Practise. Master. · funabacer.vercel.app", 92, 650);
+      ctx.globalAlpha = 0.24;
+      ctx.font = "900 88px Arial";
+      ctx.rotate(-0.18);
+      ctx.fillText("FUNABACER", 690, 575);
+      ctx.globalAlpha = 1;
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Could not export image")), "image/png"));
+      const file = new File([blob], "funabacer-result.png", { type: "image/png" });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: "My FunaBAcer result", text: `${score}% on ${topic}`, files: [file] });
+      } else {
+        const link = document.createElement("a");
+        link.download = file.name;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+    } finally {
+      setResultCardBusy(false);
+    }
+  };
   const renderQuestion = (q: Question, i: number, review = false) => (
     <div
       key={i}
@@ -1785,7 +1856,7 @@ function Practice({ setView, profile, userId }: Props) {
     >
       <div className="flex items-start justify-between gap-3">
         <p className="font-bold leading-7">
-          {i + 1}. {q.question}
+          {i + 1}. <TutorInline value={q.question} />
         </p>
         {submitted && (
           <span
@@ -1803,7 +1874,7 @@ function Practice({ setView, profile, userId }: Props) {
             onClick={() => chooseAnswer(j)}
             className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}
           >
-            {String.fromCharCode(65 + j)}. {option}
+            <span className="mr-1 font-bold">{String.fromCharCode(65 + j)}.</span> <TutorInline value={option} />
             {submitted && j === q.answer ? " · Correct answer" : ""}
           </button>
         ))}
@@ -1849,7 +1920,7 @@ function Practice({ setView, profile, userId }: Props) {
               </select>
             </label>
             <label className="block text-sm font-bold text-[#365348]">
-              Topic from verified course scheme
+              Course code / topic from verified scheme
               <select
                 value={courseTopics.some((item) => item.key === topic) ? topic : ""}
                 onChange={(e) => setTopic(e.target.value)}
@@ -1877,6 +1948,16 @@ function Practice({ setView, profile, userId }: Props) {
               }
               className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
             />
+          </label>
+          <label className="block text-sm font-bold text-[#365348]">
+            Number of questions
+            <select
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
+            >
+              {[5, 10, 15, 20].map((count) => <option key={count} value={count}>{count} questions</option>)}
+            </select>
           </label>
           <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
             {allCourseRows.length
@@ -1941,6 +2022,20 @@ function Practice({ setView, profile, userId }: Props) {
           </Btn>
         )}
         {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
+        {submitted && (
+          <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-bold text-[#244138]">Your result is ready to share.</p>
+            <p className="mt-1 text-xs leading-5 text-[#71877d]">It includes your name, level, department, course, score, and a FunaBAcer watermark.</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Btn onClick={() => void downloadResultCard()} disabled={resultCardBusy}>
+                <Share2 size={16} /> {resultCardBusy ? "Preparing image…" : "Share result image"}
+              </Btn>
+              <Btn variant="outline" onClick={startAnotherSet}>
+                <Download size={16} /> Generate more
+              </Btn>
+            </div>
+          </div>
+        )}
         {feedback && (
           <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
             <span className="mb-3 block text-xs uppercase tracking-wider text-emerald-700">
@@ -3303,12 +3398,13 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const metadata = data.session?.user.user_metadata as
-        { department?: string; course?: string; level?: string } | undefined;
+        { department?: string; course?: string; level?: string; full_name?: string } | undefined;
       if (metadata?.department && metadata.course) {
         const savedProfile = {
           department: metadata.department,
           course: metadata.course,
           ...(metadata.level ? { level: metadata.level } : {}),
+          ...(metadata.full_name ? { name: metadata.full_name } : {}),
         };
         localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
         setProfile(savedProfile);
