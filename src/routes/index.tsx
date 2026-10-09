@@ -969,6 +969,69 @@ function TutorInline({ value }: { value: string }) {
     </>
   );
 }
+function CalculatorPanel({ dark = false }: { dark?: boolean }) {
+  const [mode, setMode] = useState<"simple" | "professional">("simple");
+  const [expression, setExpression] = useState("");
+  const [result, setResult] = useState("");
+  const evaluate = () => {
+    const normalized = expression
+      .replace(/×/g, "*")
+      .replace(/÷/g, "/")
+      .replace(/π/g, "Math.PI")
+      .replace(/√/g, "sqrt")
+      .replace(/\b(ln|log|sin|cos|tan|sqrt)\s*\(/g, (_, fn: string) =>
+        `${fn === "ln" ? "Math.log" : fn === "log" ? "Math.log10" : fn === "sqrt" ? "Math.sqrt" : `Math.${fn}`}(`)
+      .replace(/(?<![A-Za-z])e(?![A-Za-z])/g, "Math.E")
+      .replace(/\^/g, "**");
+    if (!normalized.trim() || /[^0-9+*/().,%\sA-Za-z]/.test(normalized)) return;
+    try {
+      const value = Function(`"use strict"; return (${normalized})`)();
+      setResult(Number.isFinite(value) ? String(Number(value.toFixed(10))) : "Not a valid result");
+    } catch {
+      setResult("Check the expression");
+    }
+  };
+  const append = (value: string) => {
+    setExpression((current) => `${current}${value}`);
+    setResult("");
+  };
+  const muted = dark ? "text-emerald-100/60" : "text-[#71877d]";
+  const inputClass = dark
+    ? "min-w-0 flex-1 rounded-xl border border-white/15 bg-[#04100c] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+    : "min-w-0 flex-1 rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-3 py-2 text-sm outline-none focus:border-emerald-400";
+  const keyClass = dark
+    ? "rounded-lg border border-white/10 bg-white/10 px-2 py-2 text-xs font-bold text-emerald-50 hover:bg-white/20"
+    : "rounded-lg border border-[#dcebe3] bg-[#f7faf8] px-2 py-2 text-xs font-bold text-[#244138] hover:bg-emerald-50";
+  return (
+    <div className={dark ? "mb-3 rounded-2xl border border-emerald-300/25 bg-white/10 p-3" : "rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm"}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className={dark ? "text-xs font-bold uppercase tracking-wider text-emerald-200" : "text-xs font-bold uppercase tracking-wider text-emerald-800"}>
+          {mode === "professional" ? "Professional calculator" : "Simple calculator"}
+        </p>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setMode(mode === "simple" ? "professional" : "simple")} className={dark ? "rounded-full border border-emerald-300/40 px-3 py-1 text-[11px] font-black text-emerald-100" : "rounded-full border border-emerald-300 px-3 py-1 text-[11px] font-black text-emerald-800"}>
+            {mode === "simple" ? "PRO" : "SIMPLE"}
+          </button>
+          <button type="button" onClick={() => { setExpression(""); setResult(""); }} className={`text-xs ${muted}`}>Clear</button>
+        </div>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input value={expression} onChange={(event) => { setExpression(event.target.value); setResult(""); }} onKeyDown={(event) => event.key === "Enter" && evaluate()} placeholder="e.g. 10 × 9.8 × 5" aria-label="Calculator expression" className={inputClass} />
+        <button type="button" onClick={evaluate} className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-[#071612]">=</button>
+      </div>
+      {mode === "professional" && (
+        <div className="mt-3 grid grid-cols-5 gap-2">
+          {["sin(", "cos(", "tan(", "log(", "ln(", "√(", "π", "e", "^", "(", ")", "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−", "0", ".", "+", "%", ","].map((key) => (
+            <button key={key} type="button" onClick={() => append(key)} className={keyClass}>{key}</button>
+          ))}
+        </div>
+      )}
+      {result && <p className={`mt-2 text-right text-lg font-extrabold ${dark ? "text-emerald-200" : "text-emerald-700"}`}>{result}</p>}
+      <p className={`mt-2 text-[11px] ${muted}`}>Use the result to check your working; the calculator does not choose quiz answers for you.</p>
+    </div>
+  );
+}
+
 function TutorMessage({ content, light = false }: { content: string; light?: boolean }) {
   const cleaned = content
     .replace(/\r/g, "")
@@ -1349,48 +1412,7 @@ function Learn({ setView, profile, userId }: Props) {
                 ))}
               </div>
             )}
-            {showCalculator && (
-              <div className="mb-3 rounded-2xl border border-emerald-300/25 bg-white/10 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">
-                    Study calculator
-                  </p>
-                  <button
-                    onClick={() => {
-                      setExpression("");
-                      setCalculation("");
-                    }}
-                    className="text-xs text-emerald-100/60"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    value={expression}
-                    onChange={(event) => setExpression(event.target.value)}
-                    onKeyDown={(event) => event.key === "Enter" && calculate()}
-                    placeholder="e.g. (1 × 2) / 0.5"
-                    className="min-w-0 flex-1 rounded-xl border border-white/15 bg-[#04100c] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
-                  />
-                  <button
-                    onClick={calculate}
-                    className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-[#071612]"
-                  >
-                    =
-                  </button>
-                </div>
-                {calculation && (
-                  <p className="mt-2 text-right text-lg font-extrabold text-emerald-200">
-                    {calculation}
-                  </p>
-                )}
-                <p className="mt-2 text-[11px] text-emerald-100/50">
-                  Use +, −, ×, ÷, brackets and percentages. Use the result to explain your working
-                  to the tutor.
-                </p>
-              </div>
-            )}
+            {showCalculator && <CalculatorPanel dark />}
             {tutorFileBusy && (
               <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">
                 Gemini is reading your file and preparing an explanation…
@@ -2055,50 +2077,7 @@ function Practice({ setView, profile, userId }: Props) {
             </div>
           </div>
         )}
-        {questions.length > 0 && showQuizCalculator && (
-          <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Quiz calculator
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuizExpression("");
-                  setQuizCalculation("");
-                }}
-                className="text-xs font-semibold text-[#71877d]"
-              >
-                Clear
-              </button>
-            </div>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={quizExpression}
-                onChange={(event) => setQuizExpression(event.target.value)}
-                onKeyDown={(event) => event.key === "Enter" && calculateQuiz()}
-                placeholder="e.g. 10 × 9.8 × 5"
-                aria-label="Quiz calculator expression"
-                className="min-w-0 flex-1 rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-3 py-2 text-sm outline-none focus:border-emerald-400"
-              />
-              <button
-                type="button"
-                onClick={calculateQuiz}
-                className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-white"
-              >
-                =
-              </button>
-            </div>
-            {quizCalculation && (
-              <p className="mt-2 text-right text-lg font-extrabold text-emerald-700">
-                {quizCalculation}
-              </p>
-            )}
-            <p className="mt-2 text-[11px] text-[#71877d]">
-              Use +, −, ×, ÷, brackets and percentages. This helps with working; it does not choose quiz answers for you.
-            </p>
-          </div>
-        )}
+        {questions.length > 0 && showQuizCalculator && <CalculatorPanel />}
         {!submitted &&
           questions.length > 0 &&
           renderQuestion(questions[currentIndex], currentIndex)}
