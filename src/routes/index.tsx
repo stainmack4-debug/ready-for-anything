@@ -1304,10 +1304,12 @@ function Learn({ setView, profile, userId }: Props) {
             </div>
             <button
               onClick={() => setShowCalculator((open) => !open)}
-              className={`flex size-10 items-center justify-center rounded-full border transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}
-              aria-label="Open calculator"
+              className={`flex min-w-12 items-center justify-center rounded-full border px-3 py-2 text-xs font-black tracking-wider transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}
+              aria-label={`${showCalculator ? "Close" : "Open"} calculator`}
+              aria-expanded={showCalculator}
+              title="Calculator"
             >
-              ∑
+              CAL
             </button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
