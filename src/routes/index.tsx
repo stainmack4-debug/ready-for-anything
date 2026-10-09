@@ -974,16 +974,24 @@ function CalculatorPanel({ dark = false }: { dark?: boolean }) {
   const [expression, setExpression] = useState("");
   const [result, setResult] = useState("");
   const evaluate = () => {
-    const normalized = expression
+    let normalized = expression
+      .replace(/[−–—]/g, "-")
       .replace(/×/g, "*")
       .replace(/÷/g, "/")
       .replace(/π/g, "Math.PI")
       .replace(/√/g, "sqrt")
+      .replace(/\bsqrt\s*(\d+(?:\.\d+)?)/g, "Math.sqrt($1)")
       .replace(/\b(ln|log|sin|cos|tan|sqrt)\s*\(/g, (_, fn: string) =>
         `${fn === "ln" ? "Math.log" : fn === "log" ? "Math.log10" : fn === "sqrt" ? "Math.sqrt" : `Math.${fn}`}(`)
       .replace(/(?<![A-Za-z])e(?![A-Za-z])/g, "Math.E")
       .replace(/\^/g, "**");
-    if (!normalized.trim() || /[^0-9+*/().,%\sA-Za-z]/.test(normalized)) return;
+    const openParentheses = (normalized.match(/\(/g) || []).length;
+    const closedParentheses = (normalized.match(/\)/g) || []).length;
+    if (openParentheses > closedParentheses) normalized += ")".repeat(openParentheses - closedParentheses);
+    if (!normalized.trim() || /[^0-9+*/().,%\sA-Za-z]/.test(normalized)) {
+      setResult("Enter a valid calculation");
+      return;
+    }
     try {
       const value = Function(`"use strict"; return (${normalized})`)();
       setResult(Number.isFinite(value) ? String(Number(value.toFixed(10))) : "Not a valid result");
@@ -1021,7 +1029,7 @@ function CalculatorPanel({ dark = false }: { dark?: boolean }) {
       </div>
       {mode === "professional" && (
         <div className="mt-3 grid grid-cols-5 gap-2">
-          {["sin(", "cos(", "tan(", "log(", "ln(", "√(", "π", "e", "^", "(", ")", "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−", "0", ".", "+", "%", ","].map((key) => (
+          {["sin(", "cos(", "tan(", "log(", "ln(", "√", "π", "e", "^", "(", ")", "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−", "0", ".", "+", "%", ","].map((key) => (
             <button key={key} type="button" onClick={() => append(key)} className={keyClass}>{key}</button>
           ))}
         </div>
