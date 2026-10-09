@@ -2029,13 +2029,18 @@ function Practice({ setView, profile, userId }: Props) {
           questions.length > 0 &&
           renderQuestion(questions[currentIndex], currentIndex)}
         {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && (
-          <Btn
-            onClick={submit}
-            disabled={Object.keys(answers).length !== questions.length || busy}
-            className="w-full"
-          >
-            Submit all answers to the tutor <ArrowRight size={16} />
-          </Btn>
+          <div className="flex flex-wrap gap-3">
+            <Btn
+              onClick={submit}
+              disabled={Object.keys(answers).length !== questions.length || busy}
+              className="flex-1"
+            >
+              Submit all answers to the tutor <ArrowRight size={16} />
+            </Btn>
+            <Btn variant="outline" onClick={startAnotherSet} disabled={busy}>
+              <RotateCcw size={16} /> Generate more
+            </Btn>
+          </div>
         )}
         {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
         {submitted && (
@@ -2045,9 +2050,6 @@ function Practice({ setView, profile, userId }: Props) {
             <div className="mt-4 flex flex-wrap gap-3">
               <Btn onClick={() => void downloadResultCard()} disabled={resultCardBusy}>
                 <Share2 size={16} /> {resultCardBusy ? "Preparing image…" : "Share result image"}
-              </Btn>
-              <Btn variant="outline" onClick={startAnotherSet}>
-                <Download size={16} /> Generate more
               </Btn>
             </div>
           </div>
