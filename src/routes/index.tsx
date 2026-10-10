@@ -1616,19 +1616,24 @@ function Practice({ setView, profile, userId }: Props) {
     return () => window.clearInterval(timer);
   }, [sessionEndsAt, submitted]);
   useEffect(() => {
-    if (submitted || sessionEndsAt === null) return;
+    if (submitted) return;
     const handleVisibility = () => {
-      if (document.hidden) {
-        const remaining = Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0);
-        setSecondsLeft(remaining);
-        setSessionEndsAt(null);
-      } else {
-        setSessionEndsAt(Date.now() + Math.max(secondsLeft ?? 0, 0) * 1000);
-      }
+      setSessionEndsAt((endAt) => {
+        if (document.hidden) {
+          if (endAt !== null) {
+            setSecondsLeft(Math.max(Math.ceil((endAt - Date.now()) / 1000), 0));
+            return null;
+          }
+          return endAt;
+        }
+        if (endAt === null && secondsLeft !== null && secondsLeft > 0)
+          return Date.now() + secondsLeft * 1000;
+        return endAt;
+      });
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [sessionEndsAt, secondsLeft, submitted]);
+  }, [secondsLeft, submitted]);
   useEffect(() => {
     if (submitted || sessionEndsAt !== null || secondsLeft === null || secondsLeft <= 0) return;
     if (document.hidden) return;
