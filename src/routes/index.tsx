@@ -1637,6 +1637,7 @@ function Practice({ setView, profile, userId }: Props) {
     return [...unique.values()].sort((a, b) => Number(b.official) - Number(a.official));
   }, [allCourseRows]);
   const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
+  const usedQuestionKey = `${questionBankKey}.used`;
   const [questionPool, setQuestionPool] = useState<Question[]>([]);
   const bankFillInProgress = useRef(false);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -1660,11 +1661,14 @@ function Practice({ setView, profile, userId }: Props) {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(questionBankKey) || "[]");
-      setQuestionPool(Array.isArray(saved) ? saved : []);
+      const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
+      const fresh = Array.isArray(saved) ? saved.filter((q) => q && !used.has(String(q.question))) : [];
+      setQuestionPool(fresh);
+      localStorage.setItem(questionBankKey, JSON.stringify(fresh));
     } catch {
       setQuestionPool([]);
     }
-  }, [questionBankKey]);
+  }, [questionBankKey, usedQuestionKey]);
   useEffect(() => {
     if (submitted || sessionEndsAt === null) return;
     const update = () => {
@@ -1705,6 +1709,10 @@ function Practice({ setView, profile, userId }: Props) {
     if (saved) {
       try {
         const session = JSON.parse(saved);
+        if (session.submitted) {
+          localStorage.removeItem(practiceSessionKey);
+          return;
+        }
         if (session.topic && Array.isArray(session.questions) && session.questions.length) {
           setTopic(session.topic);
           setQuestions(session.questions);
@@ -1738,6 +1746,10 @@ function Practice({ setView, profile, userId }: Props) {
     }
   }, [practiceSessionKey]);
   useEffect(() => {
+    if (submitted) {
+      localStorage.removeItem(practiceSessionKey);
+      return;
+    }
     if (!questions.length) return;
     localStorage.setItem(
       practiceSessionKey,
@@ -1774,8 +1786,9 @@ function Practice({ setView, profile, userId }: Props) {
     setSessionEndsAt(null);
     localStorage.removeItem(practiceSessionKey);
     try {
-      let pool = questionPool;
-      if (pool.length < 10) {
+      const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
+      let pool = questionPool.filter((q) => !used.has(String(q.question)));
+      if (pool.length < questionCount) {
         const { data: sessionData } = await supabase.auth.getSession();
         const response = await fetch("/api/ai/questions", {
           method: "POST",
@@ -1789,7 +1802,9 @@ function Practice({ setView, profile, userId }: Props) {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate questions");
-        pool = Array.isArray(data.questions) ? data.questions : [];
+        pool = Array.isArray(data.questions)
+          ? data.questions.filter((q) => q && !used.has(String(q.question)))
+          : [];
         setQuestionPool(pool);
         localStorage.setItem(questionBankKey, JSON.stringify(pool));
         if (!bankFillInProgress.current && Number(data.bankSize || 0) < 100) {
@@ -1854,6 +1869,13 @@ function Practice({ setView, profile, userId }: Props) {
       correct,
       at: Date.now(),
     });
+    const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
+    questions.forEach((q) => used.add(String(q.question)));
+    localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
+    const remainingPool = questionPool.filter((q) => !used.has(String(q.question)));
+    setQuestionPool(remainingPool);
+    localStorage.setItem(questionBankKey, JSON.stringify(remainingPool));
+    localStorage.removeItem(practiceSessionKey);
     setSubmitted(true);
     setSharePromptOpen(true);
     setSecondsLeft(0);
