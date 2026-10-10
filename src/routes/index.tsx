@@ -1503,6 +1503,7 @@ function Learn({ setView, profile, userId }: Props) {
   );
 }
 function Practice({ setView, profile, userId }: Props) {
+  const avatar = useAvatar();
   type Question = {
     question: string;
     options: string[];
