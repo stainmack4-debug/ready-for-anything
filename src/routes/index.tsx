@@ -66,6 +66,21 @@ type View =
   | "profile"
   | "settings"
   | "admin";
+const persistedViews: View[] = [
+  "dashboard",
+  "overview",
+  "courses",
+  "topic",
+  "learn",
+  "practice",
+  "reteach",
+  "review",
+  "results",
+  "notes",
+  "profile",
+  "settings",
+  "admin",
+];
 type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string; level?: string; name?: string };
 type CustomCourse = { code: string; title: string; level: string };
@@ -3580,7 +3595,15 @@ function App() {
       : "day",
   );
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [view, setView] = useState<View>("dashboard");
+  const [view, setViewState] = useState<View>(() => {
+    if (typeof window === "undefined") return "dashboard";
+    const saved = localStorage.getItem("funabacer.current-view");
+    return saved && persistedViews.includes(saved as View) ? (saved as View) : "dashboard";
+  });
+  const setView = (next: View) => {
+    setViewState(next);
+    if (typeof window !== "undefined") localStorage.setItem("funabacer.current-view", next);
+  };
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
     if (!session || localStorage.getItem("funabacer-curriculum-seeded-v2")) return;
