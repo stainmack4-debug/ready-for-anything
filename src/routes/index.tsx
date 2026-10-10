@@ -1710,6 +1710,9 @@ function Practice({ setView, profile, userId }: Props) {
       try {
         const session = JSON.parse(saved);
         if (session.submitted) {
+          const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
+          if (Array.isArray(session.questions)) session.questions.forEach((q: Question) => used.add(String(q.question)));
+          localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
           localStorage.removeItem(practiceSessionKey);
           return;
         }
