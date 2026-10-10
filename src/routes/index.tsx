@@ -1617,15 +1617,18 @@ function Practice({ setView, profile, userId }: Props) {
   }, [sessionEndsAt, submitted]);
   useEffect(() => {
     if (submitted || sessionEndsAt === null) return;
-    const pauseWhenHidden = () => {
-      if (!document.hidden) return;
-      const remaining = Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0);
-      setSecondsLeft(remaining);
-      setSessionEndsAt(null);
+    const handleVisibility = () => {
+      if (document.hidden) {
+        const remaining = Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0);
+        setSecondsLeft(remaining);
+        setSessionEndsAt(null);
+      } else {
+        setSessionEndsAt(Date.now() + Math.max(secondsLeft ?? 0, 0) * 1000);
+      }
     };
-    document.addEventListener("visibilitychange", pauseWhenHidden);
-    return () => document.removeEventListener("visibilitychange", pauseWhenHidden);
-  }, [sessionEndsAt, submitted]);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [sessionEndsAt, secondsLeft, submitted]);
   useEffect(() => {
     if (submitted || sessionEndsAt !== null || secondsLeft === null || secondsLeft <= 0) return;
     if (document.hidden) return;
