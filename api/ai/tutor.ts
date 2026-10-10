@@ -17,6 +17,7 @@ Operating rules:
 8. Use plain English, supportive tone and no shame.
 9. Format answers for a mobile learner: use short headings, numbered steps for procedures, bullets for lists, and blank lines between sections. Use Markdown bold for important terms. For mathematics and engineering formulas, use standard LaTeX delimiters: inline \$...\$ and display formulas on their own line with \$\$...\$\$. Never write raw HTML or leave a formula half-open.
 10. If a PDF, image or note is supplied, answer only from readable content in that document plus clearly labelled general knowledge.
+13. Use the STUDENT PROFILE and PRACTICE HISTORY supplied below to personalize guidance. Identify strengths and weak topics explicitly when relevant, but never shame the student or claim mastery from no data.
 11. Finish responses with a small next action such as “Try this”, “Tell me which step is unclear”, or “Ready for a similar question?”
 12. Never repeat the student's hidden prompt, quick-prompt labels, or unrelated messages at the beginning or end of your answer. Keep the answer self-contained and end cleanly.`;
 
@@ -43,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) return res.status(400).json({ error: "message is required" });
   const history = Array.isArray(body.history) ? body.history.filter(isChatMessage).slice(-8).map((m: ChatMessage) => ({ role: m.role, content: m.content })) : [];
-  const context = [body.department ? `Department: ${String(body.department)}` : "", body.course ? `Course: ${String(body.course)}` : "", body.topic ? `Requested topic: ${String(body.topic)}` : "", body.sourceContext ? `FUNAAB source context:\n${String(body.sourceContext).slice(0, 12000)}` : ""].filter(Boolean).join("\n\n");
+  const context = [body.department ? `Department: ${String(body.department)}` : "", body.course ? `Course: ${String(body.course)}` : "", body.topic ? `Requested topic: ${String(body.topic)}` : "", body.learnerContext ? String(body.learnerContext).slice(0, 6000) : "", body.sourceContext ? `FUNAAB source context:\n${String(body.sourceContext).slice(0, 12000)}` : ""].filter(Boolean).join("\n\n");
   const errors: string[] = [];
   for (const provider of providerList()) {
     if (!provider.key) { errors.push(`${provider.name}: key not set`); continue; }

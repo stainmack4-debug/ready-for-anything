@@ -7,7 +7,7 @@ import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { isOnOfficialTimetable, officialTimetable } from "@/lib/funaab-timetable";
 import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
-import { averageScore, getAttempts, saveAttempt, totalAnswered } from "@/lib/progress";
+import { averageScore, getAttempts, saveAttempt, topicMastery, totalAnswered } from "@/lib/progress";
 import {
   ArrowLeft,
   ArrowRight,
@@ -99,6 +99,20 @@ function attemptedTopics() {
     score: attempt.score,
     tone: attempt.score >= 80 ? "strong" : attempt.score >= 50 ? "practice" : "weak",
   }));
+}
+function studyMasteryRows() {
+  const ids = [...new Set(getAttempts().map((attempt) => attempt.topicId))];
+  return ids
+    .map((topicId) => {
+      const mastery = topicMastery(topicId);
+      return {
+        topicId,
+        name: topicId.split(":").slice(1).join(":") || topicId,
+        course: topicId.split(":")[0] || "Your course",
+        ...mastery,
+      };
+    })
+    .sort((a, b) => a.score - b.score);
 }
 function Logo() {
   return (
@@ -1130,6 +1144,21 @@ function Learn({ setView, profile, userId }: Props) {
   const [tutorFileName, setTutorFileName] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationReady, setConversationReady] = useState(false);
+  const masteryRows = studyMasteryRows();
+  const strongTopics = masteryRows.filter((row) => row.mastery === "strong");
+  const weakTopics = masteryRows.filter((row) => row.mastery === "weak");
+  const practiceTopics = masteryRows.filter((row) => row.mastery === "practice");
+  const learnerContext = [
+    "STUDENT PROFILE:",
+    `Department: ${profile?.department || "not set"}`,
+    `Programme/course: ${profile?.course || "not set"}`,
+    `Level: ${profile?.level || "not set"}`,
+    `Practice attempts submitted: ${getAttempts().length}`,
+    `Overall average score: ${averageScore() ?? "no score yet"}`,
+    `Strong topics (last three attempts average 80%+): ${strongTopics.map((row) => `${row.name} (${row.score}%)`).join(", ") || "none yet"}`,
+    `Topics needing practice (last three attempts average below 50%): ${weakTopics.map((row) => `${row.name} (${row.score}%)`).join(", ") || "none yet"}`,
+    `Topics in progress (50–79%): ${practiceTopics.map((row) => `${row.name} (${row.score}%)`).join(", ") || "none yet"}`,
+  ].join("\n");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -1275,6 +1304,7 @@ function Learn({ setView, profile, userId }: Props) {
           department: profile.department,
           course: profile.course,
           topic: "",
+          learnerContext,
           sourceContext: sourceContextOverride ?? sourceContext,
         }),
       });
@@ -1371,6 +1401,20 @@ function Learn({ setView, profile, userId }: Props) {
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
     >
       <div className="mx-auto max-w-3xl">
+        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-950">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <strong>What your Tutor knows about you</strong>
+            <button className="font-extrabold underline" onClick={() => setView("profile")}>Check full profile</button>
+          </div>
+          <p className="mt-2 text-xs leading-5">
+            {profile?.department || "Department not set"} · {profile?.course || "Programme not set"} · Level {profile?.level || "not set"}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Strong: {strongTopics.length ? strongTopics.map((row) => row.name).join(", ") : "Not enough data yet"}</span>
+            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Needs practice: {weakTopics.length ? weakTopics.map((row) => row.name).join(", ") : "Not enough data yet"}</span>
+            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Attempts: {getAttempts().length} · Average: {averageScore() ?? 0}%</span>
+          </div>
+        </div>
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <strong>Teaching context:</strong> {profile?.department || "Department missing"} ·{" "}
           {profile?.course || "Programme missing"}. The Tutor uses this context and the saved
@@ -2887,6 +2931,30 @@ function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) 
           </div>
         </section>
       </div>
+      <section className="mt-6 rounded-2xl border border-[#dcebe3] bg-white p-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-extrabold">Strengths and areas to practise</h2>
+            <p className="mt-1 text-sm text-[#71877d]">The Tutor uses your submitted quiz scores, not guesses.</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">Last 3 attempts per topic</span>
+        </div>
+        {studyMasteryRows().length ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {studyMasteryRows().map((row) => (
+              <div key={row.topicId} className="rounded-xl border border-[#dcebe3] bg-[#fbfdfc] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-bold">{row.name}</p>
+                  <span className={`rounded-full px-2 py-1 text-xs font-extrabold ${row.mastery === "strong" ? "bg-emerald-100 text-emerald-800" : row.mastery === "weak" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>{row.score}%</span>
+                </div>
+                <p className="mt-2 text-xs text-[#71877d]">{row.mastery === "strong" ? "Strength" : row.mastery === "weak" ? "Needs practice" : "In progress"} · {row.course}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-5 text-sm text-[#71877d]">Submit a practice sprint and your Tutor will start building this map.</p>
+        )}
+      </section>
     </Page>
   );
 }
