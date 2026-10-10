@@ -1815,15 +1815,16 @@ function Practice({ setView, profile, userId }: Props) {
           topic,
         }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      const tutorAnswer = typeof data?.answer === "string" ? data.answer.trim() : "";
       setFeedback(
-        response.ok
-          ? data.answer
-          : `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`,
+        response.ok && tutorAnswer
+          ? tutorAnswer
+          : `You scored ${correct}/${questions.length} (${score}%). Your result has been saved. Detailed tutor feedback is temporarily unavailable, but you can still review every answer below.`,
       );
     } catch {
       setFeedback(
-        `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`,
+        `You scored ${correct}/${questions.length} (${score}%). Your result has been saved. Detailed tutor feedback is temporarily unavailable, but you can still review every answer below.`,
       );
     } finally {
       setBusy(false);
