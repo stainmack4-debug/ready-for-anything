@@ -2182,13 +2182,18 @@ function Practice({ setView, profile, userId }: Props) {
                   </p>
                 </div>
               </div>
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-5 grid gap-3">
                 <Btn onClick={() => { setSharePromptOpen(false); void downloadResultCard(); }} disabled={resultCardBusy}>
                   <Share2 size={16} /> {resultCardBusy ? "Preparing…" : "Share result"}
                 </Btn>
-                <Btn variant="outline" onClick={() => setSharePromptOpen(false)}>
-                  View result
-                </Btn>
+                <div className="grid grid-cols-2 gap-3">
+                  <Btn variant="outline" onClick={() => { setSharePromptOpen(false); startAnotherSet(); }}>
+                    Continue with more
+                  </Btn>
+                  <Btn variant="outline" onClick={() => setSharePromptOpen(false)}>
+                    View result
+                  </Btn>
+                </div>
               </div>
             </div>
           </div>
