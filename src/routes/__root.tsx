@@ -77,14 +77,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "FunaBAcer — Learn. Practise. Master." },
+      { name: "description", content: "The adaptive AI study system for FUNAAB students." },
+      { name: "author", content: "FunaBAcer" },
+      { property: "og:title", content: "FunaBAcer — Learn. Practise. Master." },
+      { property: "og:description", content: "The adaptive AI study system for FUNAAB students." },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/funabacer-logo.jpg" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@FunaBAcer" },
+      { name: "twitter:image", content: "/funabacer-logo.jpg" },
     ],
     links: [
       {
