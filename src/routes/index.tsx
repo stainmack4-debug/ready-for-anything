@@ -983,6 +983,7 @@ function CalculatorPanel({ dark = false }: { dark?: boolean }) {
       .replace(/\bsqrt\s*(\d+(?:\.\d+)?)/g, "Math.sqrt($1)")
       .replace(/\b(ln|log|sin|cos|tan|sqrt)\s*\(/g, (_, fn: string) =>
         `${fn === "ln" ? "Math.log" : fn === "log" ? "Math.log10" : fn === "sqrt" ? "Math.sqrt" : `Math.${fn}`}(`)
+      .replace(/Math\.Math\./g, "Math.")
       .replace(/(?<![A-Za-z])e(?![A-Za-z])/g, "Math.E")
       .replace(/\^/g, "**");
     const openParentheses = (normalized.match(/\(/g) || []).length;
@@ -1587,6 +1588,7 @@ function Practice({ setView, profile, userId }: Props) {
   const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
   const [resultCardBusy, setResultCardBusy] = useState(false);
+  const [sharePromptOpen, setSharePromptOpen] = useState(false);
   const [showQuizCalculator, setShowQuizCalculator] = useState(false);
   const [quizExpression, setQuizExpression] = useState("");
   const [quizCalculation, setQuizCalculation] = useState("");
@@ -1604,12 +1606,31 @@ function Practice({ setView, profile, userId }: Props) {
   }, [questionBankKey]);
   useEffect(() => {
     if (submitted || sessionEndsAt === null) return;
-    const update = () =>
-      setSecondsLeft(Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0));
+    const update = () => {
+      const remaining = Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0);
+      setSecondsLeft(remaining);
+      if (remaining === 0) setSessionEndsAt(null);
+    };
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
   }, [sessionEndsAt, submitted]);
+  useEffect(() => {
+    if (submitted || sessionEndsAt === null) return;
+    const pauseWhenHidden = () => {
+      if (!document.hidden) return;
+      const remaining = Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0);
+      setSecondsLeft(remaining);
+      setSessionEndsAt(null);
+    };
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    return () => document.removeEventListener("visibilitychange", pauseWhenHidden);
+  }, [sessionEndsAt, submitted]);
+  useEffect(() => {
+    if (submitted || sessionEndsAt !== null || secondsLeft === null || secondsLeft <= 0) return;
+    if (document.hidden) return;
+    setSessionEndsAt(Date.now() + secondsLeft * 1000);
+  }, [secondsLeft, sessionEndsAt, submitted]);
   useEffect(() => {
     const saved = localStorage.getItem(practiceSessionKey);
     if (saved) {
@@ -1765,6 +1786,7 @@ function Practice({ setView, profile, userId }: Props) {
       at: Date.now(),
     });
     setSubmitted(true);
+    setSharePromptOpen(true);
     setSecondsLeft(0);
     setBusy(true);
     try {
@@ -1799,6 +1821,11 @@ function Practice({ setView, profile, userId }: Props) {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    if (!submitted && questions.length > 0 && secondsLeft === 0 && sessionEndsAt === null) {
+      void submit();
+    }
+  }, [questions.length, secondsLeft, sessionEndsAt, submitted]);
   const chooseAnswer = (answer: number) => {
     if (submitted) return;
     setAnswers((previous) => ({ ...previous, [currentIndex]: answer }));
@@ -1861,7 +1888,7 @@ function Practice({ setView, profile, userId }: Props) {
       const score = Math.round((correct / questions.length) * 100);
       const canvas = document.createElement("canvas");
       canvas.width = 1200;
-      canvas.height = 760;
+      canvas.height = 860;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Could not create result image");
       const gradient = ctx.createLinearGradient(0, 0, 1200, 760);
@@ -1875,6 +1902,23 @@ function Practice({ setView, profile, userId }: Props) {
       ctx.fillStyle = "#d1fae5";
       ctx.font = "700 28px Arial";
       ctx.fillText("FunaBAcer", 92, 124);
+      try {
+        const avatarImage = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image();
+          image.crossOrigin = "anonymous";
+          image.onload = () => resolve(image);
+          image.onerror = reject;
+          image.src = avatar.url;
+        });
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(1015, 145, 72, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(avatarImage, 943, 73, 144, 144);
+        ctx.restore();
+      } catch {
+        // The share card remains usable if the avatar service is unavailable.
+      }
       ctx.fillStyle = "#ffffff";
       ctx.font = "800 58px Arial";
       ctx.fillText("Study result", 92, 205);
@@ -1888,8 +1932,11 @@ function Practice({ setView, profile, userId }: Props) {
       ctx.fillText(`${score}%`, 92, 540);
       ctx.font = "600 30px Arial";
       ctx.fillText(`${correct}/${questions.length} correct`, 390, 530);
+      ctx.fillStyle = "#d1fae5";
+      ctx.font = "800 30px Arial";
+      ctx.fillText(score >= 80 ? "Excellent work — keep leading the way!" : score >= 50 ? "Good progress — your next score can be even higher!" : "Every attempt builds mastery — keep going!", 92, 625);
       ctx.font = "500 22px Arial";
-      ctx.fillText("Learn. Practise. Master. · funabacer.vercel.app", 92, 650);
+      ctx.fillText("Practise smarter with FunaBAcer · funabacer.vercel.app", 92, 710);
       ctx.globalAlpha = 0.24;
       ctx.font = "900 88px Arial";
       ctx.rotate(-0.18);
@@ -2058,7 +2105,9 @@ function Practice({ setView, profile, userId }: Props) {
                   ? "Completed"
                   : secondsLeft === null
                     ? "Not started"
-                    : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}
+                    : secondsLeft === 0
+                      ? "Time’s up — submitting result…"
+                      : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -2112,6 +2161,32 @@ function Practice({ setView, profile, userId }: Props) {
               <Btn onClick={() => void downloadResultCard()} disabled={resultCardBusy}>
                 <Share2 size={16} /> {resultCardBusy ? "Preparing image…" : "Share result image"}
               </Btn>
+            </div>
+          </div>
+        )}
+        {sharePromptOpen && submitted && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#031b13]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="share-result-title">
+            <div className="w-full max-w-md rounded-3xl border border-emerald-200 bg-white p-6 shadow-2xl">
+              <div className="flex items-start gap-4">
+                <img src={avatar.url} alt="Your selected avatar" className="size-16 rounded-2xl border-4 border-emerald-100 bg-emerald-50" />
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Sprint complete</p>
+                  <h2 id="share-result-title" className="mt-1 text-2xl font-extrabold text-[#123d2c]">
+                    You showed up. That matters.
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#557268]">
+                    Turn this result into your FunaBAcer study badge and let your friends see your progress.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <Btn onClick={() => { setSharePromptOpen(false); void downloadResultCard(); }} disabled={resultCardBusy}>
+                  <Share2 size={16} /> {resultCardBusy ? "Preparing…" : "Share result"}
+                </Btn>
+                <Btn variant="outline" onClick={() => setSharePromptOpen(false)}>
+                  View result
+                </Btn>
+              </div>
             </div>
           </div>
         )}
