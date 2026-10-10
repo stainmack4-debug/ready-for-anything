@@ -1515,6 +1515,7 @@ function Practice({ setView, profile, userId }: Props) {
   const [customRows, setCustomRows] = useState<CustomCourse[]>([]);
   const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
   const [questionCount, setQuestionCount] = useState(10);
+  const [expandedExplanations, setExpandedExplanations] = useState<Record<number, boolean>>({});
   const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
   const courseRows = useMemo(
     () =>
@@ -1856,6 +1857,7 @@ function Practice({ setView, profile, userId }: Props) {
     setQuestions([]);
     setAnswers({});
     setCurrentIndex(0);
+    setExpandedExplanations({});
     setFeedback("");
     setSubmitted(false);
     setSecondsLeft(null);
@@ -1885,6 +1887,7 @@ function Practice({ setView, profile, userId }: Props) {
     setQuestionPool([]);
     setQuestions([]);
     setAnswers({});
+    setExpandedExplanations({});
     setSubmitted(false);
     setFeedback("");
     setCurrentIndex(0);
@@ -1901,13 +1904,27 @@ function Practice({ setView, profile, userId }: Props) {
       canvas.height = 860;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Could not create result image");
-      const gradient = ctx.createLinearGradient(0, 0, 1200, 760);
+      const drawWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+        const words = text.split(" ");
+        let line = "";
+        let offset = 0;
+        for (const word of words) {
+          const next = line ? `${line} ${word}` : word;
+          if (ctx.measureText(next).width > maxWidth && line) {
+            ctx.fillText(line, x, y + offset);
+            line = word;
+            offset += lineHeight;
+          } else line = next;
+        }
+        if (line) ctx.fillText(line, x, y + offset);
+      };
+      const gradient = ctx.createLinearGradient(0, 0, 1200, 860);
       gradient.addColorStop(0, "#063b2a");
       gradient.addColorStop(1, "#16c978");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "rgba(255,255,255,.12)";
-      ctx.roundRect(56, 56, 1088, 648, 34);
+      ctx.roundRect(56, 56, 1088, 748, 34);
       ctx.fill();
       ctx.fillStyle = "#d1fae5";
       ctx.font = "700 28px Arial";
@@ -1944,9 +1961,9 @@ function Practice({ setView, profile, userId }: Props) {
       ctx.fillText(`${correct}/${questions.length} correct`, 390, 530);
       ctx.fillStyle = "#d1fae5";
       ctx.font = "800 30px Arial";
-      ctx.fillText(score >= 80 ? "Excellent work — keep leading the way!" : score >= 50 ? "Good progress — your next score can be even higher!" : "Every attempt builds mastery — keep going!", 92, 625);
+      drawWrappedText(score >= 80 ? "Excellent work — keep leading the way!" : score >= 50 ? "Good progress — your next score can be even higher!" : "Every attempt builds mastery — keep going!", 92, 625, 960, 38);
       ctx.font = "500 22px Arial";
-      ctx.fillText("Practise smarter with FunaBAcer · funabacer.vercel.app", 92, 710);
+      drawWrappedText("Practise smarter with FunaBAcer · funabacer.vercel.app", 92, 765, 960, 30);
       ctx.globalAlpha = 0.24;
       ctx.font = "900 88px Arial";
       ctx.rotate(-0.18);
@@ -1967,49 +1984,74 @@ function Practice({ setView, profile, userId }: Props) {
       setResultCardBusy(false);
     }
   };
-  const renderQuestion = (q: Question, i: number, review = false) => (
-    <div
-      key={i}
-      className={`rounded-2xl border p-6 ${review && submitted ? (answers[i] === q.answer ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50") : "border-[#dcebe3] bg-white"}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-bold leading-7">
-          {i + 1}. <TutorInline value={q.question} />
-        </p>
-        {submitted && (
-          <span
-            className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${answers[i] === q.answer ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}
-          >
-            {answers[i] === q.answer ? "✓ Correct" : "× Incorrect"}
-          </span>
-        )}
-      </div>
-      <div className="mt-4 space-y-2">
-        {q.options.map((option, j) => (
-          <button
-            key={option}
-            disabled={submitted || review}
-            onClick={() => chooseAnswer(j)}
-            className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}
-          >
-            <span className="mr-1 font-bold">{String.fromCharCode(65 + j)}.</span> <TutorInline value={option} />
-            {submitted && j === q.answer ? " · Correct answer" : ""}
-          </button>
-        ))}
-      </div>
-      {submitted && (
-        <p className="mt-4 rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#365348]">
-          <strong>Explanation:</strong> {q.explanation}
-        </p>
-      )}
-      <button
-        onClick={() => openReteach(q.topic || topic)}
-        className="mt-4 text-sm font-extrabold text-emerald-700 underline"
+  const renderQuestion = (q: Question, i: number, review = false) => {
+    const isCorrect = answers[i] === q.answer;
+    const expanded = Boolean(expandedExplanations[i]);
+    const selectedAnswer = answers[i] === undefined ? "Not answered" : q.options[answers[i]];
+    const correctAnswer = q.options[q.answer];
+    return (
+      <div
+        key={i}
+        className={`rounded-2xl border p-5 sm:p-6 ${review && submitted ? (isCorrect ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50") : "border-[#dcebe3] bg-white"}`}
       >
-        I don’t understand this topic
-      </button>
-    </div>
-  );
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 font-bold leading-7">
+            {i + 1}. <TutorInline value={q.question} />
+          </p>
+          {submitted && (
+            <span
+              className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${isCorrect ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}
+            >
+              {isCorrect ? "✓ Correct" : "× Incorrect"}
+            </span>
+          )}
+        </div>
+        <div className="mt-4 space-y-2">
+          {q.options.map((option, j) => (
+            <button
+              key={option}
+              disabled={submitted || review}
+              onClick={() => chooseAnswer(j)}
+              className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}
+            >
+              <span className="mr-1 font-bold">{String.fromCharCode(65 + j)}.</span> <TutorInline value={option} />
+              {submitted && j === q.answer ? " · Correct answer" : ""}
+            </button>
+          ))}
+        </div>
+        {submitted && (
+          <div className={`mt-4 rounded-xl p-4 text-sm leading-6 ${isCorrect ? "bg-emerald-100/70 text-emerald-950" : "bg-rose-100/70 text-rose-950"}`}>
+            <p className="font-extrabold">{isCorrect ? "Why you got it right" : "Why this answer was not correct"}</p>
+            <p className={!expanded ? "mt-1 line-clamp-2" : "mt-1"}>
+              {isCorrect
+                ? `Your answer (${selectedAnswer}) is correct. ${q.explanation}`
+                : `You selected ${selectedAnswer}, but the correct answer is ${correctAnswer}. ${q.explanation}`}
+            </p>
+            <button
+              type="button"
+              className="mt-2 font-extrabold underline underline-offset-2"
+              onClick={() => setExpandedExplanations((previous) => ({ ...previous, [i]: !expanded }))}
+            >
+              {expanded ? "See less" : "See more"}
+            </button>
+            {expanded && (
+              <div className="mt-3 border-t border-current/15 pt-3">
+                <p><strong>Your answer:</strong> {selectedAnswer}</p>
+                <p><strong>Correct answer:</strong> {correctAnswer}</p>
+                <p className="mt-2"><strong>Step-by-step:</strong> {q.explanation}</p>
+              </div>
+            )}
+          </div>
+        )}
+        <button
+          onClick={() => openReteach(q.topic || topic)}
+          className="mt-4 text-sm font-extrabold text-emerald-700 underline"
+        >
+          I don’t understand this topic
+        </button>
+      </div>
+    );
+  };
   return (
     <Page
       title="Practice"
@@ -2206,11 +2248,14 @@ function Practice({ setView, profile, userId }: Props) {
           </div>
         )}
         {feedback && (
-          <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
-            <span className="mb-3 block text-xs uppercase tracking-wider text-emerald-700">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
+            <span className="block text-xs uppercase tracking-wider text-emerald-700">
               Saved to today’s progress
             </span>
-            <TutorMessage content={feedback} light />
+            <details className="mt-3">
+              <summary className="cursor-pointer font-extrabold underline underline-offset-2">See more tutor feedback</summary>
+              <div className="mt-4"><TutorMessage content={feedback} light /></div>
+            </details>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button className="underline" onClick={() => setView("learn")}>
                 Open AI Tutor

@@ -243,3 +243,11 @@
 .theme-night [class*="border-emerald-300"] {
   border-color: rgb(110 231 183 / 35%) !important;
 }
+/* Submitted quiz review cards remain readable in night mode. */
+.theme-night [class*="bg-emerald-50/50"] { background-color: #12392d !important; }
+.theme-night [class*="bg-rose-50/50"] { background-color: #45242d !important; }
+.theme-night [class*="bg-emerald-100"] { background-color: #18533e !important; color: #e8fff3 !important; }
+.theme-night [class*="bg-rose-100"] { background-color: #5a2935 !important; color: #ffe9ed !important; }
+.theme-night [class*="bg-white/70"] { background-color: rgb(16 37 33 / 88%) !important; color: #d9f8e8 !important; }
+.theme-night [class*="text-emerald-950"] { color: #e8fff3 !important; }
+.theme-night [class*="text-rose-950"] { color: #ffe9ed !important; }
