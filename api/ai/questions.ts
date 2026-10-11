@@ -232,7 +232,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const list = providers();
+  const configuredProviders = providers();
+  // Bulk generation intentionally uses one NVIDIA job and one Gemini job: 20 + 20.
+  // Additional Gemini model names remain fallbacks for future single-provider requests,
+  // but must not multiply the cost of one quiz-bank request.
+  const list = configuredProviders.filter(
+    (provider, index, all) =>
+      provider.name === "nvidia" ||
+      (provider.name === "gemini" && all.findIndex((candidate) => candidate.name === "gemini") === index),
+  );
   if (list.length === 0)
     return res
       .status(503)
