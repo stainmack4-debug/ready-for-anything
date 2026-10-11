@@ -1810,38 +1810,7 @@ function Practice({ setView, profile, userId }: Props) {
           : [];
         setQuestionPool(pool);
         localStorage.setItem(questionBankKey, JSON.stringify(pool));
-        if (!bankFillInProgress.current && Number(data.bankSize || 0) < 100) {
-          bankFillInProgress.current = true;
-          void (async () => {
-            try {
-              let bankSize = Number(data.bankSize || pool.length);
-              for (let batch = 0; batch < 10 && bankSize < 100; batch += 1) {
-                await new Promise((resolve) => setTimeout(resolve, 400));
-                const batchResponse = await fetch("/api/ai/questions", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    ...(sessionData.session?.access_token
-                      ? { Authorization: `Bearer ${sessionData.session.access_token}` }
-                      : {}),
-                  },
-                  body: JSON.stringify({
-                    course: profile.course,
-                    level: selectedLevel,
-                    topic,
-                    count: 10,
-                    background: true,
-                  }),
-                });
-                const batchData = await batchResponse.json().catch(() => ({}));
-                if (!batchResponse.ok) break;
-                bankSize = Number(batchData.bankSize || bankSize + 10);
-              }
-            } finally {
-              bankFillInProgress.current = false;
-            }
-          })();
-        }
+
       }
       if (pool.length < questionCount)
         throw new Error(
