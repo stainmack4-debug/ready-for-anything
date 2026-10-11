@@ -1125,7 +1125,7 @@ function TutorMessage({ content, light = false }: { content: string; light?: boo
 }
 
 function Learn({ setView, profile, userId }: Props) {
-  type ChatMessage = { role: "user" | "assistant"; content: string };
+  type ChatMessage = { role: "user" | "assistant"; content: string; provider?: string; model?: string };
   const memoryKey = `funabacer.tutor.memory.v1.${userId || profile?.course || "unknown-user"}`;
   const initialMessage: ChatMessage = {
     role: "assistant",
@@ -1310,7 +1310,12 @@ function Learn({ setView, profile, userId }: Props) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
-      const assistantMessage = { role: "assistant" as const, content: data.answer };
+      const assistantMessage = {
+        role: "assistant" as const,
+        content: data.answer,
+        provider: typeof data.provider === "string" ? data.provider : undefined,
+        model: typeof data.model === "string" ? data.model : undefined,
+      };
       setMessages([...nextMessages, assistantMessage]);
       void saveTutorMessages([assistantMessage]);
     } catch (error) {
@@ -1453,6 +1458,12 @@ function Learn({ setView, profile, userId }: Props) {
                   className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-white/10 text-emerald-50"}`}
                 >
                   <TutorMessage content={message.content} />
+                  {message.role === "assistant" && message.provider && (
+                    <p className="mt-2 border-t border-white/10 pt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200/60">
+                      Answered by {message.provider.startsWith("nvidia") ? "NVIDIA" : "Gemini"}
+                      {message.model ? ` · ${message.model}` : ""}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
