@@ -247,12 +247,17 @@ Exactly ${count} items, exactly 4 options each, "answer" is the index 0-3 of the
 IMPORTANT correctness: calculate every numerical answer before writing the options. The exact correct answer MUST appear as one option. NEVER choose the closest option. If the answer is 81, include 81—not 18 or another nearby number. If the exact answer is not available, rewrite the options before replying. Explanations must be at least 2 complete sentences: show the principle or formula, substitute values, calculate the result exactly, identify the correct option, and explain the result in beginner-friendly language. Do not use approximate symbols or words such as approximately, about, roughly, or closest; if a rounded answer would be needed, rewrite the options to include the exact answer.
 IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT LaTeX. Use √ for roots (√75, √(3x+1)), ² ³ for powers, / for fractions ((3√5 + 2√3)/11), ×, ÷, ±, π, θ, ≤, ≥. Never use $, backslashes or commands like \\sqrt or \\frac. Do not put letter labels like "A." inside the options.`;
 
-  const generationCount = background ? 10 : savedBank.length >= 5 ? Math.min(5, count) : Math.min(count, 20);
+  // A normal quiz request gives each configured provider its own 20-question job.
+  // Their validated, de-duplicated results are merged into one shared bank.
+  const generationCount = background ? 10 : 20;
   const generationPrompt = prompt
     .replace(`Create ${count} original`, `Create ${generationCount} original`)
     .replace(`Exactly ${count} items`, `Exactly ${generationCount} items`);
   const errors: string[] = [];
+  const generatedQuestions: RawQuestion[] = [];
+
   for (const provider of list) {
+    let providerCompleted = false;
     // Up to 2 tries per model when the provider reports it is busy.
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
@@ -303,46 +308,10 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
           errors.push(`${provider.model}: no usable questions`);
           break;
         }
-        const mergedBank = [...savedBank, ...questions]
-          .filter(
-            (question, index, all) =>
-              all.findIndex((candidate) => candidate.question === question.question) === index,
-          )
-          .slice(-100);
-        const result = background
-          ? questions.slice(0, 10)
-          : savedBank.length >= 5
-            ? [
-                ...questions.slice(0, 5),
-                ...savedBank
-                  .slice()
-                  .sort(() => Math.random() - 0.5)
-                  .slice(0, 5),
-              ]
-            : questions.slice(0, 10);
-        if (cacheHeaders && cacheUrl && result.length >= Math.min(count, 10)) {
-          try {
-            await fetch(cacheUrl, {
-              method: "POST",
-              headers: { ...cacheHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify({
-                programme: course,
-                level,
-                topic,
-                questions: mergedBank,
-                question_count: mergedBank.length,
-              }),
-            });
-          } catch (error) {
-            console.warn("Shared question-bank write failed", error);
-          }
-        }
-        return res.status(200).json({
-          questions: result,
-          provider: provider.model,
-          cached: false,
-          bankSize: mergedBank.length,
-        });
+        generatedQuestions.push(...questions);
+        providerCompleted = true;
+        console.info("Question provider success", provider.name, provider.model, questions.length);
+        break;
       } catch (error) {
         const aborted = error instanceof Error && error.name === "AbortError";
         errors.push(
@@ -351,12 +320,51 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
         break;
       }
     }
+    if (!providerCompleted) console.warn("Question provider did not contribute", provider.name);
   }
-  const detail = errors.join(" | ");
-  console.error("Question generation failed", detail);
-  const busy = errors.some((e) => / (429|503):/.test(e));
-  const message = busy
-    ? "The AI is very busy right now. Please try again in a minute."
-    : "Questions could not be generated right now.";
-  return res.status(502).json({ error: `${message} (${detail})`, detail });
+
+  const uniqueGenerated = generatedQuestions
+    .filter(
+      (question, index, all) =>
+        all.findIndex((candidate) => candidate.question === question.question) === index,
+    )
+    .slice(0, background ? 10 : 40);
+  if (uniqueGenerated.length === 0) {
+    const detail = errors.join(" | ");
+    console.error("Question generation failed", detail);
+    const busy = errors.some((e) => / (429|503):/.test(e));
+    const message = busy
+      ? "The AI is very busy right now. Please try again in a minute."
+      : "Questions could not be generated right now.";
+    return res.status(502).json({ error: `${message} (${detail})`, detail });
+  }
+
+  const mergedBank = [...savedBank, ...uniqueGenerated]
+    .filter(
+      (question, index, all) =>
+        all.findIndex((candidate) => candidate.question === question.question) === index,
+    )
+    .slice(-100);
+  if (cacheHeaders && cacheUrl && uniqueGenerated.length >= Math.min(count, 10)) {
+    try {
+      await fetch(cacheUrl, {
+        method: "POST",
+        headers: { ...cacheHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({
+          programme: course,
+          level,
+          topic,
+          questions: mergedBank,
+          question_count: mergedBank.length,
+        }),
+      });
+    } catch (error) {
+      console.warn("Shared question-bank write failed", error);
+    }
+  }
+  return res.status(200).json({
+    questions: uniqueGenerated,
+    cached: false,
+    bankSize: mergedBank.length,
+  });
 }
