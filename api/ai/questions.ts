@@ -206,11 +206,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!course || !topic) return res.status(400).json({ error: "Choose a course and topic first." });
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const incomingBearer = typeof req.headers.authorization === "string" ? req.headers.authorization : "";
+  const supabaseKey = serviceRoleKey || publishableKey;
   const cacheHeaders = supabaseKey
     ? {
         apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`,
+        Authorization: serviceRoleKey ? `Bearer ${serviceRoleKey}` : incomingBearer || `Bearer ${supabaseKey}`,
         "Content-Type": "application/json",
       }
     : null;
@@ -263,6 +266,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
     .replace(`Exactly ${count} items`, `Exactly ${generationCount} items`);
   const errors: string[] = [];
   const generatedQuestions: RawQuestion[] = [];
+  const providerCounts: Record<string, number> = {};
 
   for (const provider of list) {
     let providerCompleted = false;
@@ -317,6 +321,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
           break;
         }
         generatedQuestions.push(...questions);
+        providerCounts[provider.name] = (providerCounts[provider.name] || 0) + questions.length;
         providerCompleted = true;
         console.info("Question provider success", provider.name, provider.model, questions.length);
         break;
@@ -353,9 +358,11 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
         all.findIndex((candidate) => candidate.question === question.question) === index,
     )
     .slice(-100);
+  let persisted = false;
+  let persistenceError = "";
   if (cacheHeaders && cacheUrl && uniqueGenerated.length >= Math.min(count, 10)) {
     try {
-      await fetch(cacheUrl, {
+      const saveResponse = await fetch(`${cacheUrl}?on_conflict=programme,level,topic`, {
         method: "POST",
         headers: { ...cacheHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({
@@ -366,13 +373,31 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
           question_count: mergedBank.length,
         }),
       });
+      if (!saveResponse.ok) {
+        const saveBody = await saveResponse.text().catch(() => "");
+        persistenceError = `Supabase ${saveResponse.status}: ${saveBody.slice(0, 180)}`;
+        console.warn("Shared question-bank write failed", persistenceError);
+      } else {
+        persisted = true;
+      }
     } catch (error) {
-      console.warn("Shared question-bank write failed", error);
+      persistenceError = error instanceof Error ? error.message : "Supabase write failed";
+      console.warn("Shared question-bank write failed", persistenceError);
     }
+  } else if (!cacheHeaders || !cacheUrl) {
+    persistenceError = "Supabase cache credentials are not configured";
   }
   return res.status(200).json({
     questions: uniqueGenerated,
     cached: false,
     bankSize: mergedBank.length,
+    audit: {
+      requestedPerProvider: generationCount,
+      providerCounts,
+      generatedCount: uniqueGenerated.length,
+      cachedCount: savedBank.length,
+      persisted,
+      persistenceError: persistenceError || null,
+    },
   });
 }

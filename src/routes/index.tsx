@@ -1639,6 +1639,7 @@ function Practice({ setView, profile, userId }: Props) {
   const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
   const usedQuestionKey = `${questionBankKey}.used`;
   const [questionPool, setQuestionPool] = useState<Question[]>([]);
+  const [generationAudit, setGenerationAudit] = useState<GenerationAudit | null>(null);
   const bankFillInProgress = useRef(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -1805,11 +1806,16 @@ function Practice({ setView, profile, userId }: Props) {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate questions");
-        pool = Array.isArray(data.questions)
+        const incoming = Array.isArray(data.questions)
           ? data.questions.filter((q) => q && !used.has(String(q.question)))
           : [];
+        pool = [...pool, ...incoming].filter(
+          (q, index, all) => all.findIndex((candidate) => String(candidate.question) === String(q.question)) === index,
+        );
         setQuestionPool(pool);
         localStorage.setItem(questionBankKey, JSON.stringify(pool));
+        if (data.audit)
+          setGenerationAudit({ ...data.audit, bankSize: Number(data.bankSize || data.audit.bankSize || pool.length) });
 
       }
       if (pool.length < questionCount)
@@ -1936,8 +1942,7 @@ function Practice({ setView, profile, userId }: Props) {
     }
   };
   const startAnotherSet = () => {
-    localStorage.removeItem(questionBankKey);
-    setQuestionPool([]);
+    // Reuse the untouched questions first. Only generate when the local bank is too small.
     setQuestions([]);
     setAnswers({});
     setExpandedExplanations({});
@@ -2181,6 +2186,14 @@ function Practice({ setView, profile, userId }: Props) {
               ? `Verified bank: ${allCourseRows.length} course rows for ${selectedLevel || "all imported levels"}. Compulsory/elective labels are shown only where FUNAAB sources publish them.`
               : "This programme has no verified levelled course rows yet, so AI topic search remains available."}
           </div>
+          {generationAudit && (
+            <div className={`rounded-xl border px-4 py-3 text-xs leading-5 ${generationAudit.persistenceError ? "border-amber-300 bg-amber-50 text-amber-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
+              <strong>Generation audit</strong>: {generationAudit.generatedCount} verified questions returned
+              ({generationAudit.providerCounts.nvidia || 0} NVIDIA + {generationAudit.providerCounts.gemini || 0} Gemini).
+              Bank size: {generationAudit.bankSize}.
+              {generationAudit.persisted ? " Saved to Supabase." : generationAudit.persistenceError ? ` Supabase save warning: ${generationAudit.persistenceError}` : " Supabase save not confirmed."}
+            </div>
+          )}
           <div className="flex flex-wrap gap-3">
             <Btn onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>
               {busy
