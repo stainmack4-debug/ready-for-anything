@@ -1669,16 +1669,32 @@ function Practice({ setView, profile, userId }: Props) {
     if (!selectedLevel && courseLevels[0]) setSelectedLevel(courseLevels[0]);
   }, [selectedLevel, courseLevels]);
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(questionBankKey) || "[]");
-      const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
-      const fresh = Array.isArray(saved) ? saved.filter((q) => q && !used.has(String(q.question))) : [];
-      setQuestionPool(fresh);
-      localStorage.setItem(questionBankKey, JSON.stringify(fresh));
-    } catch {
-      setQuestionPool([]);
-    }
-  }, [questionBankKey, usedQuestionKey]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(questionBankKey) || "[]");
+        const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
+        if (userId) {
+          const { data: storedUsage } = await supabase
+            .from("student_question_usage")
+            .select("question_key")
+            .eq("user_id", userId)
+            .eq("bank_key", questionBankKey)
+            .limit(500);
+          (storedUsage || []).forEach((row) => used.add(row.question_key));
+          localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
+        }
+        const fresh = Array.isArray(saved) ? saved.filter((q) => q && !used.has(String(q.question))) : [];
+        if (!cancelled) {
+          setQuestionPool(fresh);
+          localStorage.setItem(questionBankKey, JSON.stringify(fresh));
+        }
+      } catch {
+        if (!cancelled) setQuestionPool([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [questionBankKey, usedQuestionKey, userId]);
   useEffect(() => {
     if (submitted || sessionEndsAt === null) return;
     const update = () => {
@@ -1715,7 +1731,24 @@ function Practice({ setView, profile, userId }: Props) {
     setSessionEndsAt(Date.now() + secondsLeft * 1000);
   }, [secondsLeft, sessionEndsAt, submitted]);
   useEffect(() => {
-    const saved = localStorage.getItem(practiceSessionKey);
+    let cancelled = false;
+    void (async () => {
+      if (userId) {
+        const { data: stored } = await supabase
+          .from("practice_sessions")
+          .select("course,level,topic,questions,answers,current_index,seconds_left")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!cancelled && stored?.topic && Array.isArray(stored.questions) && stored.questions.length) {
+          setTopic(stored.topic);
+          setQuestions(stored.questions);
+          setAnswers(stored.answers || {});
+          setCurrentIndex(Math.min(stored.current_index || 0, stored.questions.length - 1));
+          setSecondsLeft(stored.seconds_left ?? null);
+          return;
+        }
+      }
+      const saved = localStorage.getItem(practiceSessionKey);
     if (saved) {
       try {
         const session = JSON.parse(saved);
@@ -1756,14 +1789,23 @@ function Practice({ setView, profile, userId }: Props) {
       }
     } catch {
       localStorage.removeItem("funabacer.pending-practice");
-    }
-  }, [practiceSessionKey]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [practiceSessionKey, userId]);
   useEffect(() => {
     if (submitted) {
       localStorage.removeItem(practiceSessionKey);
+      if (userId) void supabase.from("practice_sessions").delete().eq("user_id", userId);
       return;
     }
     if (!questions.length) return;
+    if (userId) {
+      void supabase.from("practice_sessions").upsert(
+        { user_id: userId, course: profile?.course || "", level: selectedLevel || "", topic, questions, answers, current_index: currentIndex, seconds_left: secondsLeft },
+        { onConflict: "user_id" },
+      );
+    }
     localStorage.setItem(
       practiceSessionKey,
       JSON.stringify({
@@ -1787,6 +1829,9 @@ function Practice({ setView, profile, userId }: Props) {
     feedback,
     sessionEndsAt,
     secondsLeft,
+    userId,
+    profile?.course,
+    selectedLevel,
   ]);
   const generate = async () => {
     if (!profile?.course || !topic.trim()) return;
@@ -1889,6 +1934,12 @@ function Practice({ setView, profile, userId }: Props) {
     const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
     questions.forEach((q) => used.add(String(q.question)));
     localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
+    if (userId) {
+      void supabase.from("student_question_usage").upsert(
+        questions.map((question) => ({ user_id: userId, bank_key: questionBankKey, question_key: String(question.question) })),
+        { onConflict: "user_id,bank_key,question_key" },
+      );
+    }
     const remainingPool = questionPool.filter((q) => !used.has(String(q.question)));
     setQuestionPool(remainingPool);
     localStorage.setItem(questionBankKey, JSON.stringify(remainingPool));
