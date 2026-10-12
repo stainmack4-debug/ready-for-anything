@@ -85,6 +85,14 @@ type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string; level?: string; name?: string };
 type CustomCourse = { code: string; title: string; level: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
+function compactQuestionKey(question: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < question.length; i += 1) {
+    hash ^= question.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `q_${(hash >>> 0).toString(36)}`;
+}
 function realStats() {
   const attempts = getAttempts();
   const answered = totalAnswered();
@@ -1922,7 +1930,7 @@ function Practice({ setView, profile, userId }: Props) {
         const answerRows = questions.map((question, index) => ({
           attempt_id: savedAttempt.id,
           user_id: userId,
-          question_key: question.question,
+          question_key: compactQuestionKey(question.question),
           selected_answer: answers[index] ?? null,
           correct_answer: question.answer,
           is_correct: answers[index] === question.answer,
@@ -1936,7 +1944,7 @@ function Practice({ setView, profile, userId }: Props) {
     localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
     if (userId) {
       void supabase.from("student_question_usage").upsert(
-        questions.map((question) => ({ user_id: userId, bank_key: questionBankKey, question_key: String(question.question) })),
+        questions.map((question) => ({ user_id: userId, bank_key: questionBankKey, question_key: compactQuestionKey(String(question.question)) })),
         { onConflict: "user_id,bank_key,question_key" },
       );
     }
@@ -2032,13 +2040,20 @@ function Practice({ setView, profile, userId }: Props) {
     }
   };
   const startAnotherSet = () => {
-    // Reuse the untouched questions first. Only generate when the local bank is too small.
-    setQuestions([]);
+    const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
+    const available = questionPool.filter((question) => !used.has(String(question.question)));
     setAnswers({});
     setExpandedExplanations({});
     setSubmitted(false);
     setFeedback("");
     setCurrentIndex(0);
+    if (available.length >= questionCount) {
+      setQuestions(available.slice(0, questionCount));
+      setSessionEndsAt(Date.now() + 600_000);
+      setSecondsLeft(600);
+      return;
+    }
+    setQuestions([]);
     void generate();
   };
   const downloadResultCard = async () => {
