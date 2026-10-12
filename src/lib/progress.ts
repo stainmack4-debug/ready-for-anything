@@ -1,4 +1,5 @@
 export type Attempt = {
+  id?: string;
   topicId: string;
   score: number; // 0-100
   total: number;
@@ -6,8 +7,7 @@ export type Attempt = {
   at: number;
 };
 
-// v2 intentionally starts clean so legacy demo/test attempts from the old UI
-// cannot be presented as a learner's real mastery.
+// Temporary UI cache only. Supabase is the source of truth for authenticated users.
 const KEY = "funabacer.attempts.v2";
 
 export function getAttempts(): Attempt[] {
@@ -19,10 +19,22 @@ export function getAttempts(): Attempt[] {
   }
 }
 
+export function replaceAttempts(attempts: Attempt[]) {
+  if (typeof window === "undefined") return;
+  const unique = attempts.filter(
+    (attempt, index, all) =>
+      all.findIndex(
+        (candidate) =>
+          candidate.id && attempt.id
+            ? candidate.id === attempt.id
+            : candidate.topicId === attempt.topicId && candidate.at === attempt.at,
+      ) === index,
+  );
+  window.localStorage.setItem(KEY, JSON.stringify(unique.slice(-200)));
+}
+
 export function saveAttempt(a: Attempt) {
-  const all = getAttempts();
-  all.push(a);
-  window.localStorage.setItem(KEY, JSON.stringify(all.slice(-200)));
+  replaceAttempts([...getAttempts(), a]);
 }
 
 export type Mastery = "strong" | "practice" | "weak" | "new";

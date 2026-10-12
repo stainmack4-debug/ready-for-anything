@@ -7,7 +7,7 @@ import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { isOnOfficialTimetable, officialTimetable } from "@/lib/funaab-timetable";
 import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
-import { averageScore, getAttempts, saveAttempt, topicMastery, totalAnswered } from "@/lib/progress";
+import { averageScore, getAttempts, replaceAttempts, saveAttempt, topicMastery, totalAnswered } from "@/lib/progress";
 import {
   ArrowLeft,
   ArrowRight,
@@ -1849,13 +1849,43 @@ function Practice({ setView, profile, userId }: Props) {
     if (submitted) return;
     const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
     const score = questions.length ? Math.round((correct / questions.length) * 100) : 0;
-    saveAttempt({
+    const attempt = {
       topicId: `${profile?.course}:${topic.trim()}`,
       score,
       total: questions.length,
       correct,
       at: Date.now(),
-    });
+    };
+    saveAttempt(attempt);
+    if (userId) {
+      void (async () => {
+        const { data: savedAttempt, error: attemptError } = await supabase
+          .from("study_attempts")
+          .insert({
+            user_id: userId,
+            topic_id: attempt.topicId,
+            score: attempt.score,
+            total: attempt.total,
+            correct: attempt.correct,
+          })
+          .select("id")
+          .single();
+        if (attemptError || !savedAttempt) {
+          console.warn("Study attempt database save failed", attemptError?.message);
+          return;
+        }
+        const answerRows = questions.map((question, index) => ({
+          attempt_id: savedAttempt.id,
+          user_id: userId,
+          question_key: question.question,
+          selected_answer: answers[index] ?? null,
+          correct_answer: question.answer,
+          is_correct: answers[index] === question.answer,
+        }));
+        const { error: answersError } = await supabase.from("study_attempt_answers").insert(answerRows);
+        if (answersError) console.warn("Attempt answer database save failed", answersError.message);
+      })();
+    }
     const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
     questions.forEach((q) => used.add(String(q.question)));
     localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
@@ -3717,7 +3747,7 @@ function App() {
     };
   }, [session]);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       const metadata = data.session?.user.user_metadata as
         { department?: string; course?: string; level?: string; full_name?: string } | undefined;
       if (metadata?.department && metadata.course) {
@@ -3738,6 +3768,26 @@ function App() {
         }
       }
       setSession(data.session);
+      if (data.session?.user.id) {
+        const { data: storedAttempts, error: attemptsError } = await supabase
+          .from("study_attempts")
+          .select("id,topic_id,score,total,correct,attempted_at")
+          .eq("user_id", data.session.user.id)
+          .order("attempted_at", { ascending: true })
+          .limit(200);
+        if (!attemptsError && storedAttempts) {
+          replaceAttempts(
+            storedAttempts.map((row) => ({
+              id: row.id,
+              topicId: row.topic_id,
+              score: row.score,
+              total: row.total,
+              correct: row.correct,
+              at: new Date(row.attempted_at).getTime(),
+            })),
+          );
+        }
+      }
       setNeedsOnboarding(Boolean(data.session && !localStorage.getItem("funabacer-profile")));
       setLoading(false);
     });
