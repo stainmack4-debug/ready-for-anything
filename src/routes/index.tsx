@@ -1845,7 +1845,6 @@ function Practice({ setView, profile, userId }: Props) {
     if (!profile?.course || !topic.trim()) return;
     setBusy(true);
     setFeedback("");
-    setQuestions([]);
     setAnswers({});
     setCurrentIndex(0);
     setSubmitted(false);
@@ -2053,7 +2052,6 @@ function Practice({ setView, profile, userId }: Props) {
       setSecondsLeft(600);
       return;
     }
-    setQuestions([]);
     void generate();
   };
   const downloadResultCard = async () => {
