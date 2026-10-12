@@ -1570,6 +1570,15 @@ function Practice({ setView, profile, userId }: Props) {
     explanation: string;
     topic?: string;
   };
+  type GenerationAudit = {
+    requestedPerProvider: number;
+    providerCounts: Record<string, number>;
+    generatedCount: number;
+    cachedCount: number;
+    persisted: boolean;
+    persistenceError: string | null;
+    bankSize: number;
+  };
   const [topic, setTopic] = useState("");
   const [customRows, setCustomRows] = useState<CustomCourse[]>([]);
   const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
