@@ -235,6 +235,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  if (savedBank.length >= Math.min(count, 10)) {
+    return res.status(200).json({
+      questions: savedBank,
+      cached: true,
+      bankSize: savedBank.length,
+      audit: {
+        requestedPerProvider: 0,
+        providerCounts: {},
+        generatedCount: 0,
+        cachedCount: savedBank.length,
+        persisted: true,
+        persistenceError: null,
+      },
+    });
+  }
+
   const configuredProviders = providers();
   // Bulk generation intentionally uses one NVIDIA job and one Gemini job: 20 + 20.
   // Additional Gemini model names remain fallbacks for future single-provider requests,
