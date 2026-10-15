@@ -3814,7 +3814,9 @@ function App() {
     supabase.auth.getSession().then(async ({ data }) => {
       const metadata = data.session?.user.user_metadata as
         { department?: string; course?: string; level?: string; full_name?: string } | undefined;
+      let hasProfile = false;
       if (metadata?.department && metadata.course) {
+        hasProfile = true;
         const savedProfile = {
           department: metadata.department,
           course: metadata.course,
@@ -3852,12 +3854,23 @@ function App() {
           );
         }
       }
-      setNeedsOnboarding(Boolean(data.session && !localStorage.getItem("funabacer-profile")));
+      setNeedsOnboarding(Boolean(data.session && !hasProfile));
       setLoading(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s) setNeedsOnboarding(!localStorage.getItem("funabacer-profile"));
+      const metadata = s?.user.user_metadata as { department?: string; course?: string } | undefined;
+      if (metadata?.department && metadata.course) {
+        const savedProfile = { department: metadata.department, course: metadata.course };
+        localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
+        setProfile(savedProfile);
+        setNeedsOnboarding(false);
+      } else if (s) {
+        setNeedsOnboarding(true);
+      } else {
+        setProfile(null);
+        setNeedsOnboarding(false);
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);
