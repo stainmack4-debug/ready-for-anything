@@ -3888,7 +3888,7 @@ function App() {
   if (typeof window !== "undefined" && window.location.pathname === "/admin") return <AdminPanel />;
   if (!session)
     return authOpen ? (
-      <Auth done={() => setSession({ loggedIn: true })} />
+      <Auth done={() => { void supabase.auth.getSession().then(({ data }) => setSession(data.session)); }} />
     ) : (
       <Landing onStart={() => setAuthOpen(true)} />
     );
