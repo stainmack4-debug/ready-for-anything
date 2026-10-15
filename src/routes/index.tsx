@@ -1674,6 +1674,7 @@ function Practice({ setView, profile, userId }: Props) {
   const [showQuizCalculator, setShowQuizCalculator] = useState(false);
   const [quizExpression, setQuizExpression] = useState("");
   const [quizCalculation, setQuizCalculation] = useState("");
+  const finalActionRef = useRef<HTMLDivElement>(null);
   const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}`;
   useEffect(() => {
     if (!selectedLevel && courseLevels[0]) setSelectedLevel(courseLevels[0]);
@@ -2021,6 +2022,11 @@ function Practice({ setView, profile, userId }: Props) {
         220,
       );
   };
+  useEffect(() => {
+    if (submitted || questions.length === 0 || currentIndex !== questions.length - 1) return;
+    const timer = window.setTimeout(() => finalActionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 380);
+    return () => window.clearTimeout(timer);
+  }, [currentIndex, questions.length, submitted]);
   const startNewPractice = () => {
     if (
       questions.length &&
@@ -2380,7 +2386,7 @@ function Practice({ setView, profile, userId }: Props) {
           questions.length > 0 &&
           renderQuestion(questions[currentIndex], currentIndex)}
         {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && (
-          <div className="flex flex-wrap gap-3">
+          <div ref={finalActionRef} className="flex flex-wrap gap-3">
             <Btn
               onClick={submit}
               disabled={Object.keys(answers).length !== questions.length || busy}
