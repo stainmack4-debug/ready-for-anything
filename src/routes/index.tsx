@@ -3328,7 +3328,11 @@ function Onboarding({
         { onConflict: "submitted_by,programme,level,code" },
       );
     }
-    await supabase.auth.updateUser({ data: profile });
+    const { error: profileError } = await supabase.auth.updateUser({ data: profile });
+    if (profileError) {
+      setPdfMessage(`Your programme could not be saved to your account: ${profileError.message}`);
+      return;
+    }
     localStorage.setItem("funabacer-profile", JSON.stringify(profile));
     done(profile);
   };
@@ -3812,7 +3816,8 @@ function App() {
   }, [session]);
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
-      const metadata = data.session?.user.user_metadata as
+      const { data: userData } = await supabase.auth.getUser();
+      const metadata = userData.user?.user_metadata as
         { department?: string; course?: string; level?: string; full_name?: string } | undefined;
       let hasProfile = false;
       if (metadata?.department && metadata.course) {
