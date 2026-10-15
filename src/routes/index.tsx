@@ -1,13 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
-import { isOnOfficialTimetable, officialTimetable } from "@/lib/funaab-timetable";
-import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
-import { averageScore, getAttempts, replaceAttempts, saveAttempt, topicMastery, totalAnswered } from "@/lib/progress";
+import { averageScore, getAttempts, saveAttempt, totalAnswered } from "@/lib/progress";
 import {
   ArrowLeft,
   ArrowRight,
@@ -30,9 +28,7 @@ import {
   Paperclip,
   Play,
   RotateCcw,
-  Search,
   Send,
-  Share2,
   Settings,
   Sparkles,
   Sun,
@@ -66,33 +62,9 @@ type View =
   | "profile"
   | "settings"
   | "admin";
-const persistedViews: View[] = [
-  "dashboard",
-  "overview",
-  "courses",
-  "topic",
-  "learn",
-  "practice",
-  "reteach",
-  "review",
-  "results",
-  "notes",
-  "profile",
-  "settings",
-  "admin",
-];
 type Theme = "day" | "night";
-type StudentProfile = { department: string; course: string; level?: string; name?: string };
-type CustomCourse = { code: string; title: string; level: string };
+type StudentProfile = { department: string; course: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
-function compactQuestionKey(question: string): string {
-  let hash = 2166136261;
-  for (let i = 0; i < question.length; i += 1) {
-    hash ^= question.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `q_${(hash >>> 0).toString(36)}`;
-}
 function realStats() {
   const attempts = getAttempts();
   const answered = totalAnswered();
@@ -107,20 +79,6 @@ function attemptedTopics() {
     score: attempt.score,
     tone: attempt.score >= 80 ? "strong" : attempt.score >= 50 ? "practice" : "weak",
   }));
-}
-function studyMasteryRows() {
-  const ids = [...new Set(getAttempts().map((attempt) => attempt.topicId))];
-  return ids
-    .map((topicId) => {
-      const mastery = topicMastery(topicId);
-      return {
-        topicId,
-        name: topicId.split(":").slice(1).join(":") || topicId,
-        course: topicId.split(":")[0] || "Your course",
-        ...mastery,
-      };
-    })
-    .sort((a, b) => a.score - b.score);
 }
 function Logo() {
   return (
@@ -505,9 +463,7 @@ function Home({ setView }: Props) {
               <div key={`${d}${i}`} className="flex-1 text-center">
                 <div
                   className={`flex h-10 items-center justify-center rounded-xl text-xs font-bold ${
-                    i < stats.studyDays
-                      ? "bg-emerald-500 text-white"
-                      : "bg-[#eff7f2] text-[#8ca198]"
+                    i < stats.studyDays ? "bg-emerald-500 text-white" : "bg-[#eff7f2] text-[#8ca198]"
                   }`}
                 >
                   {i < stats.studyDays ? <Check size={16} /> : d}
@@ -517,9 +473,7 @@ function Home({ setView }: Props) {
             ))}
           </div>
           <p className="mt-5 text-xs leading-5 text-[#71877d]">
-            {stats.answered
-              ? "Your study activity is recorded from submitted work."
-              : "You have not studied any topics yet. Start your first lesson to begin tracking progress."}
+            {stats.answered ? "Your study activity is recorded from submitted work." : "You have not studied any topics yet. Start your first lesson to begin tracking progress."}
           </p>
         </div>
 
@@ -533,23 +487,12 @@ function Home({ setView }: Props) {
               Focus area
             </p>
           </div>
-          <h2 className="mt-4 text-2xl font-extrabold">
-            {stats.answered ? "Continue your study" : "Your first study session"}
-          </h2>
+          <h2 className="mt-4 text-2xl font-extrabold">{stats.answered ? "Continue your study" : "Your first study session"}</h2>
           <p className="mt-2 text-sm leading-6 text-emerald-50">
-            {stats.answered
-              ? `Your current average is ${stats.score ?? 0}%. Keep going from your last submitted work.`
-              : "No topic mastery has been recorded yet. Choose your course to begin."}
+            {stats.answered ? `Your current average is ${stats.score ?? 0}%. Keep going from your last submitted work.` : "No topic mastery has been recorded yet. Choose your course to begin."}
           </p>
-          <div className="mt-6 h-2 rounded-full bg-white/25">
-            <div
-              className="h-full rounded-full bg-white"
-              style={{ width: `${stats.score ?? 0}%` }}
-            />
-          </div>
-          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">
-            {stats.answered ? "Continue learning" : "Choose a course"} <ArrowRight size={15} />
-          </span>
+          <div className="mt-6 h-2 rounded-full bg-white/25"><div className="h-full rounded-full bg-white" style={{ width: `${stats.score ?? 0}%` }} /></div>
+          <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold">{stats.answered ? "Continue learning" : "Choose a course"} <ArrowRight size={15} /></span>
         </button>
       </section>
 
@@ -770,34 +713,23 @@ function Dashboard({ setView, profile }: Props) {
             </button>
           </div>
           <div className="mt-6 space-y-5">
-            {userTopics.length === 0 ? (
-              <p className="text-sm leading-6 text-[#71877d]">
-                No weak topics yet. Start a lesson and submit practice answers before mastery is
-                calculated.
-              </p>
-            ) : (
-              userTopics
-                .filter((t) => t.tone !== "strong")
-                .slice(0, 3)
-                .map((t) => (
-                  <button
-                    key={t.name}
-                    onClick={() => setView("topic")}
-                    className="w-full text-left"
-                  >
-                    <div className="flex justify-between text-sm">
-                      <span className="font-semibold text-[#244138]">{t.name}</span>
-                      <span className="text-xs text-[#71877d]">{t.score}%</span>
-                    </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-emerald-50">
-                      <div
-                        className={`h-full rounded-full ${t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
-                        style={{ width: `${t.score}%` }}
-                      />
-                    </div>
-                  </button>
-                ))
-            )}
+            {userTopics.length === 0 ? <p className="text-sm leading-6 text-[#71877d]">No weak topics yet. Start a lesson and submit practice answers before mastery is calculated.</p> : userTopics
+              .filter((t) => t.tone !== "strong")
+              .slice(0, 3)
+              .map((t) => (
+                <button key={t.name} onClick={() => setView("topic")} className="w-full text-left">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold text-[#244138]">{t.name}</span>
+                    <span className="text-xs text-[#71877d]">{t.score}%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-emerald-50">
+                    <div
+                      className={`h-full rounded-full ${t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
+                      style={{ width: `${t.score}%` }}
+                    />
+                  </div>
+                </button>
+              ))}
           </div>
         </div>
       </section>
@@ -805,340 +737,65 @@ function Dashboard({ setView, profile }: Props) {
   );
 }
 function Courses({ setView, profile }: Props) {
-  const selected = profile?.course
-    ? funaabCurriculum
-        .flatMap((item) => item.courses.map((course) => ({ domain: item, course })))
-        .find((item) => item.course.name.toLowerCase() === profile.course.toLowerCase())
-    : undefined;
-  return (
-    <Page
-      title="Learn"
-      eyebrow="YOUR PROGRAMME"
-      subtitle={
-        profile?.course
-          ? `Showing only ${profile.course}`
-          : "Choose your programme during onboarding."
-      }
-    >
-      {!selected ? (
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-7">
-          <h2 className="text-xl font-extrabold">Your programme is not selected</h2>
-          <p className="mt-2 text-sm leading-6 text-[#71877d]">
-            Complete your academic profile before learning. FunaBAcer will then show only your
-            programme, not every FUNAAB programme.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6">
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">
-              {selected.domain.domain}
-            </p>
-            <h2 className="mt-2 text-2xl font-extrabold">{selected.course.name}</h2>
-            <p className="mt-2 text-sm leading-6 text-[#587166]">{selected.course.synopsis}</p>
-            <span className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">
-              {selected.course.confidence} confidence · {selected.course.official_sources.length}{" "}
-              official sources
-            </span>
-          </div>
-          <div className="mt-5 rounded-2xl border border-[#dcebe3] bg-white p-7">
-            <h3 className="text-lg font-extrabold">Start your personalised study path</h3>
-            <p className="mt-2 text-sm leading-6 text-[#71877d]">
-              No topic is marked strong until you actually study and submit answers. Ask the Tutor
-              to teach a topic from your {selected.course.name} programme, then practise it.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Btn onClick={() => setView("learn")}>
-                <BookOpen size={16} /> Open AI Tutor
-              </Btn>
-              <Btn variant="outline" onClick={() => setView("practice")}>
-                <Target size={16} /> Practise a topic
-              </Btn>
-            </div>
-          </div>
-        </>
-      )}
-    </Page>
-  );
+  const selected = profile?.course ? funaabCurriculum.flatMap((item) => item.courses.map((course) => ({ domain: item, course }))).find((item) => item.course.name.toLowerCase() === profile.course.toLowerCase()) : undefined;
+  return <Page title="Learn" eyebrow="YOUR PROGRAMME" subtitle={profile?.course ? `Showing only ${profile.course}` : "Choose your programme during onboarding."}>
+    {!selected ? <div className="rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Your programme is not selected</h2><p className="mt-2 text-sm leading-6 text-[#71877d]">Complete your academic profile before learning. FunaBAcer will then show only your programme, not every FUNAAB programme.</p></div> : <>
+      <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">{selected.domain.domain}</p><h2 className="mt-2 text-2xl font-extrabold">{selected.course.name}</h2><p className="mt-2 text-sm leading-6 text-[#587166]">{selected.course.synopsis}</p><span className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#587166]">{selected.course.confidence} confidence · {selected.course.official_sources.length} official sources</span></div>
+      <div className="mt-5 rounded-2xl border border-[#dcebe3] bg-white p-7"><h3 className="text-lg font-extrabold">Start your personalised study path</h3><p className="mt-2 text-sm leading-6 text-[#71877d]">No topic is marked strong until you actually study and submit answers. Ask the Tutor to teach a topic from your {selected.course.name} programme, then practise it.</p><div className="mt-5 flex flex-wrap gap-3"><Btn onClick={() => setView("learn")}><BookOpen size={16}/> Open AI Tutor</Btn><Btn variant="outline" onClick={() => setView("practice")}><Target size={16}/> Practise a topic</Btn></div></div>
+    </>}
+  </Page>;
 }
 function Topic({ setView, profile }: Props) {
   const userTopics = attemptedTopics();
-  return (
-    <Page
-      title={profile?.course || "Your topic"}
-      eyebrow="TOPIC PATH"
-      subtitle="Mastery is calculated only from your submitted practice answers."
-    >
-      <div className="rounded-2xl border border-[#dcebe3] bg-white p-7">
-        <h2 className="text-2xl font-extrabold">No topic selected yet</h2>
-        <p className="mt-3 leading-7 text-[#71877d]">
-          {userTopics.length
-            ? "Choose one of your studied topics from Progress, or ask the AI Tutor to teach a new topic."
-            : "You have not studied or submitted practice for any topic yet, so every topic is currently 0% and unclassified."}
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Btn onClick={() => setView("learn")}>
-            <BookOpen size={16} /> Ask the AI Tutor to teach
-          </Btn>
-          <Btn variant="outline" onClick={() => setView("practice")}>
-            <Target size={16} /> Start topic practice
-          </Btn>
-        </div>
-      </div>
-    </Page>
-  );
+  return <Page title={profile?.course || "Your topic"} eyebrow="TOPIC PATH" subtitle="Mastery is calculated only from your submitted practice answers.">
+    <div className="rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-2xl font-extrabold">No topic selected yet</h2><p className="mt-3 leading-7 text-[#71877d]">{userTopics.length ? "Choose one of your studied topics from Progress, or ask the AI Tutor to teach a new topic." : "You have not studied or submitted practice for any topic yet, so every topic is currently 0% and unclassified."}</p><div className="mt-6 flex flex-wrap gap-3"><Btn onClick={() => setView("learn")}><BookOpen size={16}/> Ask the AI Tutor to teach</Btn><Btn variant="outline" onClick={() => setView("practice")}><Target size={16}/> Start topic practice</Btn></div></div>
+  </Page>;
 }
 
 function AdminPanel() {
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
-  const [freeDays, setFreeDays] = useState(
-    () => localStorage.getItem("funabacer-admin-free-days") || "30",
-  );
-  const [announcement, setAnnouncement] = useState(
-    () => localStorage.getItem("funabacer-admin-announcement") || "",
-  );
-  const save = () => {
-    localStorage.setItem("funabacer-admin-free-days", freeDays);
-    localStorage.setItem("funabacer-admin-announcement", announcement);
-    alert("Admin settings saved on this device.");
-  };
-  if (!unlocked)
-    return (
-      <Page title="Admin Panel" eyebrow="ADMIN ACCESS" subtitle="Restricted settings">
-        <div className="mx-auto max-w-md rounded-2xl border border-[#dcebe3] bg-white p-7">
-          <h2 className="text-xl font-extrabold">Enter admin password</h2>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Admin password"
-            className="mt-5 w-full rounded-xl border border-[#dcebe3] px-4 py-3"
-          />
-          <Btn
-            className="mt-4 w-full"
-            onClick={() =>
-              password === "808254" ? setUnlocked(true) : alert("Incorrect password")
-            }
-          >
-            Open Admin Panel
-          </Btn>
-          <p className="mt-4 text-xs leading-5 text-[#71877d]">
-            This panel currently controls this browser only. Server-side multi-user announcements
-            and unlock codes still need a protected Supabase admin table.
-          </p>
-        </div>
-      </Page>
-    );
-  return (
-    <Page
-      title="Admin Panel"
-      eyebrow="ADMIN CONTROLS"
-      subtitle="Manage the current announcement and free access period."
-    >
-      <div className="max-w-2xl space-y-5">
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
-          <label className="block text-sm font-bold">
-            Free access period (days)
-            <input
-              value={freeDays}
-              onChange={(e) => setFreeDays(e.target.value)}
-              type="number"
-              min="0"
-              className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"
-            />
-          </label>
-        </div>
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
-          <label className="block text-sm font-bold">
-            Announcement shown to users
-            <textarea
-              value={announcement}
-              onChange={(e) => setAnnouncement(e.target.value)}
-              rows={4}
-              placeholder="You have free access for 30 days."
-              className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"
-            />
-          </label>
-        </div>
-        <Btn onClick={save}>Save admin settings</Btn>
-      </div>
-    </Page>
-  );
+  const [freeDays, setFreeDays] = useState(() => localStorage.getItem("funabacer-admin-free-days") || "30");
+  const [announcement, setAnnouncement] = useState(() => localStorage.getItem("funabacer-admin-announcement") || "");
+  const save = () => { localStorage.setItem("funabacer-admin-free-days", freeDays); localStorage.setItem("funabacer-admin-announcement", announcement); alert("Admin settings saved on this device."); };
+  if (!unlocked) return <Page title="Admin Panel" eyebrow="ADMIN ACCESS" subtitle="Restricted settings"><div className="mx-auto max-w-md rounded-2xl border border-[#dcebe3] bg-white p-7"><h2 className="text-xl font-extrabold">Enter admin password</h2><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin password" className="mt-5 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/><Btn className="mt-4 w-full" onClick={() => password === "808254" ? setUnlocked(true) : alert("Incorrect password")}>Open Admin Panel</Btn><p className="mt-4 text-xs leading-5 text-[#71877d]">This panel currently controls this browser only. Server-side multi-user announcements and unlock codes still need a protected Supabase admin table.</p></div></Page>;
+  return <Page title="Admin Panel" eyebrow="ADMIN CONTROLS" subtitle="Manage the current announcement and free access period."><div className="max-w-2xl space-y-5"><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Free access period (days)<input value={freeDays} onChange={(e) => setFreeDays(e.target.value)} type="number" min="0" className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold">Announcement shown to users<textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} rows={4} placeholder="You have free access for 30 days." className="mt-2 w-full rounded-xl border border-[#dcebe3] px-4 py-3"/></label></div><Btn onClick={save}>Save admin settings</Btn></div></Page>;
 }
 function TutorMath({ expression, display }: { expression: string; display?: boolean }) {
-  const html = katex.renderToString(expression.trim(), {
-    displayMode: Boolean(display),
-    throwOnError: false,
-    strict: "ignore",
-  });
-  return (
-    <span
-      className={display ? "my-4 block overflow-x-auto text-center" : "align-middle"}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
+  const html = katex.renderToString(expression.trim(), { displayMode: Boolean(display), throwOnError: false, strict: "ignore" });
+  return <span className={display ? "my-4 block overflow-x-auto text-center" : "align-middle"} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 function TutorInline({ value }: { value: string }) {
   const parts = value.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\))/g);
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("$$") && part.endsWith("$$"))
-          return <TutorMath key={i} expression={part.slice(2, -2)} display />;
-        if (part.startsWith("$") && part.endsWith("$"))
-          return <TutorMath key={i} expression={part.slice(1, -1)} />;
-        if (part.startsWith("\\[") && part.endsWith("\\]"))
-          return <TutorMath key={i} expression={part.slice(2, -2)} display />;
-        if (part.startsWith("\\(") && part.endsWith("\\)"))
-          return <TutorMath key={i} expression={part.slice(2, -2)} />;
-        const bold = part
-          .split(/(\*\*[^*]+\*\*)/g)
-          .map((piece, j) =>
-            piece.startsWith("**") && piece.endsWith("**") ? (
-              <strong key={j}>{piece.slice(2, -2)}</strong>
-            ) : (
-              piece
-            ),
-          );
-        return <span key={i}>{bold}</span>;
-      })}
-    </>
-  );
+  return <>{parts.map((part, i) => {
+    if (part.startsWith("$$") && part.endsWith("$$")) return <TutorMath key={i} expression={part.slice(2, -2)} display />;
+    if (part.startsWith("$") && part.endsWith("$")) return <TutorMath key={i} expression={part.slice(1, -1)} />;
+    if (part.startsWith("\\[") && part.endsWith("\\]")) return <TutorMath key={i} expression={part.slice(2, -2)} display />;
+    if (part.startsWith("\\(") && part.endsWith("\\)")) return <TutorMath key={i} expression={part.slice(2, -2)} />;
+    const bold = part.split(/(\*\*[^*]+\*\*)/g).map((piece, j) => piece.startsWith("**") && piece.endsWith("**") ? <strong key={j}>{piece.slice(2, -2)}</strong> : piece);
+    return <span key={i}>{bold}</span>;
+  })}</>;
 }
-function CalculatorPanel({ dark = false }: { dark?: boolean }) {
-  const [mode, setMode] = useState<"simple" | "professional">("simple");
-  const [expression, setExpression] = useState("");
-  const [result, setResult] = useState("");
-  const evaluate = () => {
-    let normalized = expression
-      .replace(/[−–—]/g, "-")
-      .replace(/×/g, "*")
-      .replace(/÷/g, "/")
-      .replace(/π/g, "Math.PI")
-      .replace(/√/g, "sqrt")
-      .replace(/\bsqrt\s*(\d+(?:\.\d+)?)/g, "Math.sqrt($1)")
-      .replace(/\b(ln|log|sin|cos|tan|sqrt)\s*\(/g, (_, fn: string) =>
-        `${fn === "ln" ? "Math.log" : fn === "log" ? "Math.log10" : fn === "sqrt" ? "Math.sqrt" : `Math.${fn}`}(`)
-      .replace(/Math\.Math\./g, "Math.")
-      .replace(/(?<![A-Za-z])e(?![A-Za-z])/g, "Math.E")
-      .replace(/\^/g, "**");
-    const openParentheses = (normalized.match(/\(/g) || []).length;
-    const closedParentheses = (normalized.match(/\)/g) || []).length;
-    if (openParentheses > closedParentheses) normalized += ")".repeat(openParentheses - closedParentheses);
-    if (!normalized.trim() || /[^0-9+*/().,%\sA-Za-z]/.test(normalized)) {
-      setResult("Enter a valid calculation");
-      return;
-    }
-    try {
-      const value = Function(`"use strict"; return (${normalized})`)();
-      setResult(Number.isFinite(value) ? String(Number(value.toFixed(10))) : "Not a valid result");
-    } catch {
-      setResult("Check the expression");
-    }
-  };
-  const append = (value: string) => {
-    setExpression((current) => `${current}${value}`);
-    setResult("");
-  };
-  const muted = dark ? "text-emerald-100/60" : "text-[#71877d]";
-  const inputClass = dark
-    ? "min-w-0 flex-1 rounded-xl border border-white/15 bg-[#04100c] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
-    : "min-w-0 flex-1 rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-3 py-2 text-sm outline-none focus:border-emerald-400";
-  const keyClass = dark
-    ? "rounded-lg border border-white/10 bg-white/10 px-2 py-2 text-xs font-bold text-emerald-50 hover:bg-white/20"
-    : "rounded-lg border border-[#dcebe3] bg-[#f7faf8] px-2 py-2 text-xs font-bold text-[#244138] hover:bg-emerald-50";
-  return (
-    <div className={dark ? "mb-3 rounded-2xl border border-emerald-300/25 bg-white/10 p-3" : "rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm"}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={dark ? "text-xs font-bold uppercase tracking-wider text-emerald-200" : "text-xs font-bold uppercase tracking-wider text-emerald-800"}>
-          {mode === "professional" ? "Professional calculator" : "Simple calculator"}
-        </p>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setMode(mode === "simple" ? "professional" : "simple")} className={dark ? "rounded-full border border-emerald-300/40 px-3 py-1 text-[11px] font-black text-emerald-100" : "rounded-full border border-emerald-300 px-3 py-1 text-[11px] font-black text-emerald-800"}>
-            {mode === "simple" ? "PRO" : "SIMPLE"}
-          </button>
-          <button type="button" onClick={() => { setExpression(""); setResult(""); }} className={`text-xs ${muted}`}>Clear</button>
-        </div>
-      </div>
-      <div className="mt-2 flex gap-2">
-        <input value={expression} onChange={(event) => { setExpression(event.target.value); setResult(""); }} onKeyDown={(event) => event.key === "Enter" && evaluate()} placeholder="e.g. 10 × 9.8 × 5" aria-label="Calculator expression" className={inputClass} />
-        <button type="button" onClick={evaluate} className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-[#071612]">=</button>
-      </div>
-      {mode === "professional" && (
-        <div className="mt-3 grid grid-cols-5 gap-2">
-          {["sin(", "cos(", "tan(", "log(", "ln(", "√", "π", "e", "^", "(", ")", "7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−", "0", ".", "+", "%", ","].map((key) => (
-            <button key={key} type="button" onClick={() => append(key)} className={keyClass}>{key}</button>
-          ))}
-        </div>
-      )}
-      {result && <p className={`mt-2 text-right text-lg font-extrabold ${dark ? "text-emerald-200" : "text-emerald-700"}`}>{result}</p>}
-      <p className={`mt-2 text-[11px] ${muted}`}>Use the result to check your working; the calculator does not choose quiz answers for you.</p>
-    </div>
-  );
-}
-
 function TutorMessage({ content, light = false }: { content: string; light?: boolean }) {
-  const cleaned = content
-    .replace(/\r/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  // Normalize multi-line display-math blocks before line-based Markdown rendering.
-  // This prevents matrix/array LaTeX from leaking as raw source text.
-  const normalized = cleaned
-    .replace(/\$\$([\s\S]*?)\$\$/g, (_, expression: string) => `$$${expression.replace(/\n+/g, " ").trim()}$$`)
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression: string) => `\\[${expression.replace(/\n+/g, " ").trim()}\\]`);
-  const lines = normalized.split("\n");
-  return (
-    <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>
-      {lines.map((line, i) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={i} className="h-2" />;
-        if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed))
-          return (
-            <hr key={i} className={`my-3 ${light ? "border-[#c9ddd2]" : "border-white/15"}`} />
-          );
-        if (/^\$\$.*\$\$$/.test(trimmed))
-          return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
-        const heading = trimmed.match(/^#{1,6}\s*(.+)$/);
-        if (heading)
-          return (
-            <h3
-              key={i}
-              className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}
-            >
-              <TutorInline value={heading[1]} />
-            </h3>
-          );
-        if (/^[-*] /.test(trimmed))
-          return (
-            <div key={i} className="ml-4 list-item">
-              <TutorInline value={trimmed.slice(2)} />
-            </div>
-          );
-        if (/^\d+[.)] /.test(trimmed))
-          return (
-            <div key={i} className="ml-4 list-item">
-              <TutorInline value={trimmed.replace(/^\d+[.)] /, "")} />
-            </div>
-          );
-        return (
-          <p key={i}>
-            <TutorInline value={trimmed} />
-          </p>
-        );
-      })}
-    </div>
-  );
+  const cleaned = content.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const lines = cleaned.split("\n");
+  return <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>{lines.map((line, i) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={i} className="h-2" />;
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(trimmed)) return <hr key={i} className={`my-3 ${light ? "border-[#c9ddd2]" : "border-white/15"}`} />;
+    if (/^\$\$.*\$\$$/.test(trimmed)) return <TutorMath key={i} expression={trimmed.slice(2, -2)} display />;
+    const heading = trimmed.match(/^#{1,6}\s*(.+)$/);
+    if (heading) return <h3 key={i} className={`mt-3 font-extrabold ${light ? "text-[#123d2c]" : "text-white"}`}><TutorInline value={heading[1]} /></h3>;
+    if (/^[-*] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.slice(2)} /></div>;
+    if (/^\d+[.)] /.test(trimmed)) return <div key={i} className="ml-4 list-item"><TutorInline value={trimmed.replace(/^\d+[.)] /, "")} /></div>;
+    return <p key={i}><TutorInline value={trimmed} /></p>;
+  })}</div>;
 }
 
 function Learn({ setView, profile, userId }: Props) {
   type ChatMessage = { role: "user" | "assistant"; content: string };
   const memoryKey = `funabacer.tutor.memory.v1.${userId || profile?.course || "unknown-user"}`;
-  const initialMessage: ChatMessage = {
-    role: "assistant",
-    content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"} in ${profile?.department || "your department"}. I’ll keep track of where we stop and continue from there.`,
-  };
+  const initialMessage: ChatMessage = { role: "assistant", content: `Hi! I’m your FunaBAcer tutor for ${profile?.course || "your course"} in ${profile?.department || "your department"}. I’ll keep track of where we stop and continue from there.` };
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [tutorError, setTutorError] = useState("");
@@ -1150,149 +807,34 @@ function Learn({ setView, profile, userId }: Props) {
   const [tutorFileBusy, setTutorFileBusy] = useState(false);
   const [tutorFileError, setTutorFileError] = useState("");
   const [tutorFileName, setTutorFileName] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [conversationReady, setConversationReady] = useState(false);
-  const masteryRows = studyMasteryRows();
-  const strongTopics = masteryRows.filter((row) => row.mastery === "strong");
-  const weakTopics = masteryRows.filter((row) => row.mastery === "weak");
-  const practiceTopics = masteryRows.filter((row) => row.mastery === "practice");
-  const learnerContext = [
-    "STUDENT PROFILE:",
-    `Department: ${profile?.department || "not set"}`,
-    `Programme/course: ${profile?.course || "not set"}`,
-    `Level: ${profile?.level || "not set"}`,
-    `Practice attempts submitted: ${getAttempts().length}`,
-    `Overall average score: ${averageScore() ?? "no score yet"}`,
-    `Strong topics (last three attempts average 80%+): ${strongTopics.map((row) => `${row.name} (${row.score}%)`).join(", ") || "none yet"}`,
-    `Topics needing practice (last three attempts average below 50%): ${weakTopics.map((row) => `${row.name} (${row.score}%)`).join(", ") || "none yet"}`,
-    `Topics in progress (50–79%): ${practiceTopics.map((row) => `${row.name} (${row.score}%)`).join(", ") || "none yet"}`,
-  ].join("\n");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(memoryKey) || "null");
       return Array.isArray(saved) && saved.length ? saved.slice(-40) : [initialMessage];
-    } catch {
-      return [initialMessage];
-    }
+    } catch { return [initialMessage]; }
   });
   useEffect(() => {
     localStorage.setItem(memoryKey, JSON.stringify(messages.slice(-40)));
   }, [memoryKey, messages]);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages, isAsking]);
-  useEffect(() => {
-    let cancelled = false;
-    setConversationReady(false);
-    setConversationId(null);
-    if (!userId) return;
-    void (async () => {
-      const { data: conversation } = await supabase
-        .from("tutor_conversations")
-        .select("id")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      if (conversation?.id) {
-        const { data: savedMessages } = await supabase
-          .from("tutor_messages")
-          .select("role, content")
-          .eq("conversation_id", conversation.id)
-          .order("created_at", { ascending: true })
-          .limit(100);
-        if (!cancelled) {
-          setConversationId(conversation.id);
-          if (savedMessages?.length)
-            setMessages(
-              savedMessages
-                .map((message) => ({
-                  role: message.role as ChatMessage["role"],
-                  content: message.content,
-                }))
-                .slice(-40),
-            );
-        }
-      } else {
-        const cached = (() => {
-          try {
-            const value = JSON.parse(localStorage.getItem(memoryKey) || "null");
-            return Array.isArray(value) && value.length ? value.slice(-40) : [initialMessage];
-          } catch {
-            return [initialMessage];
-          }
-        })();
-        const { data: created } = await supabase
-          .from("tutor_conversations")
-          .insert({ user_id: userId, course: profile?.course || "", title: "Tutor conversation" })
-          .select("id")
-          .single();
-        if (created?.id) {
-          await supabase.from("tutor_messages").insert(
-            cached.map((message: ChatMessage) => ({
-              conversation_id: created.id,
-              user_id: userId,
-              role: message.role,
-              content: message.content,
-            })),
-          );
-          if (!cancelled) {
-            setConversationId(created.id);
-            setMessages(cached);
-          }
-        }
-      }
-      if (!cancelled) setConversationReady(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-  const saveTutorMessages = async (newMessages: ChatMessage[]) => {
-    if (!userId || !conversationId) return;
-    const additions = newMessages.slice(-2);
-    await supabase.from("tutor_messages").insert(
-      additions.map((message) => ({
-        conversation_id: conversationId,
-        user_id: userId,
-        role: message.role,
-        content: message.content,
-      })),
-    );
-    await supabase
-      .from("tutor_conversations")
-      .update({ course: profile?.course || "" })
-      .eq("id", conversationId)
-      .eq("user_id", userId);
-  };
-  useEffect(() => {
     const pending = localStorage.getItem("funabacer.pending-question");
     if (pending) {
       localStorage.removeItem("funabacer.pending-question");
       setQuestion(pending);
+      void (async () => { await new Promise((resolve) => setTimeout(resolve, 0)); })();
     }
   }, []);
 
   const askTutor = async (preset?: string, sourceContextOverride?: string) => {
     const message = (preset || question).trim();
-    if (!message || isAsking || !conversationReady) return;
+    if (!message || isAsking) return;
     if (!profile?.department || !profile?.course) {
-      setTutorError(
-        "Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.",
-      );
+      setTutorError("Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.");
       return;
     }
-    const asksForPractice =
-      /\b(10|ten)\b.*\b(question|questions)\b|\b(question|questions)\b.*\b(10|ten)\b|set.*practice/i.test(
-        message,
-      );
+    const asksForPractice = /\b(10|ten)\b.*\b(question|questions)\b|\b(question|questions)\b.*\b(10|ten)\b|set.*practice/i.test(message);
     if (asksForPractice) {
-      localStorage.setItem(
-        "funabacer.pending-practice",
-        JSON.stringify({ topic: profile.course, count: 10 }),
-      );
+      localStorage.setItem("funabacer.pending-practice", JSON.stringify({ topic: profile.course, count: 10 }));
       setView("practice");
       return;
     }
@@ -1300,7 +842,6 @@ function Learn({ setView, profile, userId }: Props) {
     setTutorError("");
     const nextMessages = [...messages, { role: "user" as const, content: message }];
     setMessages(nextMessages);
-    void saveTutorMessages([nextMessages[nextMessages.length - 1]]);
     setQuestion("");
     try {
       const response = await fetch("/api/ai/tutor", {
@@ -1312,15 +853,12 @@ function Learn({ setView, profile, userId }: Props) {
           department: profile.department,
           course: profile.course,
           topic: "",
-          learnerContext,
           sourceContext: sourceContextOverride ?? sourceContext,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
-      const assistantMessage = { role: "assistant" as const, content: data.answer };
-      setMessages([...nextMessages, assistantMessage]);
-      void saveTutorMessages([assistantMessage]);
+      setMessages([...nextMessages, { role: "assistant", content: data.answer }]);
     } catch (error) {
       setTutorError(
         error instanceof Error ? error.message : "The tutor could not answer right now.",
@@ -1348,34 +886,12 @@ function Learn({ setView, profile, userId }: Props) {
   };
 
   const attachTutorFile = async (file: File) => {
-    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) {
-      setTutorFileError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file.");
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      setTutorFileError("Please use a file under 4 MB.");
-      return;
-    }
-    setTutorFileBusy(true);
-    setTutorFileError("");
+    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) { setTutorFileError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file."); return; }
+    if (file.size > 4 * 1024 * 1024) { setTutorFileError("Please use a file under 4 MB."); return; }
+    setTutorFileBusy(true); setTutorFileError("");
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Could not read the file."));
-        reader.readAsDataURL(file);
-      });
-      const response = await fetch("/api/ai/document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: file.name,
-          type: file.type,
-          dataUrl,
-          department: profile?.department,
-          course: profile?.course,
-        }),
-      });
+      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
+      const response = await fetch("/api/ai/document", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl, department: profile?.department, course: profile?.course }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The file could not be read.");
       const extractedContext = data.text || "";
@@ -1384,17 +900,9 @@ function Learn({ setView, profile, userId }: Props) {
       setSourceContext(extractedContext);
       setSourceName(attachedName);
       setTutorFileName(attachedName);
-      const fileMessages = [
-        { role: "user" as const, content: `Explain the uploaded file “${attachedName}”.` },
-        { role: "assistant" as const, content: data.answer || extractedContext },
-      ];
-      setMessages((current) => [...current, ...fileMessages]);
-      void saveTutorMessages(fileMessages);
-    } catch (error) {
-      setTutorFileError(error instanceof Error ? error.message : "The file could not be read.");
-    } finally {
-      setTutorFileBusy(false);
-    }
+      setMessages((current) => [...current, { role: "user", content: `Explain the uploaded file “${attachedName}”.` }, { role: "assistant", content: data.answer || extractedContext }]);
+    } catch (error) { setTutorFileError(error instanceof Error ? error.message : "The file could not be read."); }
+    finally { setTutorFileBusy(false); }
   };
 
   const quickPrompts = [
@@ -1409,26 +917,8 @@ function Learn({ setView, profile, userId }: Props) {
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
     >
       <div className="mx-auto max-w-3xl">
-        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-950">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <strong>What your Tutor knows about you</strong>
-            <button className="font-extrabold underline" onClick={() => setView("profile")}>Check full profile</button>
-          </div>
-          <p className="mt-2 text-xs leading-5">
-            {profile?.department || "Department not set"} · {profile?.course || "Programme not set"} · Level {profile?.level || "not set"}
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Strong: {strongTopics.length ? strongTopics.map((row) => row.name).join(", ") : "Not enough data yet"}</span>
-            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Needs practice: {weakTopics.length ? weakTopics.map((row) => row.name).join(", ") : "Not enough data yet"}</span>
-            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Attempts: {getAttempts().length} · Average: {averageScore() ?? 0}%</span>
-          </div>
-        </div>
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          <strong>Teaching context:</strong> {profile?.department || "Department missing"} ·{" "}
-          {profile?.course || "Programme missing"}. The Tutor uses this context and the saved
-          conversation below; it will not guess a different programme.
-        </div>
-        <div className="flex max-h-[calc(100dvh-10rem)] min-h-[34rem] flex-col overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><strong>Teaching context:</strong> {profile?.department || "Department missing"} · {profile?.course || "Programme missing"}. The Tutor uses this context and the saved conversation below; it will not guess a different programme.</div>
+        <div className="overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500">
@@ -1443,15 +933,13 @@ function Learn({ setView, profile, userId }: Props) {
             </div>
             <button
               onClick={() => setShowCalculator((open) => !open)}
-              className={`flex min-w-12 items-center justify-center rounded-full border px-3 py-2 text-xs font-black tracking-wider transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}
-              aria-label={`${showCalculator ? "Close" : "Open"} calculator`}
-              aria-expanded={showCalculator}
-              title="Calculator"
+              className={`flex size-10 items-center justify-center rounded-full border transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}
+              aria-label="Open calculator"
             >
-              CAL
+              ∑
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          <div className="max-h-[58vh] space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
@@ -1464,7 +952,6 @@ function Learn({ setView, profile, userId }: Props) {
                 </div>
               </div>
             ))}
-            <div ref={messagesEndRef} />
             {isAsking && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-sm text-emerald-100/70">
@@ -1473,7 +960,7 @@ function Learn({ setView, profile, userId }: Props) {
               </div>
             )}
           </div>
-          <div className="sticky bottom-0 border-t border-white/10 bg-[#071612] px-4 pb-4 pt-3 sm:px-6">
+          <div className="border-t border-white/10 px-4 pb-4 pt-3 sm:px-6">
             {messages.length <= 1 && !question.trim() && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {quickPrompts.map((prompt) => (
@@ -1488,22 +975,51 @@ function Learn({ setView, profile, userId }: Props) {
                 ))}
               </div>
             )}
-            {showCalculator && <CalculatorPanel dark />}
-            {tutorFileBusy && (
-              <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">
-                Gemini is reading your file and preparing an explanation…
-              </p>
+            {showCalculator && (
+              <div className="mb-3 rounded-2xl border border-emerald-300/25 bg-white/10 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                    Study calculator
+                  </p>
+                  <button
+                    onClick={() => {
+                      setExpression("");
+                      setCalculation("");
+                    }}
+                    className="text-xs text-emerald-100/60"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={expression}
+                    onChange={(event) => setExpression(event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && calculate()}
+                    placeholder="e.g. (1 × 2) / 0.5"
+                    className="min-w-0 flex-1 rounded-xl border border-white/15 bg-[#04100c] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300"
+                  />
+                  <button
+                    onClick={calculate}
+                    className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-[#071612]"
+                  >
+                    =
+                  </button>
+                </div>
+                {calculation && (
+                  <p className="mt-2 text-right text-lg font-extrabold text-emerald-200">
+                    {calculation}
+                  </p>
+                )}
+                <p className="mt-2 text-[11px] text-emerald-100/50">
+                  Use +, −, ×, ÷, brackets and percentages. Use the result to explain your working
+                  to the tutor.
+                </p>
+              </div>
             )}
-            {tutorFileName && !tutorFileBusy && (
-              <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">
-                Attached: {tutorFileName}. Gemini has read it and the tutor is using it as context.
-              </p>
-            )}
-            {tutorFileError && (
-              <p className="mb-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-100">
-                {tutorFileError}
-              </p>
-            )}
+            {tutorFileBusy && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Gemini is reading your file and preparing an explanation…</p>}
+            {tutorFileName && !tutorFileBusy && <p className="mb-2 rounded-xl bg-emerald-400/15 px-3 py-2 text-xs font-semibold text-emerald-100">Attached: {tutorFileName}. Gemini has read it and the tutor is using it as context.</p>}
+            {tutorFileError && <p className="mb-2 rounded-xl bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-100">{tutorFileError}</p>}
             {tutorError && (
               <p className="mb-3 rounded-xl bg-rose-400/15 p-3 text-xs font-semibold text-rose-100">
                 {tutorError}
@@ -1518,18 +1034,7 @@ function Learn({ setView, profile, userId }: Props) {
               >
                 <Paperclip size={19} />
               </button>
-              <input
-                id="tutor-upload"
-                className="sr-only"
-                type="file"
-                accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif"
-                disabled={tutorFileBusy}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void attachTutorFile(file);
-                  event.currentTarget.value = "";
-                }}
-              />
+              <input id="tutor-upload" className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif" disabled={tutorFileBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void attachTutorFile(file); event.currentTarget.value = ""; }} />
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
@@ -1545,7 +1050,7 @@ function Learn({ setView, profile, userId }: Props) {
               />
               <button
                 onClick={() => askTutor()}
-                disabled={!question.trim() || isAsking || !conversationReady}
+                disabled={!question.trim() || isAsking}
                 className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#071612] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
               >
@@ -1569,95 +1074,9 @@ function Learn({ setView, profile, userId }: Props) {
     </Page>
   );
 }
-function Practice({ setView, profile, userId }: Props) {
-  const avatar = useAvatar();
-  type Question = {
-    question: string;
-    options: string[];
-    answer: number;
-    explanation: string;
-    topic?: string;
-  };
-  type GenerationAudit = {
-    requestedPerProvider: number;
-    providerCounts: Record<string, number>;
-    generatedCount: number;
-    cachedCount: number;
-    persisted: boolean;
-    persistenceError: string | null;
-    bankSize: number;
-  };
+function Practice({ setView, profile }: Props) {
+  type Question = { question: string; options: string[]; answer: number; explanation: string; topic?: string };
   const [topic, setTopic] = useState("");
-  const [customRows, setCustomRows] = useState<CustomCourse[]>([]);
-  const [selectedLevel, setSelectedLevel] = useState(profile?.level || "");
-  const [questionCount, setQuestionCount] = useState(10);
-  const [expandedExplanations, setExpandedExplanations] = useState<Record<number, boolean>>({});
-  const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
-  const courseRows = useMemo(
-    () =>
-      courseBankFor(
-        profile?.course || "",
-        selectedLevel && selectedLevel !== "all" ? selectedLevel : undefined,
-      ),
-    [profile?.course, selectedLevel],
-  );
-  useEffect(() => {
-    if (!userId || !profile?.course) return;
-    void supabase
-      .from("student_courses")
-      .select("code,title,level")
-      .eq("user_id", userId)
-      .eq("programme", profile.course)
-      .then(({ data }) =>
-        setCustomRows(
-          (data || []).map((row) => ({
-            code: row.code,
-            title: row.title || "",
-            level: row.level || "",
-          })),
-        ),
-      );
-  }, [userId, profile?.course]);
-  const allCourseRows = useMemo(
-    () => [
-      ...courseRows,
-      ...customRows
-        .filter((row) => !selectedLevel || row.level === selectedLevel || !row.level)
-        .map((row) => ({
-          ...row,
-          programme: profile?.course || "",
-          college: "Student workspace",
-          units: "",
-          type: "custom",
-          status: "student-added",
-          subtopics: [],
-        })),
-    ],
-    [courseRows, customRows, profile?.course, selectedLevel],
-  );
-  const courseTopics = useMemo(() => {
-    const unique = new Map<
-      string,
-      { key: string; label: string; status: string; subtopics: string[]; official: boolean }
-    >();
-    for (const row of allCourseRows) {
-      const key = row.title ? `${row.code} — ${row.title}` : row.code;
-      if (!unique.has(key))
-        unique.set(key, {
-          key,
-          label: key,
-          status: row.status,
-          subtopics: row.subtopics,
-          official: isOnOfficialTimetable(row.code),
-        });
-    }
-    return [...unique.values()].sort((a, b) => Number(b.official) - Number(a.official));
-  }, [allCourseRows]);
-  const questionBankKey = `funabacer.question-bank.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}.${topic.trim().toLowerCase()}`;
-  const usedQuestionKey = `${questionBankKey}.used`;
-  const [questionPool, setQuestionPool] = useState<Question[]>([]);
-  const [generationAudit, setGenerationAudit] = useState<GenerationAudit | null>(null);
-  const bankFillInProgress = useRef(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1667,230 +1086,37 @@ function Practice({ setView, profile, userId }: Props) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [sessionEndsAt, setSessionEndsAt] = useState<number | null>(null);
   const [autoStart, setAutoStart] = useState(false);
-  const [resultCardBusy, setResultCardBusy] = useState(false);
-  const [sharePromptOpen, setSharePromptOpen] = useState(false);
-  const [showQuizCalculator, setShowQuizCalculator] = useState(false);
-  const [quizExpression, setQuizExpression] = useState("");
-  const [quizCalculation, setQuizCalculation] = useState("");
-  const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}.${selectedLevel || "all"}`;
+  const practiceSessionKey = `funabacer.practice-session.v1.${profile?.course || "unknown-course"}`;
+  useEffect(() => { if (submitted || sessionEndsAt === null) return; const update = () => setSecondsLeft(Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0)); update(); const timer = window.setInterval(update, 1000); return () => window.clearInterval(timer); }, [sessionEndsAt, submitted]);
   useEffect(() => {
-    if (!selectedLevel && courseLevels[0]) setSelectedLevel(courseLevels[0]);
-  }, [selectedLevel, courseLevels]);
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const saved = JSON.parse(localStorage.getItem(questionBankKey) || "[]");
-        const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
-        if (userId) {
-          const { data: storedUsage } = await supabase
-            .from("student_question_usage")
-            .select("question_key")
-            .eq("user_id", userId)
-            .eq("bank_key", questionBankKey)
-            .limit(500);
-          (storedUsage || []).forEach((row) => used.add(row.question_key));
-          localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
-        }
-        const fresh = Array.isArray(saved) ? saved.filter((q) => q && !used.has(String(q.question))) : [];
-        if (!cancelled) {
-          setQuestionPool(fresh);
-          localStorage.setItem(questionBankKey, JSON.stringify(fresh));
-        }
-      } catch {
-        if (!cancelled) setQuestionPool([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [questionBankKey, usedQuestionKey, userId]);
-  useEffect(() => {
-    if (submitted || sessionEndsAt === null) return;
-    const update = () => {
-      const remaining = Math.max(Math.ceil((sessionEndsAt - Date.now()) / 1000), 0);
-      setSecondsLeft(remaining);
-      if (remaining === 0) setSessionEndsAt(null);
-    };
-    update();
-    const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
-  }, [sessionEndsAt, submitted]);
-  useEffect(() => {
-    if (submitted) return;
-    const handleVisibility = () => {
-      setSessionEndsAt((endAt) => {
-        if (document.hidden) {
-          if (endAt !== null) {
-            setSecondsLeft(Math.max(Math.ceil((endAt - Date.now()) / 1000), 0));
-            return null;
-          }
-          return endAt;
-        }
-        if (endAt === null && secondsLeft !== null && secondsLeft > 0)
-          return Date.now() + secondsLeft * 1000;
-        return endAt;
-      });
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [secondsLeft, submitted]);
-  useEffect(() => {
-    if (submitted || sessionEndsAt !== null || secondsLeft === null || secondsLeft <= 0) return;
-    if (document.hidden) return;
-    setSessionEndsAt(Date.now() + secondsLeft * 1000);
-  }, [secondsLeft, sessionEndsAt, submitted]);
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      if (userId) {
-        const { data: stored } = await supabase
-          .from("practice_sessions")
-          .select("course,level,topic,questions,answers,current_index,seconds_left")
-          .eq("user_id", userId)
-          .maybeSingle();
-        if (!cancelled && stored?.topic && Array.isArray(stored.questions) && stored.questions.length) {
-          setTopic(stored.topic);
-          setQuestions(stored.questions);
-          setAnswers(stored.answers || {});
-          setCurrentIndex(Math.min(stored.current_index || 0, stored.questions.length - 1));
-          setSecondsLeft(stored.seconds_left ?? null);
-          return;
-        }
-      }
-      const saved = localStorage.getItem(practiceSessionKey);
+    const saved = localStorage.getItem(practiceSessionKey);
     if (saved) {
       try {
         const session = JSON.parse(saved);
-        if (session.submitted) {
-          const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
-          if (Array.isArray(session.questions)) session.questions.forEach((q: Question) => used.add(String(q.question)));
-          localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
-          localStorage.removeItem(practiceSessionKey);
-          return;
-        }
         if (session.topic && Array.isArray(session.questions) && session.questions.length) {
-          setTopic(session.topic);
-          setQuestions(session.questions);
-          setAnswers(session.answers || {});
-          setCurrentIndex(Math.min(session.currentIndex || 0, session.questions.length - 1));
-          setSubmitted(Boolean(session.submitted));
-          setFeedback(session.feedback || "");
-          setSessionEndsAt(session.sessionEndsAt || null);
-          setSecondsLeft(
-            session.sessionEndsAt
-              ? Math.max(Math.ceil((session.sessionEndsAt - Date.now()) / 1000), 0)
-              : (session.secondsLeft ?? null),
-          );
-          return;
+          setTopic(session.topic); setQuestions(session.questions); setAnswers(session.answers || {}); setCurrentIndex(Math.min(session.currentIndex || 0, session.questions.length - 1)); setSubmitted(Boolean(session.submitted)); setFeedback(session.feedback || ""); setSessionEndsAt(session.sessionEndsAt || null); setSecondsLeft(session.sessionEndsAt ? Math.max(Math.ceil((session.sessionEndsAt - Date.now()) / 1000), 0) : session.secondsLeft ?? null); return;
         }
-      } catch {
-        localStorage.removeItem(practiceSessionKey);
-      }
+      } catch { localStorage.removeItem(practiceSessionKey); }
     }
     const pending = localStorage.getItem("funabacer.pending-practice");
     if (!pending) return;
     localStorage.removeItem("funabacer.pending-practice");
-    try {
-      const request = JSON.parse(pending);
-      if (request.topic) {
-        setTopic(request.topic);
-        setAutoStart(true);
-      }
-    } catch {
-      localStorage.removeItem("funabacer.pending-practice");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [practiceSessionKey, userId]);
+    try { const request = JSON.parse(pending); if (request.topic) { setTopic(request.topic); setAutoStart(true); } } catch {}
+  }, [practiceSessionKey]);
   useEffect(() => {
-    if (submitted) {
-      localStorage.removeItem(practiceSessionKey);
-      if (userId) void supabase.from("practice_sessions").delete().eq("user_id", userId);
-      return;
-    }
     if (!questions.length) return;
-    if (userId) {
-      void supabase.from("practice_sessions").upsert(
-        { user_id: userId, course: profile?.course || "", level: selectedLevel || "", topic, questions, answers, current_index: currentIndex, seconds_left: secondsLeft },
-        { onConflict: "user_id" },
-      );
-    }
-    localStorage.setItem(
-      practiceSessionKey,
-      JSON.stringify({
-        topic,
-        questions,
-        answers,
-        currentIndex,
-        submitted,
-        feedback,
-        sessionEndsAt,
-        secondsLeft,
-      }),
-    );
-  }, [
-    practiceSessionKey,
-    topic,
-    questions,
-    answers,
-    currentIndex,
-    submitted,
-    feedback,
-    sessionEndsAt,
-    secondsLeft,
-    userId,
-    profile?.course,
-    selectedLevel,
-  ]);
+    localStorage.setItem(practiceSessionKey, JSON.stringify({ topic, questions, answers, currentIndex, submitted, feedback, sessionEndsAt, secondsLeft }));
+  }, [practiceSessionKey, topic, questions, answers, currentIndex, submitted, feedback, sessionEndsAt, secondsLeft]);
   const generate = async () => {
     if (!profile?.course || !topic.trim()) return;
-    setBusy(true);
-    setFeedback("");
-    setAnswers({});
-    setCurrentIndex(0);
-    setSubmitted(false);
-    setSessionEndsAt(null);
-    localStorage.removeItem(practiceSessionKey);
+    setBusy(true); setFeedback(""); setQuestions([]); setAnswers({}); setCurrentIndex(0); setSubmitted(false); setSessionEndsAt(null); localStorage.removeItem(practiceSessionKey);
     try {
-      const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
-      let pool = questionPool.filter((q) => !used.has(String(q.question)));
-      if (pool.length < questionCount) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const response = await fetch("/api/ai/questions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(sessionData.session?.access_token
-              ? { Authorization: `Bearer ${sessionData.session.access_token}` }
-              : {}),
-          },
-          body: JSON.stringify({ course: profile.course, level: selectedLevel, topic, count: questionCount }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Could not generate questions");
-        const incoming = Array.isArray(data.questions)
-          ? data.questions.filter((q) => q && !used.has(String(q.question)))
-          : [];
-        pool = [...pool, ...incoming].filter(
-          (q, index, all) => all.findIndex((candidate) => String(candidate.question) === String(q.question)) === index,
-        );
-        setQuestionPool(pool);
-        localStorage.setItem(questionBankKey, JSON.stringify(pool));
-        if (data.audit)
-          setGenerationAudit({ ...data.audit, bankSize: Number(data.bankSize || data.audit.bankSize || pool.length) });
-
-      }
-      if (pool.length < questionCount)
-        throw new Error(
-          `The question bank returned only ${pool.length} verified questions. No unsafe or incomplete questions were shown. Try the topic again.`,
-        );
-      setQuestions(pool.slice(0, questionCount));
-      setSessionEndsAt(Date.now() + 600_000);
-      setSecondsLeft(600);
-    } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "Could not generate questions");
-    } finally {
-      setBusy(false);
-    }
+      const response = await fetch("/api/ai/questions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ course: profile.course, topic, count: 10 }) });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not generate questions");
+      setQuestions(data.questions || []);
+      setSessionEndsAt(Date.now() + 600_000); setSecondsLeft(600);
+    } catch (error) { setFeedback(error instanceof Error ? error.message : "Could not generate questions"); }
+    finally { setBusy(false); }
   };
   useEffect(() => {
     if (!autoStart || !topic.trim()) return;
@@ -1901,653 +1127,68 @@ function Practice({ setView, profile, userId }: Props) {
     if (submitted) return;
     const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
     const score = questions.length ? Math.round((correct / questions.length) * 100) : 0;
-    const attempt = {
-      topicId: `${profile?.course}:${topic.trim()}`,
-      score,
-      total: questions.length,
-      correct,
-      at: Date.now(),
-    };
-    saveAttempt(attempt);
-    if (userId) {
-      void (async () => {
-        const { data: savedAttempt, error: attemptError } = await supabase
-          .from("study_attempts")
-          .insert({
-            user_id: userId,
-            topic_id: attempt.topicId,
-            score: attempt.score,
-            total: attempt.total,
-            correct: attempt.correct,
-          })
-          .select("id")
-          .single();
-        if (attemptError || !savedAttempt) {
-          console.warn("Study attempt database save failed", attemptError?.message);
-          return;
-        }
-        const answerRows = questions.map((question, index) => ({
-          attempt_id: savedAttempt.id,
-          user_id: userId,
-          question_key: compactQuestionKey(question.question),
-          selected_answer: answers[index] ?? null,
-          correct_answer: question.answer,
-          is_correct: answers[index] === question.answer,
-        }));
-        const { error: answersError } = await supabase.from("study_attempt_answers").insert(answerRows);
-        if (answersError) console.warn("Attempt answer database save failed", answersError.message);
-      })();
-    }
-    const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
-    questions.forEach((q) => used.add(String(q.question)));
-    localStorage.setItem(usedQuestionKey, JSON.stringify([...used].slice(-500)));
-    if (userId) {
-      void supabase.from("student_question_usage").upsert(
-        questions.map((question) => ({ user_id: userId, bank_key: questionBankKey, question_key: compactQuestionKey(String(question.question)) })),
-        { onConflict: "user_id,bank_key,question_key" },
-      );
-    }
-    const remainingPool = questionPool.filter((q) => !used.has(String(q.question)));
-    setQuestionPool(remainingPool);
-    localStorage.setItem(questionBankKey, JSON.stringify(remainingPool));
-    localStorage.removeItem(practiceSessionKey);
+    saveAttempt({ topicId: `${profile?.course}:${topic.trim()}`, score, total: questions.length, correct, at: Date.now() });
     setSubmitted(true);
-    setSharePromptOpen(true);
     setSecondsLeft(0);
     setBusy(true);
     try {
-      const marking = questions
-        .map(
-          (q, i) =>
-            `Question ${i + 1}: ${q.question}\nStudent answer: ${q.options[answers[i]]}\nCorrect answer: ${q.options[q.answer]}\nBuilt-in explanation: ${q.explanation}`,
-        )
-        .join("\n\n");
-      const response = await fetch("/api/ai/tutor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `Mark my submitted ${topic} practice carefully. I scored ${correct}/${questions.length}. Explain every mistake, why it is wrong, the correct method, and what I should study next.\n\n${marking}`,
-          history: [],
-          department: profile?.department,
-          course: profile?.course,
-          topic,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      const tutorAnswer = typeof data?.answer === "string" ? data.answer.trim() : "";
-      setFeedback(
-        response.ok && tutorAnswer
-          ? tutorAnswer
-          : `You scored ${correct}/${questions.length} (${score}%). Your result has been saved. Detailed tutor feedback is temporarily unavailable, but you can still review every answer below.`,
-      );
-    } catch {
-      setFeedback(
-        `You scored ${correct}/${questions.length} (${score}%). Your result has been saved. Detailed tutor feedback is temporarily unavailable, but you can still review every answer below.`,
-      );
-    } finally {
-      setBusy(false);
-    }
+      const marking = questions.map((q, i) => `Question ${i + 1}: ${q.question}\nStudent answer: ${q.options[answers[i]]}\nCorrect answer: ${q.options[q.answer]}\nBuilt-in explanation: ${q.explanation}`).join("\n\n");
+      const response = await fetch("/api/ai/tutor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `Mark my submitted ${topic} practice carefully. I scored ${correct}/${questions.length}. Explain every mistake, why it is wrong, the correct method, and what I should study next.\n\n${marking}`, history: [], department: profile?.department, course: profile?.course, topic }) });
+      const data = await response.json();
+      setFeedback(response.ok ? data.answer : `You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`);
+    } catch { setFeedback(`You scored ${correct}/${questions.length} (${score}%). Tutor feedback is temporarily unavailable.`); }
+    finally { setBusy(false); }
   };
-  useEffect(() => {
-    if (!submitted && questions.length > 0 && secondsLeft === 0 && sessionEndsAt === null) {
-      void submit();
-    }
-  }, [questions.length, secondsLeft, sessionEndsAt, submitted]);
   const chooseAnswer = (answer: number) => {
     if (submitted) return;
     setAnswers((previous) => ({ ...previous, [currentIndex]: answer }));
-    if (currentIndex < questions.length - 1)
-      window.setTimeout(
-        () => setCurrentIndex((index) => Math.min(index + 1, questions.length - 1)),
-        220,
-      );
+    if (currentIndex < questions.length - 1) window.setTimeout(() => setCurrentIndex((index) => Math.min(index + 1, questions.length - 1)), 220);
   };
   const startNewPractice = () => {
-    if (
-      questions.length &&
-      !window.confirm("Start a new practice test? Your current saved test will be cleared.")
-    )
-      return;
-    localStorage.removeItem(practiceSessionKey);
-    setTopic("");
-    setQuestions([]);
-    setAnswers({});
-    setCurrentIndex(0);
-    setExpandedExplanations({});
-    setFeedback("");
-    setSubmitted(false);
-    setSecondsLeft(null);
-    setSessionEndsAt(null);
+    if (questions.length && !window.confirm("Start a new practice test? Your current saved test will be cleared.")) return;
+    localStorage.removeItem(practiceSessionKey); setTopic(""); setQuestions([]); setAnswers({}); setCurrentIndex(0); setFeedback(""); setSubmitted(false); setSecondsLeft(null); setSessionEndsAt(null);
   };
-  const openReteach = (questionTopic?: string) => {
-    localStorage.setItem("funabacer.reteach-topic", (questionTopic || topic).trim());
-    setView("reteach");
-  };
-  const calculateQuiz = () => {
-    const safe = quizExpression
-      .replace(/[×x]/gi, "*")
-      .replace(/÷/g, "/")
-      .replace(/[^0-9+*/().%\s-]/g, "");
-    if (!safe.trim()) return;
-    try {
-      const value = Function(`"use strict"; return (${safe})`)();
-      setQuizCalculation(
-        Number.isFinite(value) ? String(Number(value.toFixed(8))) : "Not a valid result",
-      );
-    } catch {
-      setQuizCalculation("Check the expression");
-    }
-  };
-  const startAnotherSet = () => {
-    const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
-    const available = questionPool.filter((question) => !used.has(String(question.question)));
-    setAnswers({});
-    setExpandedExplanations({});
-    setSubmitted(false);
-    setFeedback("");
-    setCurrentIndex(0);
-    if (available.length >= questionCount) {
-      setQuestions(available.slice(0, questionCount));
-      setSessionEndsAt(Date.now() + 600_000);
-      setSecondsLeft(600);
-      return;
-    }
-    void generate();
-  };
-  const downloadResultCard = async () => {
-    if (resultCardBusy || !questions.length) return;
-    setResultCardBusy(true);
-    try {
-      const correct = questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0);
-      const score = Math.round((correct / questions.length) * 100);
-      const canvas = document.createElement("canvas");
-      canvas.width = 1200;
-      canvas.height = 860;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Could not create result image");
-      const drawWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
-        const words = text.split(" ");
-        let line = "";
-        let offset = 0;
-        for (const word of words) {
-          const next = line ? `${line} ${word}` : word;
-          if (ctx.measureText(next).width > maxWidth && line) {
-            ctx.fillText(line, x, y + offset);
-            line = word;
-            offset += lineHeight;
-          } else line = next;
-        }
-        if (line) ctx.fillText(line, x, y + offset);
-      };
-      const gradient = ctx.createLinearGradient(0, 0, 1200, 860);
-      gradient.addColorStop(0, "#063b2a");
-      gradient.addColorStop(1, "#16c978");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "rgba(255,255,255,.12)";
-      ctx.roundRect(56, 56, 1088, 748, 34);
-      ctx.fill();
-      ctx.fillStyle = "#d1fae5";
-      ctx.font = "700 28px Arial";
-      ctx.fillText("FunaBAcer", 92, 124);
-      try {
-        const avatarImage = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => resolve(image);
-          image.onerror = reject;
-          image.src = avatar.url;
-        });
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(1015, 145, 72, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(avatarImage, 943, 73, 144, 144);
-        ctx.restore();
-      } catch {
-        // The share card remains usable if the avatar service is unavailable.
-      }
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "800 58px Arial";
-      ctx.fillText("Study result", 92, 205);
-      ctx.font = "700 34px Arial";
-      ctx.fillText(profile?.name || "FunaBAcer student", 92, 275);
-      ctx.font = "500 27px Arial";
-      ctx.fillText(`${profile?.department || "Student"} · ${profile?.course || "Course"}`, 92, 325);
-      ctx.fillText(`${profile?.level || "Level not set"} · ${topic}`, 92, 370);
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "900 120px Arial";
-      ctx.fillText(`${score}%`, 92, 540);
-      ctx.font = "600 30px Arial";
-      ctx.fillText(`${correct}/${questions.length} correct`, 390, 530);
-      ctx.fillStyle = "#d1fae5";
-      ctx.font = "800 30px Arial";
-      drawWrappedText(score >= 80 ? "Excellent work — keep leading the way!" : score >= 50 ? "Good progress — your next score can be even higher!" : "Every attempt builds mastery — keep going!", 92, 625, 960, 38);
-      ctx.font = "500 22px Arial";
-      drawWrappedText("Practise smarter with FunaBAcer · funabacer.vercel.app", 92, 765, 960, 30);
-      ctx.globalAlpha = 0.24;
-      ctx.font = "900 88px Arial";
-      ctx.rotate(-0.18);
-      ctx.fillText("FUNABACER", 690, 575);
-      ctx.globalAlpha = 1;
-      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Could not export image")), "image/png"));
-      const file = new File([blob], "funabacer-result.png", { type: "image/png" });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: "My FunaBAcer result", text: `${score}% on ${topic}`, files: [file] });
-      } else {
-        const link = document.createElement("a");
-        link.download = file.name;
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        URL.revokeObjectURL(link.href);
-      }
-    } finally {
-      setResultCardBusy(false);
-    }
-  };
-  const renderQuestion = (q: Question, i: number, review = false) => {
-    const isCorrect = answers[i] === q.answer;
-    const expanded = Boolean(expandedExplanations[i]);
-    const selectedAnswer = answers[i] === undefined ? "Not answered" : q.options[answers[i]];
-    const correctAnswer = q.options[q.answer];
-    return (
-      <div
-        key={i}
-        className={`rounded-2xl border p-5 sm:p-6 ${review && submitted ? (isCorrect ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50") : "border-[#dcebe3] bg-white"}`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 font-bold leading-7">
-            {i + 1}. <TutorInline value={q.question} />
-          </p>
-          {submitted && (
-            <span
-              className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${isCorrect ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}
-            >
-              {isCorrect ? "✓ Correct" : "× Incorrect"}
-            </span>
-          )}
-        </div>
-        <div className="mt-4 space-y-2">
-          {q.options.map((option, j) => (
-            <button
-              key={option}
-              disabled={submitted || review}
-              onClick={() => chooseAnswer(j)}
-              className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}
-            >
-              <span className="mr-1 font-bold">{String.fromCharCode(65 + j)}.</span> <TutorInline value={option} />
-              {submitted && j === q.answer ? " · Correct answer" : ""}
-            </button>
-          ))}
-        </div>
-        {submitted && (
-          <div className={`mt-4 rounded-xl p-4 text-sm leading-6 ${isCorrect ? "bg-emerald-100/70 text-emerald-950" : "bg-rose-100/70 text-rose-950"}`}>
-            <p className="font-extrabold">{isCorrect ? "Why you got it right" : "Why this answer was not correct"}</p>
-            <p className={!expanded ? "mt-1 line-clamp-2" : "mt-1"}>
-              {isCorrect
-                ? `Your answer (${selectedAnswer}) is correct. ${q.explanation}`
-                : `You selected ${selectedAnswer}, but the correct answer is ${correctAnswer}. ${q.explanation}`}
-            </p>
-            <button
-              type="button"
-              className="mt-2 font-extrabold underline underline-offset-2"
-              onClick={() => setExpandedExplanations((previous) => ({ ...previous, [i]: !expanded }))}
-            >
-              {expanded ? "See less" : "See more"}
-            </button>
-            {expanded && (
-              <div className="mt-3 border-t border-current/15 pt-3">
-                <p><strong>Your answer:</strong> {selectedAnswer}</p>
-                <p><strong>Correct answer:</strong> {correctAnswer}</p>
-                <p className="mt-2"><strong>Step-by-step:</strong> {q.explanation}</p>
-              </div>
-            )}
-          </div>
-        )}
-        <button
-          onClick={() => openReteach(q.topic || topic)}
-          className="mt-4 text-sm font-extrabold text-emerald-700 underline"
-        >
-          I don’t understand this topic
-        </button>
-      </div>
-    );
-  };
-  return (
-    <Page
-      title="Practice"
-      eyebrow="AI-GENERATED PRACTICE"
-      subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}
-    >
-      <div className="mx-auto max-w-3xl space-y-5">
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6 space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-[#365348]">
-              Academic level
-              <select
-                value={selectedLevel}
-                onChange={(e) => {
-                  setSelectedLevel(e.target.value);
-                  setTopic("");
-                }}
-                className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option value="">Choose level</option>
-                {courseLevels.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm font-bold text-[#365348]">
-              Course code / topic from verified scheme
-              <select
-                value={courseTopics.some((item) => item.key === topic) ? topic : ""}
-                onChange={(e) => setTopic(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option value="">Choose a course topic</option>
-                {courseTopics.map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.label}
-                    {item.official ? " · official timetable" : item.status !== "unknown" ? ` · ${item.status}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="block text-sm font-bold text-[#365348]">
-            Or search any topic with AI
-            <input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder={
-                courseRows.length
-                  ? "Type a different topic to ask AI"
-                  : "Enter a topic from your course"
-              }
-              className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-          </label>
-          <label className="block text-sm font-bold text-[#365348]">
-            Number of questions
-            <select
-              value={questionCount}
-              onChange={(e) => setQuestionCount(Number(e.target.value))}
-              className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400"
-            >
-              {[5, 10, 15, 20].map((count) => <option key={count} value={count}>{count} questions</option>)}
-            </select>
-          </label>
-          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
-            <strong>{officialTimetable.title} · Version {officialTimetable.version}</strong><br />
-            Course codes marked “official timetable” were matched to the TIMTEC timetable supplied for this workspace. The timetable verifies scheduling, while course materials remain the authority for teaching content.
-          </div>
-          <div className="rounded-xl bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
-            {allCourseRows.length
-              ? `Verified bank: ${allCourseRows.length} course rows for ${selectedLevel || "all imported levels"}. Compulsory/elective labels are shown only where FUNAAB sources publish them.`
-              : "This programme has no verified levelled course rows yet, so AI topic search remains available."}
-          </div>
-          {generationAudit && (
-            <div className={`rounded-xl border px-4 py-3 text-xs leading-5 ${generationAudit.persistenceError ? "border-amber-300 bg-amber-50 text-amber-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
-              <strong>Generation audit</strong>: {generationAudit.generatedCount} verified questions returned
-              ({generationAudit.providerCounts.nvidia || 0} NVIDIA + {generationAudit.providerCounts.gemini || 0} Gemini).
-              Bank size: {generationAudit.bankSize}.
-              {generationAudit.persisted ? " Saved to Supabase." : generationAudit.persistenceError ? ` Supabase save warning: ${generationAudit.persistenceError}` : " Supabase save not confirmed."}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-3">
-            <Btn onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>
-              {busy
-                ? "Preparing question bank…"
-                : questionPool.length >= 10
-                  ? "Start 10-minute sprint"
-                  : "Build question bank and start sprint"}
-            </Btn>
-            {topic.trim() && (
-              <Btn variant="outline" onClick={openReteach}>
-                I don’t understand this topic
-              </Btn>
-            )}
-            {questions.length > 0 && (
-              <Btn variant="outline" onClick={startNewPractice}>
-                <RotateCcw size={16} /> Start a new practice
-              </Btn>
-            )}
-          </div>
-        </div>
-        {questions.length > 0 && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
-            <div className="flex items-center justify-between gap-3">
-              <span>
-                10-minute sprint ·{" "}
-                {submitted
-                  ? "Completed"
-                  : secondsLeft === null
-                    ? "Not started"
-                    : secondsLeft === 0
-                      ? "Time’s up — submitting result…"
-                      : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowQuizCalculator((open) => !open)}
-                  className={`rounded-full border px-3 py-1 text-[11px] font-black tracking-wider transition ${showQuizCalculator ? "border-emerald-300 bg-emerald-500 text-white" : "border-emerald-200 bg-white/70 text-emerald-800 hover:bg-white"}`}
-                  aria-label={`${showQuizCalculator ? "Close" : "Open"} quiz calculator`}
-                  aria-expanded={showQuizCalculator}
-                >
-                  CAL
-                </button>
-                <span>
-                  {submitted ? questions.length : currentIndex + 1}/{questions.length}
-                </span>
-              </div>
-            </div>
-            <div className="mt-3 flex gap-1">
-              {questions.map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-1.5 flex-1 rounded-full ${submitted || i < currentIndex ? "bg-emerald-500" : i === currentIndex ? "bg-emerald-300" : "bg-emerald-100"}`}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-        {questions.length > 0 && showQuizCalculator && <CalculatorPanel />}
-        {!submitted &&
-          questions.length > 0 &&
-          renderQuestion(questions[currentIndex], currentIndex)}
-        {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && (
-          <div className="flex flex-wrap gap-3">
-            <Btn
-              onClick={submit}
-              disabled={Object.keys(answers).length !== questions.length || busy}
-              className="flex-1"
-            >
-              Submit all answers to the tutor <ArrowRight size={16} />
-            </Btn>
-            <Btn variant="outline" onClick={startAnotherSet} disabled={busy}>
-              <RotateCcw size={16} /> Generate more
-            </Btn>
-          </div>
-        )}
-        {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
-        {submitted && (
-          <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-[#244138]">Your result is ready to share.</p>
-            <p className="mt-1 text-xs leading-5 text-[#71877d]">It includes your name, level, department, course, score, and a FunaBAcer watermark.</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Btn onClick={() => void downloadResultCard()} disabled={resultCardBusy}>
-                <Share2 size={16} /> {resultCardBusy ? "Preparing image…" : "Share result image"}
-              </Btn>
-            </div>
-          </div>
-        )}
-        {sharePromptOpen && submitted && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#031b13]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="share-result-title">
-            <div className="w-full max-w-md rounded-3xl border border-emerald-200 bg-white p-6 shadow-2xl">
-              <div className="flex items-start gap-4">
-                <img src={avatar.url} alt="Your selected avatar" className="size-16 rounded-2xl border-4 border-emerald-100 bg-emerald-50" />
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Sprint complete</p>
-                  <h2 id="share-result-title" className="mt-1 text-2xl font-extrabold text-[#123d2c]">
-                    You showed up. That matters.
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-[#557268]">
-                    Turn this result into your FunaBAcer study badge and let your friends see your progress.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 grid gap-3">
-                <Btn onClick={() => { setSharePromptOpen(false); void downloadResultCard(); }} disabled={resultCardBusy}>
-                  <Share2 size={16} /> {resultCardBusy ? "Preparing…" : "Share result"}
-                </Btn>
-                <div className="grid grid-cols-2 gap-3">
-                  <Btn variant="outline" onClick={() => { setSharePromptOpen(false); startAnotherSet(); }}>
-                    Continue with more
-                  </Btn>
-                  <Btn variant="outline" onClick={() => setSharePromptOpen(false)}>
-                    View result
-                  </Btn>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {feedback && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm font-semibold text-emerald-800">
-            <span className="block text-xs uppercase tracking-wider text-emerald-700">
-              Saved to today’s progress
-            </span>
-            <details className="mt-3">
-              <summary className="cursor-pointer font-extrabold underline underline-offset-2">See more tutor feedback</summary>
-              <div className="mt-4"><TutorMessage content={feedback} light /></div>
-            </details>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button className="underline" onClick={() => setView("learn")}>
-                Open AI Tutor
-              </button>
-              {questions.length > 0 &&
-                Math.round(
-                  (questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) /
-                    questions.length) *
-                    100,
-                ) < 10 && (
-                  <button
-                    className="rounded-lg bg-emerald-600 px-3 py-2 text-white"
-                    onClick={openReteach}
-                  >
-                    Teach me from the beginning
-                  </button>
-                )}
-            </div>
-          </div>
-        )}
-      </div>
-    </Page>
-  );
+  const openReteach = (questionTopic?: string) => { localStorage.setItem("funabacer.reteach-topic", (questionTopic || topic).trim()); setView("reteach"); };
+  const renderQuestion = (q: Question, i: number, review = false) => <div key={i} className={`rounded-2xl border p-6 ${review && submitted ? answers[i] === q.answer ? "border-emerald-300 bg-emerald-50/50" : "border-rose-300 bg-rose-50/50" : "border-[#dcebe3] bg-white"}`}><div className="flex items-start justify-between gap-3"><p className="font-bold leading-7">{i + 1}. {q.question}</p>{submitted && <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-extrabold ${answers[i] === q.answer ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}>{answers[i] === q.answer ? "✓ Correct" : "× Incorrect"}</span>}</div><div className="mt-4 space-y-2">{q.options.map((option, j) => <button key={option} disabled={submitted || review} onClick={() => chooseAnswer(j)} className={`w-full rounded-xl border p-3 text-left text-sm transition-colors ${submitted && j === q.answer ? "border-emerald-500 bg-emerald-100 font-bold" : submitted && answers[i] === j ? "border-rose-500 bg-rose-100" : !submitted && answers[i] === j ? "border-emerald-500 bg-emerald-50" : "border-[#dcebe3] hover:border-emerald-300"}`}>{String.fromCharCode(65 + j)}. {option}{submitted && j === q.answer ? " · Correct answer" : ""}</button>)}</div>{submitted && <p className="mt-4 rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#365348]"><strong>Explanation:</strong> {q.explanation}</p>}<button onClick={() => openReteach(q.topic || topic)} className="mt-4 text-sm font-extrabold text-emerald-700 underline">I don’t understand this topic</button></div>;
+  return <Page title="Practice" eyebrow="AI-GENERATED PRACTICE" subtitle={profile?.course ? `Questions for ${profile.course}` : "Choose your course first."}>
+    <div className="mx-auto max-w-3xl space-y-5">
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><label className="block text-sm font-bold text-[#365348]">Topic to practise<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic from your course scheme" className="mt-2 w-full rounded-xl border border-[#dcebe3] bg-[#f7faf8] px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-400" /></label><div className="mt-4 flex flex-wrap gap-3"><Btn onClick={generate} disabled={busy || !topic.trim() || !profile?.course}>{busy ? "Generating questions…" : "Select topic and start 10-minute sprint"}</Btn>{topic.trim() && <Btn variant="outline" onClick={openReteach}>I don’t understand this topic</Btn>}{questions.length > 0 && <Btn variant="outline" onClick={startNewPractice}><RotateCcw size={16} /> Start a new practice</Btn>}</div></div>
+      {questions.length > 0 && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"><div className="flex items-center justify-between gap-3"><span>10-minute sprint · {submitted ? "Completed" : secondsLeft === null ? "Not started" : `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`}</span><span>{submitted ? questions.length : currentIndex + 1}/{questions.length}</span></div><div className="mt-3 flex gap-1">{questions.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${submitted || i < currentIndex ? "bg-emerald-500" : i === currentIndex ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div></div>}
+      {!submitted && questions.length > 0 && renderQuestion(questions[currentIndex], currentIndex)}
+      {!submitted && questions.length > 0 && currentIndex === questions.length - 1 && <Btn onClick={submit} disabled={Object.keys(answers).length !== questions.length || busy} className="w-full">Submit all answers to the tutor <ArrowRight size={16} /></Btn>}
+      {submitted && questions.map((q, i) => renderQuestion(q, i, true))}
+      {feedback && <div className="rounded-2xl bg-emerald-50 p-5 text-sm font-semibold text-emerald-800"><span className="mb-3 block text-xs uppercase tracking-wider text-emerald-700">Saved to today’s progress</span><TutorMessage content={feedback} light /><div className="mt-4 flex flex-wrap items-center gap-3"><button className="underline" onClick={() => setView("learn")}>Open AI Tutor</button>{questions.length > 0 && Math.round((questions.reduce((sum, q, i) => sum + (answers[i] === q.answer ? 1 : 0), 0) / questions.length) * 100) < 10 && <button className="rounded-lg bg-emerald-600 px-3 py-2 text-white" onClick={openReteach}>Teach me from the beginning</button>}</div></div>}
+    </div>
+  </Page>;
 }
 function Reteach({ setView, profile }: Props) {
-  const [topic, setTopic] = useState(
-    () => localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic",
-  );
+  const [topic, setTopic] = useState(() => localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic");
   const [lesson, setLesson] = useState("");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
-    const requestedTopic =
-      localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic";
+    const requestedTopic = localStorage.getItem("funabacer.reteach-topic") || profile?.course || "your topic";
     localStorage.removeItem("funabacer.reteach-topic");
     setTopic(requestedTopic);
     void (async () => {
       try {
-        const response = await fetch("/api/ai/tutor", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: `Teach me ${requestedTopic} from the absolute beginning. Assume I am a beginner, like a 10-year-old, but do not be childish. Build a complete lesson: define the idea in simple words, explain why it matters, introduce every symbol and unit, show a very easy example, then a Mechanical Engineering example, common mistakes, a short recap, and one tiny check question at the end. Do not ask me to choose a topic and do not refer me to another page.`,
-            history: [],
-            department: profile?.department,
-            course: profile?.course,
-            topic: requestedTopic,
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "The Tutor could not prepare this lesson.");
+        const response = await fetch("/api/ai/tutor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: `Teach me ${requestedTopic} from the absolute beginning. Assume I am a beginner, like a 10-year-old, but do not be childish. Build a complete lesson: define the idea in simple words, explain why it matters, introduce every symbol and unit, show a very easy example, then a Mechanical Engineering example, common mistakes, a short recap, and one tiny check question at the end. Do not ask me to choose a topic and do not refer me to another page.`, history: [], department: profile?.department, course: profile?.course, topic: requestedTopic }) });
+        const data = await response.json(); if (!response.ok) throw new Error(data.error || "The Tutor could not prepare this lesson.");
         setLesson(data.answer || "");
-      } catch (caught) {
-        setError(
-          caught instanceof Error ? caught.message : "The Tutor could not prepare this lesson.",
-        );
-      } finally {
-        setBusy(false);
-      }
+      } catch (caught) { setError(caught instanceof Error ? caught.message : "The Tutor could not prepare this lesson."); }
+      finally { setBusy(false); }
     })();
   }, [profile?.course, profile?.department]);
-  const retest = () => {
-    localStorage.setItem("funabacer.reteach-topic", topic);
-    setView("practice");
-  };
-  return (
-    <Page
-      title={topic}
-      eyebrow="UNDERSTAND IT FIRST"
-      subtitle={`A beginner-friendly lesson for ${profile?.course || "your programme"}`}
-    >
-      <div className="relative mx-auto max-w-3xl pb-24">
-        <div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-sm sm:p-10">
-          {busy ? (
-            <div className="py-20 text-center text-[#71877d]">
-              Building your lesson from the beginning…
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl bg-rose-50 p-5 text-sm font-semibold text-rose-800">
-              {error}
-            </div>
-          ) : (
-            <TutorMessage content={lesson} />
-          )}
-        </div>
-        <div className="fixed bottom-24 right-4 z-20 flex flex-col gap-2 sm:right-8">
-          <button
-            onClick={retest}
-            className="rounded-full bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg"
-          >
-            Return to practice test
-          </button>
-          <button
-            onClick={() => setView("learn")}
-            className="rounded-full border border-[#c9ddd2] bg-white px-4 py-3 text-sm font-extrabold text-[#244138] shadow-lg"
-          >
-            Back to study
-          </button>
-        </div>
-      </div>
-    </Page>
-  );
+  const retest = () => { localStorage.setItem("funabacer.reteach-topic", topic); setView("practice"); };
+  return <Page title={topic} eyebrow="UNDERSTAND IT FIRST" subtitle={`A beginner-friendly lesson for ${profile?.course || "your programme"}`}>
+    <div className="relative mx-auto max-w-3xl pb-24"><div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-sm sm:p-10">{busy ? <div className="py-20 text-center text-[#71877d]">Building your lesson from the beginning…</div> : error ? <div className="rounded-2xl bg-rose-50 p-5 text-sm font-semibold text-rose-800">{error}</div> : <TutorMessage content={lesson} />}</div><div className="fixed bottom-24 right-4 z-20 flex flex-col gap-2 sm:right-8"><button onClick={retest} className="rounded-full bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white shadow-lg">Return to practice test</button><button onClick={() => setView("learn")} className="rounded-full border border-[#c9ddd2] bg-white px-4 py-3 text-sm font-extrabold text-[#244138] shadow-lg">Back to study</button></div></div>
+  </Page>;
 }
 
 function Review({ setView }: Props) {
-  return (
-    <Page
-      title="Question review"
-      eyebrow="YOUR REVIEW"
-      subtitle="Review is created from your submitted answers, not from demo content."
-    >
-      <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
-        <h2 className="text-2xl font-extrabold">No submitted answers to review</h2>
-        <p className="mt-3 leading-7 text-[#71877d]">
-          Complete a real practice session and submit it. The Tutor will then explain each mistake
-          from your own answers.
-        </p>
-        <Btn className="mt-6" onClick={() => setView("practice")}>
-          <Target size={16} /> Start practice
-        </Btn>
-      </div>
-    </Page>
-  );
+  return <Page title="Question review" eyebrow="YOUR REVIEW" subtitle="Review is created from your submitted answers, not from demo content.">
+    <div className="mx-auto max-w-2xl rounded-2xl border border-[#dcebe3] bg-white p-7 text-center"><h2 className="text-2xl font-extrabold">No submitted answers to review</h2><p className="mt-3 leading-7 text-[#71877d]">Complete a real practice session and submit it. The Tutor will then explain each mistake from your own answers.</p><Btn className="mt-6" onClick={() => setView("practice")}><Target size={16}/> Start practice</Btn></div>
+  </Page>;
 }
 function Results({ setView }: Props) {
   return (
@@ -2558,21 +1199,9 @@ function Results({ setView }: Props) {
     >
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          [
-            `${realStats().score ?? 0}%`,
-            "Overall mastery",
-            realStats().answered ? "From submitted work" : "No submitted work yet",
-          ],
-          [
-            String(realStats().answered),
-            "Questions answered",
-            realStats().answered ? "Your account" : "Start your first lesson",
-          ],
-          [
-            `${realStats().studyDays} days`,
-            "Study streak",
-            realStats().studyDays ? "Based on study activity" : "No study activity yet",
-          ],
+          [`${realStats().score ?? 0}%`, "Overall mastery", realStats().answered ? "From submitted work" : "No submitted work yet"],
+          [String(realStats().answered), "Questions answered", realStats().answered ? "Your account" : "Start your first lesson"],
+          [`${realStats().studyDays} days`, "Study streak", realStats().studyDays ? "Based on study activity" : "No study activity yet"],
         ].map(([v, l, d]) => (
           <div key={l} className="rounded-2xl border border-[#dcebe3] bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-widest text-[#71877d]">{l}</p>
@@ -2592,34 +1221,27 @@ function Results({ setView }: Props) {
           </Btn>
         </div>
         <div className="mt-7 space-y-5">
-          {attemptedTopics().length === 0 ? (
-            <p className="mt-6 rounded-xl bg-[#fbfdfc] p-5 text-sm leading-6 text-[#71877d]">
-              No mastery data yet. Scores will appear here only after you submit real practice
-              answers.
-            </p>
-          ) : (
-            attemptedTopics().map((t) => (
-              <div key={t.name}>
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <span className="text-sm font-bold text-[#244138]">{t.name}</span>
-                    <span className="ml-2 text-xs text-[#8ca198]">{t.course}</span>
-                  </div>
-                  <span
-                    className={`text-xs font-bold ${t.tone === "strong" ? "text-emerald-700" : t.tone === "weak" ? "text-rose-300" : "text-amber-300"}`}
-                  >
-                    {t.tone === "strong" ? "Strong" : t.tone === "weak" ? "Weak" : "Needs practice"}
-                  </span>
+          {attemptedTopics().length === 0 ? <p className="mt-6 rounded-xl bg-[#fbfdfc] p-5 text-sm leading-6 text-[#71877d]">No mastery data yet. Scores will appear here only after you submit real practice answers.</p> : attemptedTopics().map((t) => (
+            <div key={t.name}>
+              <div className="flex justify-between gap-4">
+                <div>
+                  <span className="text-sm font-bold text-[#244138]">{t.name}</span>
+                  <span className="ml-2 text-xs text-[#8ca198]">{t.course}</span>
                 </div>
-                <div className="mt-2 h-2 rounded-full bg-[#eff7f2]">
-                  <div
-                    className={`h-full rounded-full ${t.tone === "strong" ? "bg-emerald-400" : t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
-                    style={{ width: `${t.score}%` }}
-                  />
-                </div>
+                <span
+                  className={`text-xs font-bold ${t.tone === "strong" ? "text-emerald-700" : t.tone === "weak" ? "text-rose-300" : "text-amber-300"}`}
+                >
+                  {t.tone === "strong" ? "Strong" : t.tone === "weak" ? "Weak" : "Needs practice"}
+                </span>
               </div>
-            ))
-          )}
+              <div className="mt-2 h-2 rounded-full bg-[#eff7f2]">
+                <div
+                  className={`h-full rounded-full ${t.tone === "strong" ? "bg-emerald-400" : t.tone === "weak" ? "bg-rose-400" : "bg-amber-300"}`}
+                  style={{ width: `${t.score}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </Page>
@@ -2627,369 +1249,56 @@ function Results({ setView }: Props) {
 }
 
 type Flashcard = { front: string; back: string };
-function DocumentAttachment({
-  onProcessed,
-  name,
-}: {
-  onProcessed: (cards: Flashcard[], name: string) => void;
-  name?: string;
-}) {
+function DocumentAttachment({ onProcessed, name }: { onProcessed: (cards: Flashcard[], name: string) => void; name?: string }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const process = async (file: File) => {
-    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) {
-      setError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file.");
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      setError("Please use a file under 4 MB.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    setStatus("Reading your document with Gemini…");
+    if (!/^application\/pdf$|^image\/(png|jpeg|jpg|webp|heic|heif)$/.test(file.type)) { setError("Use a PDF, PNG, JPG, WEBP, HEIC, or HEIF file."); return; }
+    if (file.size > 4 * 1024 * 1024) { setError("Please use a file under 4 MB."); return; }
+    setBusy(true); setError(""); setStatus("Reading your document with Gemini…");
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Could not read the file."));
-        reader.readAsDataURL(file);
-      });
-      const response = await fetch("/api/ai/flashcards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, type: file.type, dataUrl }),
-      });
+      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read the file.")); reader.readAsDataURL(file); });
+      const response = await fetch("/api/ai/flashcards", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, type: file.type, dataUrl }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Gemini could not create flashcards.");
-      onProcessed(data.cards || [], data.name || file.name);
-      setStatus(`${data.cards?.length || 0} flashcards are ready to study.`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The document could not be processed.");
-      setStatus("");
-    } finally {
-      setBusy(false);
-    }
+      onProcessed(data.cards || [], data.name || file.name); setStatus(`${data.cards?.length || 0} flashcards are ready to study.`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "The document could not be processed."); setStatus(""); }
+    finally { setBusy(false); }
   };
-  return (
-    <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-5">
-      <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-[#244138]">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
-          <Paperclip size={18} />
-        </span>
-        <span>
-          {busy ? "Gemini is reading…" : name ? `Attached: ${name}` : "Attach a PDF or image"}
-          <span className="mt-1 block text-xs font-normal text-[#71877d]">
-            Gemini reads it and prepares tutor context · max 4 MB
-          </span>
-        </span>
-        <input
-          className="sr-only"
-          type="file"
-          accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif"
-          disabled={busy}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void process(file);
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
-      {status && <p className="mt-3 text-xs font-semibold text-emerald-700">{status}</p>}
-      {error && (
-        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>
-      )}
-    </div>
-  );
+  return <div className="rounded-2xl border border-dashed border-emerald-400/35 bg-emerald-400/5 p-5">
+    <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-[#244138]"><span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500 text-white"><Paperclip size={18} /></span><span>{busy ? "Gemini is reading…" : name ? `Attached: ${name}` : "Attach a PDF or image"}<span className="mt-1 block text-xs font-normal text-[#71877d]">Gemini reads it and prepares tutor context · max 4 MB</span></span><input className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void process(file); event.currentTarget.value = ""; }} /></label>
+    {status && <p className="mt-3 text-xs font-semibold text-emerald-700">{status}</p>}
+    {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+  </div>;
 }
 
-function Notes({ userId }: Props) {
-  type SavedSet = {
-    id?: string;
-    name: string;
-    cards: Flashcard[];
-    known: number[];
-    review: number[];
-    current: number;
-    completed: boolean;
-  };
-  const [cards, setCards] = useState<Flashcard[]>([]);
-  const [sourceName, setSourceName] = useState("");
-  const [savedSets, setSavedSets] = useState<SavedSet[]>([]);
+function Notes() {
+  const [cards, setCards] = useState<Flashcard[]>(() => { try { return JSON.parse(localStorage.getItem("funabacer.note-cruncher.cards") || "[]"); } catch { return []; } });
+  const [sourceName, setSourceName] = useState(() => localStorage.getItem("funabacer.note-cruncher.name") || "");
+  const [savedSets, setSavedSets] = useState<{ name: string; cards: Flashcard[] }[]>(() => { try { return JSON.parse(localStorage.getItem("funabacer.note-cruncher.sets") || "[]"); } catch { return []; } });
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState<number[]>([]);
   const [review, setReview] = useState<number[]>([]);
-  const [completed, setCompleted] = useState(false);
-  const cacheKey = `funabacer.note-cruncher.sets.${userId || "local"}`;
-  const legacyCacheKey = "funabacer.note-cruncher.sets";
-  const loadCards = (item: SavedSet, reopen = false) => {
-    const safeCards = Array.isArray(item.cards)
-      ? item.cards.filter(
-          (card) => card && typeof card.front === "string" && typeof card.back === "string",
-        )
-      : [];
-    const safeCurrent = reopen
-      ? 0
-      : Math.min(Math.max(item.current || 0, 0), Math.max(safeCards.length - 1, 0));
-    setCards(safeCards);
-    setSourceName(item.name);
-    setCurrent(safeCurrent);
-    setFlipped(false);
-    setKnown(reopen ? [] : item.known || []);
-    setReview(reopen ? [] : item.review || []);
-    setCompleted(reopen ? false : Boolean(item.completed || !safeCards.length));
-  };
-  useEffect(() => {
-    try {
-      const cached = JSON.parse(
-        localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]",
-      );
-      if (Array.isArray(cached))
-        setSavedSets(
-          cached.map((item) => ({
-            ...item,
-            known: item.known || [],
-            review: item.review || [],
-            current: item.current || 0,
-            completed: Boolean(item.completed),
-          })),
-        );
-    } catch {
-      /* use empty state */
-    }
-  }, [cacheKey, legacyCacheKey]);
-  useEffect(() => {
-    if (!userId) return;
-    void (async () => {
-      const { data: remote } = await supabase
-        .from("flashcard_sets")
-        .select("id, file_name, cards, known_cards, review_cards, current_position, completed")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false })
-        .limit(20);
-      if (remote?.length) {
-        const next = remote.map((item) => ({
-          id: item.id,
-          name: item.file_name,
-          cards: Array.isArray(item.cards) ? (item.cards as unknown as Flashcard[]) : [],
-          known: Array.isArray(item.known_cards) ? (item.known_cards as unknown as number[]) : [],
-          review: Array.isArray(item.review_cards)
-            ? (item.review_cards as unknown as number[])
-            : [],
-          current: item.current_position,
-          completed: item.completed,
-        }));
-        setSavedSets(next);
-      } else {
-        const cached = (() => {
-          try {
-            return JSON.parse(
-              localStorage.getItem(cacheKey) || localStorage.getItem(legacyCacheKey) || "[]",
-            );
-          } catch {
-            return [];
-          }
-        })();
-        for (const item of Array.isArray(cached) ? cached.slice(0, 10) : []) {
-          await supabase.from("flashcard_sets").insert({
-            user_id: userId,
-            file_name: item.name,
-            cards: item.cards,
-            known_cards: item.known || [],
-            review_cards: item.review || [],
-            current_position: item.current || 0,
-            completed: Boolean(item.completed),
-          });
-        }
-      }
-    })();
-  }, [userId]);
-  useEffect(() => {
-    localStorage.setItem(cacheKey, JSON.stringify(savedSets));
-  }, [cacheKey, savedSets]);
-  const saveSet = async (nextCards: Flashcard[], name: string) => {
-    const localSet: SavedSet = {
-      name,
-      cards: nextCards,
-      known: [],
-      review: [],
-      current: 0,
-      completed: false,
-    };
-    if (userId) {
-      const { data } = await supabase
-        .from("flashcard_sets")
-        .insert({
-          user_id: userId,
-          file_name: name,
-          cards: nextCards,
-          known_cards: [],
-          review_cards: [],
-          current_position: 0,
-          completed: false,
-        })
-        .select("id")
-        .single();
-      if (data?.id) localSet.id = data.id;
-    }
-    const nextSets = [localSet, ...savedSets.filter((item) => item.name !== name)].slice(0, 20);
-    setSavedSets(nextSets);
-    loadCards(localSet);
-  };
-  const reopenSet = (item: SavedSet) => {
-    const reopened = { ...item, known: [], review: [], current: 0, completed: false };
-    setSavedSets((previous) =>
-      previous.map((saved) =>
-        saved.id === item.id || saved.name === item.name ? reopened : saved,
-      ),
-    );
-    loadCards(reopened, true);
-    if (userId && item.id)
-      void supabase
-        .from("flashcard_sets")
-        .update({ known_cards: [], review_cards: [], current_position: 0, completed: false })
-        .eq("id", item.id)
-        .eq("user_id", userId);
-  };
-  const markCard = (kind: "known" | "review") => {
-    if (!cards.length || !cards[current]) return;
-    const nextKnown = kind === "known" && !known.includes(current) ? [...known, current] : known;
-    const nextReview =
-      kind === "review" && !review.includes(current) ? [...review, current] : review;
-    const nextCurrent =
-      kind === "review" ? current : current < cards.length - 1 ? current + 1 : current;
-    const nextCompleted = kind === "review" ? false : current >= cards.length - 1;
-    setKnown(nextKnown);
-    setReview(nextReview);
-    setCompleted(nextCompleted);
-    setSavedSets((previous) =>
-      previous.map((item) =>
-        item.name === sourceName
-          ? {
-              ...item,
-              known: nextKnown,
-              review: nextReview,
-              current: nextCurrent,
-              completed: nextCompleted,
-            }
-          : item,
-      ),
-    );
-    const active = savedSets.find((item) => item.name === sourceName);
-    if (userId && active?.id)
-      void supabase
-        .from("flashcard_sets")
-        .update({
-          known_cards: nextKnown,
-          review_cards: nextReview,
-          current_position: nextCurrent,
-          completed: nextCompleted,
-        })
-        .eq("id", active.id)
-        .eq("user_id", userId);
-    setFlipped(false);
-    if (kind === "known" && !nextCompleted) window.setTimeout(() => setCurrent(nextCurrent), 220);
-  };
-  return (
-    <Page
-      title="Note Cruncher"
-      eyebrow="STUDY MATERIALS"
-      subtitle="Turn your class notes into flashcards you can actually revise."
-    >
-      <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
-        <div>
-          <DocumentAttachment
-            onProcessed={(nextCards, name) => void saveSet(nextCards, name)}
-            name={sourceName}
-          />
-          {cards.length > 0 && !completed && (
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-bold">{sourceName}</p>
-                <span className="text-xs font-bold text-emerald-700">
-                  {current + 1}/{cards.length}
-                </span>
-              </div>
-              <div className="mt-3 flex gap-1">
-                {cards.map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`}
-                  />
-                ))}
-              </div>
-              <button
-                onClick={() => setFlipped((value) => !value)}
-                className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"
-              >
-                <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">
-                  {flipped ? "Answer" : "Question"}
-                </p>
-                <div className="mt-4 text-base leading-7 text-[#244138]">
-                  <TutorMessage
-                    content={flipped ? cards[current].back : cards[current].front}
-                    light
-                  />
-                </div>
-                <p className="mt-5 text-xs font-semibold text-[#71877d]">
-                  Tap the card to {flipped ? "see the question" : "reveal the answer"}
-                </p>
-              </button>
-              <div className="mt-4 flex gap-2">
-                <Btn
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => markCard("review")}
-                  disabled={!flipped}
-                >
-                  Review again
-                </Btn>
-                <Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>
-                  I know this
-                </Btn>
-              </div>
-            </div>
-          )}
-          {completed && cards.length > 0 && (
-            <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">
-              You finished this study set. It is saved under Recent study sets. Known:{" "}
-              {known.length} · Review again: {review.length}
-            </div>
-          )}
-        </div>
-        <div className="rounded-2xl border border-[#dcebe3] bg-white p-6">
-          <h2 className="font-extrabold">Recent study sets</h2>
-          <div className="mt-5 space-y-3">
-            {savedSets.map((item) => (
-              <button
-                key={item.id || item.name}
-                onClick={() => reopenSet(item)}
-                className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"
-              >
-                <BookOpen size={16} className="text-emerald-700" />
-                <span className="flex-1 text-sm font-semibold text-[#365348]">
-                  {item.name}
-                  <span className="block text-xs font-normal text-[#71877d]">
-                    {item.cards.length} flashcards
-                  </span>
-                </span>
-                <ChevronRight size={16} className="text-[#8ca198" />
-              </button>
-            ))}
-          </div>
-          {savedSets.length === 0 && (
-            <p className="mt-5 text-sm text-[#71877d]">
-              No study sets yet. Upload your first material to create one.
-            </p>
-          )}
-        </div>
+  const [completed, setCompleted] = useState(() => localStorage.getItem("funabacer.note-cruncher.completed") === "true");
+  useEffect(() => { if (cards.length) { localStorage.setItem("funabacer.note-cruncher.cards", JSON.stringify(cards)); localStorage.setItem("funabacer.note-cruncher.name", sourceName); } }, [cards, sourceName]);
+  useEffect(() => { localStorage.setItem("funabacer.note-cruncher.completed", String(completed)); }, [completed]);
+  const loadCards = (nextCards: Flashcard[], name: string) => { setCards(nextCards); setSourceName(name); setCurrent(0); setFlipped(false); setKnown([]); setReview([]); setCompleted(false); };
+  const saveSet = (nextCards: Flashcard[], name: string) => { const nextSets = [{ name, cards: nextCards }, ...savedSets.filter((item) => item.name !== name)].slice(0, 10); setSavedSets(nextSets); localStorage.setItem("funabacer.note-cruncher.sets", JSON.stringify(nextSets)); loadCards(nextCards, name); };
+  const markCard = (kind: "known" | "review") => { const update = kind === "known" ? setKnown : setReview; update((previous) => previous.includes(current) ? previous : [...previous, current]); if (current < cards.length - 1) { setFlipped(false); window.setTimeout(() => setCurrent((value) => value + 1), 220); } else { setCompleted(true); } };
+  const finished = completed;
+  return <Page title="Note Cruncher" eyebrow="STUDY MATERIALS" subtitle="Turn your class notes into flashcards you can actually revise.">
+    <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
+      <div>
+        <DocumentAttachment onProcessed={(nextCards, name) => saveSet(nextCards, name)} name={sourceName} />
+        {cards.length > 0 && !completed && <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 text-left"><div className="flex items-center justify-between gap-3"><p className="text-sm font-bold">{sourceName}</p><span className="text-xs font-bold text-emerald-700">{current + 1}/{cards.length}</span></div><div className="mt-3 flex gap-1">{cards.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < current ? "bg-emerald-500" : i === current ? "bg-emerald-300" : "bg-emerald-100"}`} />)}</div><button onClick={() => setFlipped((value) => !value)} className="mt-4 min-h-52 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-left shadow-sm"><p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-emerald-700">{flipped ? "Answer" : "Question"}</p><div className="mt-4 text-base leading-7 text-[#244138]"><TutorMessage content={flipped ? cards[current].back : cards[current].front} light /></div><p className="mt-5 text-xs font-semibold text-[#71877d]">Tap the card to {flipped ? "see the question" : "reveal the answer"}</p></button><div className="mt-4 flex gap-2"><Btn variant="outline" className="flex-1" onClick={() => markCard("review")} disabled={!flipped}>Review again</Btn><Btn className="flex-1" onClick={() => markCard("known")} disabled={!flipped}>I know this</Btn></div></div>}
+        {finished && <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm font-bold text-emerald-800">You finished this study set. It is saved under Recent study sets. Known: {known.length} · Review again: {review.length}</div>}
       </div>
-    </Page>
-  );
+      <div className="rounded-2xl border border-[#dcebe3] bg-white p-6"><h2 className="font-extrabold">Recent study sets</h2><div className="mt-5 space-y-3">{savedSets.map((item) => <button key={item.name} onClick={() => loadCards(item.cards, item.name)} className="flex w-full items-center gap-3 rounded-xl bg-[#fbfdfc] p-3 text-left"><BookOpen size={16} className="text-emerald-700" /><span className="flex-1 text-sm font-semibold text-[#365348]">{item.name}<span className="block text-xs font-normal text-[#71877d]">{item.cards.length} flashcards</span></span><ChevronRight size={16} className="text-[#8ca198" /></button>)}</div>{savedSets.length === 0 && <p className="mt-5 text-sm text-[#71877d]">No study sets yet. Upload your first material to create one.</p>}</div>
+    </div>
+  </Page>;
 }
-
 function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
   return (
     <Page
@@ -3001,19 +1310,14 @@ function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) 
         <section className="rounded-2xl border border-[#dcebe3] bg-white p-7 text-center">
           <AvatarPicker />
           <h2 className="mt-5 text-xl font-extrabold">Your profile</h2>
-          <p className="mt-1 text-sm text-[#71877d]">
-            {profile?.department || "Department not selected"} ·{" "}
-            {profile?.course || "Course not selected"}
-          </p>
+          <p className="mt-1 text-sm text-[#71877d]">{profile?.department || "Department not selected"} · {profile?.course || "Course not selected"}</p>
           <div className="mt-7 grid grid-cols-2 gap-3 text-left">
             <div className="rounded-xl bg-[#fbfdfc] p-4">
               <p className="text-xl font-extrabold">{realStats().score ?? 0}%</p>
               <p className="mt-1 text-xs text-[#71877d]">Overall progress</p>
             </div>
             <div className="rounded-xl bg-[#fbfdfc] p-4">
-              <p className="text-xl font-extrabold text-emerald-700">
-                {realStats().answered ? "Active" : "Not started"}
-              </p>
+              <p className="text-xl font-extrabold text-emerald-700">{realStats().answered ? "Active" : "Not started"}</p>
               <p className="mt-1 text-xs text-[#71877d]">Exam status</p>
             </div>
           </div>
@@ -3041,30 +1345,6 @@ function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) 
           </div>
         </section>
       </div>
-      <section className="mt-6 rounded-2xl border border-[#dcebe3] bg-white p-7">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-extrabold">Strengths and areas to practise</h2>
-            <p className="mt-1 text-sm text-[#71877d]">The Tutor uses your submitted quiz scores, not guesses.</p>
-          </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">Last 3 attempts per topic</span>
-        </div>
-        {studyMasteryRows().length ? (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {studyMasteryRows().map((row) => (
-              <div key={row.topicId} className="rounded-xl border border-[#dcebe3] bg-[#fbfdfc] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-bold">{row.name}</p>
-                  <span className={`rounded-full px-2 py-1 text-xs font-extrabold ${row.mastery === "strong" ? "bg-emerald-100 text-emerald-800" : row.mastery === "weak" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"}`}>{row.score}%</span>
-                </div>
-                <p className="mt-2 text-xs text-[#71877d]">{row.mastery === "strong" ? "Strength" : row.mastery === "weak" ? "Needs practice" : "In progress"} · {row.course}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-5 text-sm text-[#71877d]">Submit a practice sprint and your Tutor will start building this map.</p>
-        )}
-      </section>
     </Page>
   );
 }
@@ -3119,38 +1399,10 @@ function SettingsPage({ theme, setTheme }: { theme: Theme; setTheme: (theme: The
           </select>
         </label>
         <div className="border-t border-[#dcebe3] py-5">
-          <div className="flex items-center gap-4">
-            <Settings size={17} className="text-emerald-700" />
-            <div>
-              <p className="font-bold">Account and Exam Pass</p>
-              <p className="mt-1 text-xs text-[#71877d]">
-                Manual payment activation is available below.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-[#eff7f2] p-4">
-              <p className="font-bold">Monthly · ₦500</p>
-              <p className="mt-1 text-xs text-[#71877d]">Limited capacity</p>
-            </div>
-            <div className="rounded-xl bg-[#eff7f2] p-4">
-              <p className="font-bold">Semester · ₦1,500</p>
-              <p className="mt-1 text-xs text-[#71877d]">Full capacity</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-[#365348]">
-            Pay to PalmPay <strong>8130760557</strong> · <strong>Praise Onoja</strong>, then send
-            your receipt on WhatsApp to <strong>9112834887</strong>. An unlock code will be issued
-            after verification.
-          </p>
-          <a
-            href="https://wa.me/2349112834887"
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white"
-          >
-            Send receipt on WhatsApp
-          </a>
+          <div className="flex items-center gap-4"><Settings size={17} className="text-emerald-700" /><div><p className="font-bold">Account and Exam Pass</p><p className="mt-1 text-xs text-[#71877d]">Manual payment activation is available below.</p></div></div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-[#eff7f2] p-4"><p className="font-bold">Monthly · ₦500</p><p className="mt-1 text-xs text-[#71877d]">Limited capacity</p></div><div className="rounded-xl bg-[#eff7f2] p-4"><p className="font-bold">Semester · ₦1,500</p><p className="mt-1 text-xs text-[#71877d]">Full capacity</p></div></div>
+          <p className="mt-4 text-sm leading-6 text-[#365348]">Pay to PalmPay <strong>8130760557</strong> · <strong>Praise Onoja</strong>, then send your receipt on WhatsApp to <strong>9112834887</strong>. An unlock code will be issued after verification.</p>
+          <a href="https://wa.me/2349112834887" target="_blank" rel="noreferrer" className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-white">Send receipt on WhatsApp</a>
         </div>
       </div>
     </Page>
@@ -3267,241 +1519,18 @@ const funaabDepartments = [
   },
 ];
 
-function Onboarding({
-  done,
-  userId,
-}: {
-  done: (profile: { department: string; course: string; level?: string }) => void;
-  userId?: string;
-}) {
+function Onboarding({ done }: { done: (profile: { department: string; course: string }) => void }) {
   const [course, setCourse] = useState("");
-  const [level, setLevel] = useState("");
-  const [programmeSearch, setProgrammeSearch] = useState("");
-  const [customCodes, setCustomCodes] = useState("");
-  const [customTitle, setCustomTitle] = useState("");
-  const [pdfBusy, setPdfBusy] = useState(false);
-  const [pdfMessage, setPdfMessage] = useState("");
-  const programmes = funaabDepartments.flatMap((item) =>
-    item.courses.map((name) => ({ name, department: item.group })),
-  );
+  const programmes = funaabDepartments.flatMap((item) => item.courses.map((name) => ({ name, department: item.group })));
   const selected = programmes.find((item) => item.name === course);
-  const levelOptions = selected ? courseBankLevelsFor(selected.name) : [];
-  const filteredProgrammes = programmes
-    .filter((item) =>
-      `${item.name} ${item.department}`
-        .toLowerCase()
-        .includes(programmeSearch.trim().toLowerCase()),
-    )
-    .slice(0, 12);
   const finish = async () => {
     if (!selected) return;
-    const profile = {
-      department: selected.department,
-      course: selected.name,
-      ...(level ? { level } : {}),
-    };
-    const codes = customCodes
-      .split(/[\n,;]+/)
-      .map((code) => code.trim().toUpperCase())
-      .filter(Boolean);
-    if (userId && codes.length) {
-      await supabase.from("student_courses").upsert(
-        codes.map((code) => ({
-          user_id: userId,
-          programme: selected.name,
-          level: level || "",
-          code,
-          title: customTitle.trim(),
-          source: "student",
-        })),
-        { onConflict: "user_id,programme,level,code" },
-      );
-      await supabase.from("course_contributions").upsert(
-        codes.map((code) => ({
-          submitted_by: userId,
-          programme: selected.name,
-          level: level || "",
-          code,
-          title: customTitle.trim(),
-          source_type: "student",
-        })),
-        { onConflict: "submitted_by,programme,level,code" },
-      );
-    }
+    const profile = { department: selected.department, course: selected.name };
     await supabase.auth.updateUser({ data: profile });
     localStorage.setItem("funabacer-profile", JSON.stringify(profile));
     done(profile);
   };
-  const readRegistrationSlip = async (file: File) => {
-    setPdfBusy(true);
-    setPdfMessage("");
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error("Could not read file"));
-        reader.readAsDataURL(file);
-      });
-      const response = await fetch("/api/course-form", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not read this PDF");
-      setCustomCodes(data.codes.join("\n"));
-      setPdfMessage(
-        data.codes.length
-          ? `Found ${data.codes.length} course codes. Review them before continuing.`
-          : "No course codes were found. Add them manually below.",
-      );
-    } catch (error) {
-      setPdfMessage(error instanceof Error ? error.message : "Could not read this PDF");
-    } finally {
-      setPdfBusy(false);
-    }
-  };
-  return (
-    <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12">
-      <div className="mx-auto max-w-5xl">
-        <Logo />
-        <div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">
-              PERSONALISE YOUR STUDY PLAN
-            </p>
-            <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">
-              Choose your exact programme.
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#587166]">
-              Select the programme you actually study. FunaBAcer will automatically attach it to the
-              correct department and will not show unrelated programmes.
-            </p>
-            <div className="mt-8 text-sm font-semibold text-emerald-700">
-              <span className="mr-3 inline-flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">
-                1
-              </span>
-              Programme first
-            </div>
-          </div>
-          <div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8">
-            <label className="block text-sm font-bold text-[#244138]">
-              What programme are you studying?
-              <div className="relative mt-3">
-                <Search
-                  size={17}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#71877d]"
-                />
-                <input
-                  value={programmeSearch}
-                  onChange={(event) => setProgrammeSearch(event.target.value)}
-                  placeholder="Search by programme or department"
-                  className="w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] py-3.5 pl-11 pr-4 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
-                />
-              </div>
-            </label>
-            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-[#eff7f2] bg-[#fbfdfc] p-2">
-              {filteredProgrammes.length > 0 ? (
-                filteredProgrammes.map((item) => (
-                  <button
-                    type="button"
-                    key={item.name}
-                    onClick={() => {
-                      setCourse(item.name);
-                      setProgrammeSearch(item.name);
-                    }}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${course === item.name ? "bg-emerald-100 font-extrabold text-emerald-900" : "text-[#365348] hover:bg-emerald-50"}`}
-                  >
-                    <span className="block">{item.name}</span>
-                    <span className="mt-0.5 block text-xs font-normal text-[#71877d]">
-                      {item.department}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <p className="px-3 py-3 text-sm text-[#71877d]">
-                  No matching programme found. Try another search.
-                </p>
-              )}
-            </div>
-            {selected && (
-              <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
-                <strong>Department:</strong> {selected.department}
-                <br />
-                <strong>Programme:</strong> {selected.name}
-                {levelOptions.length > 0 && (
-                  <>
-                    <br />
-                    <label className="mt-3 block font-bold">
-                      What level are you in?
-                      <select
-                        value={level}
-                        onChange={(event) => setLevel(event.target.value)}
-                        className="mt-2 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[#244138]"
-                      >
-                        <option value="">Choose your level</option>
-                        {levelOptions.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </>
-                )}
-              </div>
-            )}
-            <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-[#fbfdfc] p-4">
-              <p className="text-sm font-extrabold text-[#244138]">
-                Missing courses? Add your semester courses
-              </p>
-              <p className="mt-1 text-xs leading-5 text-[#71877d]">
-                Enter codes separated by commas or one per line. They will be saved to your
-                workspace first and submitted for review.
-              </p>
-              <textarea
-                value={customCodes}
-                onChange={(event) => setCustomCodes(event.target.value)}
-                placeholder="MCE 101, MTS 101, PHS 101"
-                className="mt-3 min-h-20 w-full rounded-lg border border-[#c9ddd2] bg-white px-3 py-2 text-sm text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
-              />
-              <input
-                value={customTitle}
-                onChange={(event) => setCustomTitle(event.target.value)}
-                placeholder="Optional shared title, e.g. Engineering Mathematics"
-                className="mt-2 w-full rounded-lg border border-[#c9ddd2] bg-white px-3 py-2 text-sm text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"
-              />
-              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-emerald-700">
-                <FileText size={15} />{" "}
-                {pdfBusy ? "Reading registration slip…" : "Upload registration-slip PDF"}
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="hidden"
-                  disabled={pdfBusy}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void readRegistrationSlip(file);
-                  }}
-                />
-              </label>
-              {pdfMessage && <p className="mt-2 text-xs text-emerald-800">{pdfMessage}</p>}
-            </div>
-            <button
-              onClick={finish}
-              disabled={!selected || (levelOptions.length > 0 && !level)}
-              className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]"
-            >
-              Build my study plan <ArrowRight className="ml-2 inline-block" size={16} />
-            </button>
-            <p className="mt-4 text-center text-xs text-[#8ca198]">
-              You can change your programme later from Profile.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-[#f7faf8] px-5 py-8 sm:px-8 sm:py-12"><div className="mx-auto max-w-5xl"><Logo /><div className="mt-14 grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-start"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-emerald-700">PERSONALISE YOUR STUDY PLAN</p><h1 className="mt-4 text-4xl font-extrabold tracking-tight text-[#10231c] sm:text-5xl">Choose your exact programme.</h1><p className="mt-5 max-w-md text-base leading-7 text-[#587166]">Select the programme you actually study. FunaBAcer will automatically attach it to the correct department and will not show unrelated programmes.</p><div className="mt-8 text-sm font-semibold text-emerald-700"><span className="mr-3 inline-flex size-8 items-center justify-center rounded-full bg-emerald-500 text-white">1</span>Programme first</div></div><div className="rounded-3xl border border-[#dcebe3] bg-white p-6 shadow-[0_24px_70px_-36px_#31634c] sm:p-8"><label className="block text-sm font-bold text-[#244138]">What programme are you studying?<select value={course} onChange={(event) => setCourse(event.target.value)} className="mt-3 w-full rounded-xl border border-[#c9ddd2] bg-[#f7faf8] px-4 py-3.5 text-[#10231c] outline-none focus:ring-2 focus:ring-emerald-400"><option value="">Select your programme</option>{programmes.map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>{selected && <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><strong>Department:</strong> {selected.department}<br/><strong>Programme:</strong> {selected.name}</div>}<button onClick={finish} disabled={!selected} className="mt-8 w-full rounded-xl bg-emerald-500 py-3.5 text-sm font-extrabold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-[#dcebe3] disabled:text-[#8ca198]">Build my study plan <ArrowRight className="ml-2 inline-block" size={16}/></button><p className="mt-4 text-center text-xs text-[#8ca198]">You can change your programme later from Profile.</p></div></div></div></div>;
 }
 
 function Landing({ onStart }: { onStart: () => void }) {
@@ -3773,91 +1802,43 @@ function App() {
       : "day",
   );
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [view, setViewState] = useState<View>(() => {
-    if (typeof window === "undefined") return "dashboard";
-    const saved = localStorage.getItem("funabacer.current-view");
-    return saved && persistedViews.includes(saved as View) ? (saved as View) : "dashboard";
-  });
-  const setView = (next: View) => {
-    setViewState(next);
-    if (typeof window !== "undefined") localStorage.setItem("funabacer.current-view", next);
-  };
+  const [view, setView] = useState<View>("dashboard");
   const [mobile, setMobile] = useState(false);
   useEffect(() => {
-    if (!session || localStorage.getItem("funabacer-curriculum-seeded-v2")) return;
-    let cancelled = false;
-    void (async () => {
-      for (let offset = 0; offset < funaabCourseBank.length && !cancelled; offset += 200) {
-        const batch = funaabCourseBank.slice(offset, offset + 200).map((row) => ({
-          programme: row.programme,
-          level: row.level,
-          code: row.code,
-          title: row.title,
-          units: row.units,
-          course_type: row.type,
-        }));
-        const { error } = await supabase
-          .from("curriculum_courses")
-          .upsert(batch, { onConflict: "programme,level,code,title", ignoreDuplicates: true });
-        if (error) {
-          console.warn("Curriculum bank sync paused", error.message);
-          return;
-        }
-      }
-      if (!cancelled) localStorage.setItem("funabacer-curriculum-seeded-v2", "true");
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [session]);
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       const metadata = data.session?.user.user_metadata as
-        { department?: string; course?: string; level?: string; full_name?: string } | undefined;
+        { department?: string; course?: string } | undefined;
+      let savedProfile: StudentProfile | null = null;
       if (metadata?.department && metadata.course) {
-        const savedProfile = {
-          department: metadata.department,
-          course: metadata.course,
-          ...(metadata.level ? { level: metadata.level } : {}),
-          ...(metadata.full_name ? { name: metadata.full_name } : {}),
-        };
+        savedProfile = { department: metadata.department, course: metadata.course };
         localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
         setProfile(savedProfile);
       } else {
         try {
-          const savedProfile = JSON.parse(localStorage.getItem("funabacer-profile") || "null");
-          if (savedProfile?.department && savedProfile?.course) setProfile(savedProfile);
+          const cachedProfile = JSON.parse(localStorage.getItem("funabacer-profile") || "null");
+          if (cachedProfile?.department && cachedProfile?.course) { savedProfile = cachedProfile; setProfile(cachedProfile); }
         } catch {
           localStorage.removeItem("funabacer-profile");
         }
       }
       setSession(data.session);
-      if (data.session?.user.id) {
-        const { data: storedAttempts, error: attemptsError } = await supabase
-          .from("study_attempts")
-          .select("id,topic_id,score,total,correct,attempted_at")
-          .eq("user_id", data.session.user.id)
-          .order("attempted_at", { ascending: true })
-          .limit(200);
-        if (!attemptsError && storedAttempts) {
-          replaceAttempts(
-            storedAttempts.map((row) => ({
-              id: row.id,
-              topicId: row.topic_id,
-              score: row.score,
-              total: row.total,
-              correct: row.correct,
-              at: new Date(row.attempted_at).getTime(),
-            })),
-          );
-        }
-      }
-      setNeedsOnboarding(Boolean(data.session && !localStorage.getItem("funabacer-profile")));
+      setNeedsOnboarding(Boolean(data.session && !savedProfile));
       setLoading(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s) setNeedsOnboarding(!localStorage.getItem("funabacer-profile"));
+      const metadata = s?.user.user_metadata as { department?: string; course?: string } | undefined;
+      if (metadata?.department && metadata.course) {
+        const savedProfile = { department: metadata.department, course: metadata.course };
+        localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
+        setProfile(savedProfile);
+        setNeedsOnboarding(false);
+      } else if (s) {
+        setNeedsOnboarding(true);
+      } else {
+        setProfile(null);
+        setNeedsOnboarding(false);
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);
@@ -3877,11 +1858,6 @@ function App() {
   if (needsOnboarding)
     return (
       <Onboarding
-        userId={
-          typeof session === "object" && session && "user" in session
-            ? String((session as { user?: { id?: string } }).user?.id || "")
-            : ""
-        }
         done={(nextProfile) => {
           setProfile(nextProfile);
           setNeedsOnboarding(false);
@@ -3889,10 +1865,7 @@ function App() {
       />
     );
   let content: ReactNode;
-  const userId =
-    typeof session === "object" && session && "user" in session
-      ? String((session as { user?: { id?: string } }).user?.id || "")
-      : "";
+  const userId = typeof session === "object" && session && "user" in session ? String((session as { user?: { id?: string } }).user?.id || "") : "";
   const props = { setView, profile, userId };
   if (view === "dashboard") content = <Home {...props} />;
   else if (view === "overview") content = <Dashboard {...props} />;
@@ -3903,20 +1876,8 @@ function App() {
   else if (view === "reteach") content = <Reteach {...props} profile={profile} />;
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
-  else if (view === "notes") content = <Notes {...props} />;
-  else if (view === "profile")
-    content = (
-      <Profile
-        {...props}
-        profile={profile}
-        onEdit={async () => {
-          await supabase.auth.updateUser({ data: { department: null, course: null, level: null } });
-          localStorage.removeItem("funabacer-profile");
-          setProfile(null);
-          setNeedsOnboarding(true);
-        }}
-      />
-    );
+  else if (view === "notes") content = <Notes />;
+  else if (view === "profile") content = <Profile {...props} profile={profile} onEdit={async () => { await supabase.auth.updateUser({ data: { department: null, course: null } }); localStorage.removeItem("funabacer-profile"); setProfile(null); setNeedsOnboarding(true); }} />;
   else if (view === "admin") content = <AdminPanel />;
   else
     content = (
