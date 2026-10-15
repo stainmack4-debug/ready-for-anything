@@ -3770,6 +3770,7 @@ function App() {
   const [session, setSession] = useState<unknown>(null);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [, setProgressVersion] = useState(0);
   const [authOpen, setAuthOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(() =>
     typeof window !== "undefined"
@@ -3857,6 +3858,7 @@ function App() {
               at: new Date(row.attempted_at).getTime(),
             })),
           );
+          setProgressVersion((version) => version + 1);
         }
       }
       setNeedsOnboarding(Boolean(data.session && !hasProfile));
