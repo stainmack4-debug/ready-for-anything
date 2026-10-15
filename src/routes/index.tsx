@@ -1662,6 +1662,8 @@ function Practice({ setView, profile, userId }: Props) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [generationStage, setGenerationStage] = useState(0);
+  const [readyAlert, setReadyAlert] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -1844,6 +1846,7 @@ function Practice({ setView, profile, userId }: Props) {
   const generate = async () => {
     if (!profile?.course || !topic.trim()) return;
     setBusy(true);
+    setGenerationStage(0);
     setFeedback("");
     setAnswers({});
     setCurrentIndex(0);
@@ -1854,6 +1857,7 @@ function Practice({ setView, profile, userId }: Props) {
       const used = new Set<string>(JSON.parse(localStorage.getItem(usedQuestionKey) || "[]"));
       let pool = questionPool.filter((q) => !used.has(String(q.question)));
       if (pool.length < questionCount) {
+        setGenerationStage(1);
         const { data: sessionData } = await supabase.auth.getSession();
         const response = await fetch("/api/ai/questions", {
           method: "POST",
@@ -1867,6 +1871,7 @@ function Practice({ setView, profile, userId }: Props) {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not generate questions");
+        setGenerationStage(2);
         const incoming = Array.isArray(data.questions)
           ? data.questions.filter((q) => q && !used.has(String(q.question)))
           : [];
@@ -1886,11 +1891,25 @@ function Practice({ setView, profile, userId }: Props) {
       setQuestions(pool.slice(0, questionCount));
       setSessionEndsAt(Date.now() + 600_000);
       setSecondsLeft(600);
+      if (readyAlert && typeof window !== "undefined") {
+        if ("Notification" in window && Notification.permission === "granted") new Notification("Your FunaBAcer question bank is ready", { body: `${questionCount} questions are ready for ${topic}.` });
+        if ("vibrate" in navigator) navigator.vibrate([120, 80, 120]);
+      }
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "Could not generate questions");
     } finally {
       setBusy(false);
     }
+  };
+  const generationStages = ["Checking your saved question bank…", "Asking the AI to verify fresh questions…", "Organising your questions into a focused sprint…", "Almost ready — checking the final answers…"];
+  useEffect(() => {
+    if (!busy) return;
+    const timer = window.setInterval(() => setGenerationStage((stage) => Math.min(stage + 1, generationStages.length - 1)), 5000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
+  const enableReadyAlert = async () => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") await Notification.requestPermission();
+    setReadyAlert(true);
   };
   useEffect(() => {
     if (!autoStart || !topic.trim()) return;
@@ -2316,6 +2335,7 @@ function Practice({ setView, profile, userId }: Props) {
               </Btn>
             )}
           </div>
+          {busy && <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-sky-50 p-4 text-sm text-emerald-950"><div className="flex items-center gap-3"><span className="size-3 animate-pulse rounded-full bg-emerald-500" /><strong>{generationStages[generationStage]}</strong></div><p className="mt-2 text-xs leading-5 text-emerald-800">This can take a little while because every question is checked for accuracy and course relevance. You can stay here or enable an alert and come back when it is ready.</p><div className="mt-3 flex gap-1">{generationStages.map((_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index <= generationStage ? "bg-emerald-500" : "bg-emerald-100"}`} />)}</div><button type="button" onClick={() => void enableReadyAlert()} className="mt-3 text-xs font-extrabold text-emerald-800 underline">{readyAlert ? "Ready alert enabled" : "Alert me when it is ready"}</button></div>}
         </div>
         {questions.length > 0 && (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
