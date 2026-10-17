@@ -85,6 +85,20 @@ type Theme = "day" | "night";
 type StudentProfile = { department: string; course: string; level?: string; name?: string };
 type CustomCourse = { code: string; title: string; level: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
+type TutorQuizQuestion = {
+  question: string;
+  options: string[];
+  answer: number;
+  explanation: string;
+  topic?: string;
+};
+type TutorQuizState = {
+  title: string;
+  topic: string;
+  questions: TutorQuizQuestion[];
+  answers: Record<number, number>;
+  submitted: boolean;
+};
 function compactQuestionKey(question: string): string {
   let hash = 2166136261;
   for (let i = 0; i < question.length; i += 1) {
@@ -1131,6 +1145,59 @@ function TutorMessage({ content, light = false }: { content: string; light?: boo
     </div>
   );
 }
+function TutorQuizCard({
+  quiz,
+  onAnswer,
+  onSubmit,
+}: {
+  quiz: TutorQuizState;
+  onAnswer: (index: number, answer: number) => void;
+  onSubmit: () => void;
+}) {
+  const correct = quiz.questions.reduce((total, question, index) => total + (quiz.answers[index] === question.answer ? 1 : 0), 0);
+  return (
+    <div className="mt-4 rounded-2xl border border-emerald-300/35 bg-[#04100c] p-4 text-emerald-50 shadow-lg">
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+        <div>
+          <p className="text-base font-extrabold">{quiz.title}</p>
+          <p className="mt-1 text-xs text-emerald-100/65">Choose one answer for each question.</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-emerald-500/25 px-3 py-1 text-xs font-extrabold text-emerald-200">{quiz.questions.length} questions</span>
+      </div>
+      <div className="mt-3 space-y-4">
+        {quiz.questions.map((question, index) => {
+          const selected = quiz.answers[index];
+          const isCorrect = selected === question.answer;
+          return (
+            <div key={`${question.question}-${index}`} className="border-b border-white/10 pb-4 last:border-0">
+              <p className="font-bold leading-6">{index + 1}. <TutorInline value={question.question} /></p>
+              <div className="mt-3 space-y-2">
+                {question.options.map((option, optionIndex) => (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={quiz.submitted}
+                    onClick={() => onAnswer(index, optionIndex)}
+                    className={`flex w-full items-start gap-2 rounded-xl border p-3 text-left text-sm transition ${quiz.submitted && optionIndex === question.answer ? "border-emerald-400 bg-emerald-400/20" : quiz.submitted && selected === optionIndex ? "border-rose-400 bg-rose-400/20" : selected === optionIndex ? "border-emerald-300 bg-emerald-300/15" : "border-white/15 hover:border-emerald-300"}`}
+                  >
+                    <span className="font-bold">{String.fromCharCode(65 + optionIndex)}.</span><TutorInline value={option} />
+                  </button>
+                ))}
+              </div>
+              {quiz.submitted && <p className={`mt-2 text-xs font-extrabold ${isCorrect ? "text-emerald-300" : "text-rose-300"}`}>{isCorrect ? "✓ Correct" : `× Incorrect · Correct answer: ${question.options[question.answer]}`}</p>}
+              {quiz.submitted && <p className="mt-2 text-xs leading-5 text-emerald-100/75">{question.explanation}</p>}
+            </div>
+          );
+        })}
+      </div>
+      {!quiz.submitted ? (
+        <button type="button" onClick={onSubmit} className="mt-2 w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-extrabold text-[#071612]">Submit checkpoint ({Object.keys(quiz.answers).length}/{quiz.questions.length})</button>
+      ) : (
+        <div className="mt-2 rounded-xl bg-emerald-400/15 p-3 text-center text-sm font-extrabold text-emerald-200">Checkpoint complete · {correct}/{quiz.questions.length} ({Math.round((correct / quiz.questions.length) * 100)}%) saved to your progress</div>
+      )}
+    </div>
+  );
+}
 
 function Learn({ setView, profile, userId }: Props) {
   type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -1152,6 +1219,15 @@ function Learn({ setView, profile, userId }: Props) {
   const [tutorFileName, setTutorFileName] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationReady, setConversationReady] = useState(false);
+  const quizMemoryKey = `funabacer.tutor.quiz.v1.${userId || profile?.course || "unknown-user"}`;
+  const [tutorQuiz, setTutorQuiz] = useState<TutorQuizState | null>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(quizMemoryKey) || "null");
+      return saved?.questions?.length ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   const masteryRows = studyMasteryRows();
   const strongTopics = masteryRows.filter((row) => row.mastery === "strong");
   const weakTopics = masteryRows.filter((row) => row.mastery === "weak");
@@ -1179,6 +1255,10 @@ function Learn({ setView, profile, userId }: Props) {
   useEffect(() => {
     localStorage.setItem(memoryKey, JSON.stringify(messages.slice(-40)));
   }, [memoryKey, messages]);
+  useEffect(() => {
+    if (tutorQuiz) localStorage.setItem(quizMemoryKey, JSON.stringify(tutorQuiz));
+    else localStorage.removeItem(quizMemoryKey);
+  }, [quizMemoryKey, tutorQuiz]);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, isAsking]);
@@ -1275,6 +1355,50 @@ function Learn({ setView, profile, userId }: Props) {
     }
   }, []);
 
+  const startTutorQuiz = async (request: string) => {
+    if (!profile?.course || isAsking) return;
+    setIsAsking(true);
+    setTutorError("");
+    const topic = profile.course;
+    const userMessage = { role: "user" as const, content: request };
+    setMessages((current) => [...current, userMessage]);
+    void saveTutorMessages([userMessage]);
+    setQuestion("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await fetch("/api/ai/questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ course: profile.course, level: profile.level || "", topic, count: 5 }),
+      });
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) throw new Error(data.error || "The Tutor could not prepare a checkpoint right now.");
+      const quizQuestions = data.questions.slice(0, 5) as TutorQuizQuestion[];
+      const assistantMessage = { role: "assistant" as const, content: `I prepared a five-question checkpoint for ${topic}. Choose one answer for each question, then submit when you are ready.` };
+      setMessages((current) => [...current, assistantMessage]);
+      void saveTutorMessages([assistantMessage]);
+      setTutorQuiz({ title: `${topic} — Checkpoint`, topic, questions: quizQuestions, answers: {}, submitted: false });
+    } catch (error) {
+      setTutorError(error instanceof Error ? error.message : "The Tutor could not prepare a checkpoint right now.");
+    } finally {
+      setIsAsking(false);
+    }
+  };
+  const submitTutorQuiz = async () => {
+    if (!tutorQuiz || tutorQuiz.submitted) return;
+    const correct = tutorQuiz.questions.reduce((total, question, index) => total + (tutorQuiz.answers[index] === question.answer ? 1 : 0), 0);
+    const attempt = { topicId: `${profile?.course}:${tutorQuiz.topic}`, score: Math.round((correct / tutorQuiz.questions.length) * 100), total: tutorQuiz.questions.length, correct, at: Date.now() };
+    saveAttempt(attempt);
+    if (userId) void supabase.from("study_attempts").insert({ user_id: userId, topic_id: attempt.topicId, score: attempt.score, total: attempt.total, correct: attempt.correct });
+    setTutorQuiz((current) => current ? { ...current, submitted: true } : current);
+    const resultMessage = { role: "assistant" as const, content: `Checkpoint complete: ${correct}/${tutorQuiz.questions.length} (${attempt.score}%). Your result has been saved to your FunaBAcer progress.` };
+    setMessages((current) => [...current, resultMessage]);
+    void saveTutorMessages([resultMessage]);
+  };
+
   const askTutor = async (preset?: string, sourceContextOverride?: string) => {
     const message = (preset || question).trim();
     if (!message || isAsking || !conversationReady) return;
@@ -1284,16 +1408,9 @@ function Learn({ setView, profile, userId }: Props) {
       );
       return;
     }
-    const asksForPractice =
-      /\b(10|ten)\b.*\b(question|questions)\b|\b(question|questions)\b.*\b(10|ten)\b|set.*practice/i.test(
-        message,
-      );
+    const asksForPractice = /\b(quiz me|test me|checkpoint|set (me )?(a )?quiz|practice questions|give me \d+ questions)\b/i.test(message);
     if (asksForPractice) {
-      localStorage.setItem(
-        "funabacer.pending-practice",
-        JSON.stringify({ topic: profile.course, count: 10 }),
-      );
-      setView("practice");
+      void startTutorQuiz(message);
       return;
     }
     setIsAsking(true);
@@ -1464,6 +1581,13 @@ function Learn({ setView, profile, userId }: Props) {
                 </div>
               </div>
             ))}
+            {tutorQuiz && (
+              <TutorQuizCard
+                quiz={tutorQuiz}
+                onAnswer={(index, answer) => setTutorQuiz((current) => current && !current.submitted ? { ...current, answers: { ...current.answers, [index]: answer } } : current)}
+                onSubmit={() => void submitTutorQuiz()}
+              />
+            )}
             <div ref={messagesEndRef} />
             {isAsking && (
               <div className="flex justify-start">
