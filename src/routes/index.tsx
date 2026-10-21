@@ -1588,7 +1588,7 @@ function Learn({ setView, profile, userId }: Props) {
                 <div
                   className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-[#f3f4f6] text-[#10231c]"}`}
                 >
-                  <TutorMessage content={message.content} />
+                  <TutorMessage content={message.content} light={message.role === "assistant"} />
                 </div>
               </div>
             ))}
