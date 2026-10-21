@@ -1553,33 +1553,25 @@ function Learn({ setView, profile, userId }: Props) {
       title="AI Coach"
       eyebrow="YOUR PERSONAL TUTOR"
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
-      className="tutor-page h-screen overflow-hidden p-0 sm:p-0"
+      className="tutor-page h-screen overflow-hidden bg-white p-0 sm:p-0"
     >
       <div className="h-full w-full">
-        <div className="flex h-full min-h-0 flex-col overflow-hidden border-y border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d] lg:rounded-none lg:border-x-0">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white sm:px-5 sm:py-4">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+          <div className="flex items-center justify-between border-b border-[#e5e7eb] px-4 py-3 text-[#10231c] sm:px-6 sm:py-4">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setView("dashboard")}
-                className="flex size-9 items-center justify-center rounded-xl text-emerald-100/75 hover:bg-white/10"
-                aria-label="Leave Tutor"
-                title="Leave Tutor"
-              >
-                <ArrowLeft size={18} />
-              </button>
-              <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500">
+              <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                 <Bot size={20} />
               </div>
               <div>
                 <p className="text-sm font-extrabold">FunaBAcer Tutor</p>
-                <p className="text-xs text-emerald-100/65">
+                <p className="text-xs text-[#71877d]">
                   {profile?.course || "Personalised study session"}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowCalculator((open) => !open)}
-              className={`flex min-w-12 items-center justify-center rounded-full border px-3 py-2 text-xs font-black tracking-wider transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-white/15 bg-white/10 text-white hover:bg-white/15"}`}
+              className={`flex min-w-12 items-center justify-center rounded-full border px-3 py-2 text-xs font-black tracking-wider transition ${showCalculator ? "border-emerald-300 bg-emerald-400 text-[#071612]" : "border-[#d1d5db] bg-white text-[#365348] hover:bg-[#f3f4f6]"}`}
               aria-label={`${showCalculator ? "Close" : "Open"} calculator`}
               aria-expanded={showCalculator}
               title="Calculator"
@@ -1587,14 +1579,14 @@ function Learn({ setView, profile, userId }: Props) {
               CAL
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-white px-4 py-5 sm:px-6">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-white/10 text-emerald-50"}`}
+                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-[#f3f4f6] text-[#10231c]"}`}
                 >
                   <TutorMessage content={message.content} />
                 </div>
@@ -1610,13 +1602,13 @@ function Learn({ setView, profile, userId }: Props) {
             <div ref={messagesEndRef} />
             {isAsking && (
               <div className="flex justify-start">
-                <div className="rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-sm text-emerald-100/70">
+                <div className="rounded-2xl rounded-bl-md bg-[#f3f4f6] px-4 py-3 text-sm text-[#71877d]">
                   Thinking through that…
                 </div>
               </div>
             )}
           </div>
-          <div className="sticky bottom-0 border-t border-white/10 bg-[#071612] px-4 pb-4 pt-3 sm:px-6">
+          <div className="sticky bottom-0 border-t border-[#e5e7eb] bg-white px-4 pb-4 pt-3 sm:px-6">
             {messages.length <= 1 && !question.trim() && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {quickPrompts.map((prompt) => (
@@ -1624,7 +1616,7 @@ function Learn({ setView, profile, userId }: Props) {
                     key={prompt}
                     onClick={() => askTutor(prompt)}
                     disabled={isAsking}
-                    className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-emerald-100/75 hover:border-emerald-300 hover:text-white"
+                    className="rounded-full border border-[#d1d5db] px-3 py-1.5 text-xs font-semibold text-[#365348] hover:border-emerald-300 hover:text-[#10231c]"
                   >
                     {prompt}
                   </button>
@@ -1657,11 +1649,11 @@ function Learn({ setView, profile, userId }: Props) {
                 event.preventDefault();
                 void askTutor();
               }}
-              className="flex items-end gap-2 rounded-2xl border border-white/15 bg-white/10 p-2"
+              className="flex w-full items-end gap-2 rounded-2xl border border-[#d1d5db] bg-[#f9fafb] p-3 shadow-sm"
             >
               <button
                 onClick={() => document.getElementById("tutor-upload")?.click()}
-                className="flex size-10 shrink-0 items-center justify-center rounded-xl text-emerald-100/80 hover:bg-white/10"
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl text-[#587166] hover:bg-white"
                 aria-label="Attach a PDF or image"
                 title={tutorFileBusy ? "Reading file…" : "Attach a PDF or image"}
               >
@@ -1690,18 +1682,18 @@ function Learn({ setView, profile, userId }: Props) {
                 }}
                 placeholder="Ask FunaBAcer anything…"
                 rows={1}
-                className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-emerald-100/45"
+                className="min-h-14 flex-1 resize-none bg-transparent px-2 py-2 text-base text-[#10231c] outline-none placeholder:text-[#9ca3af]"
               />
               <button
                 type="submit"
                 disabled={!question.trim() || isAsking || !conversationReady}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#071612] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
               >
                 <Send size={17} />
               </button>
             </form>
-            <p className="mt-2 text-center text-[11px] text-emerald-100/45">
+            <p className="mt-2 text-center text-[11px] text-[#9ca3af]">
               Enter to send · Shift + Enter for a new line · AI checks your course context
             </p>
           </div>
