@@ -362,9 +362,10 @@ function Page({
   children: ReactNode;
   className?: string;
 }) {
+  const isTutorPage = className.includes("tutor-page");
   return (
     <div className={`p-5 sm:p-8 ${className}`}>
-      <div className="mb-8">
+      <div className={isTutorPage ? "hidden" : "mb-8"}>
         <p className="text-[11px] font-bold tracking-[.22em] text-emerald-400">{eyebrow}</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#10231c]">{title}</h1>
         <p className="mt-2 text-sm text-[#71877d]">{subtitle}</p>
@@ -1529,28 +1530,10 @@ function Learn({ setView, profile, userId }: Props) {
       title="AI Coach"
       eyebrow="YOUR PERSONAL TUTOR"
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
+      className="tutor-page h-[calc(100dvh-76px-84px)] overflow-hidden p-0 sm:p-0 lg:h-[calc(100dvh-76px)]"
     >
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-950">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <strong>What your Tutor knows about you</strong>
-            <button className="font-extrabold underline" onClick={() => setView("profile")}>Check full profile</button>
-          </div>
-          <p className="mt-2 text-xs leading-5">
-            {profile?.department || "Department not set"} · {profile?.course || "Programme not set"} · Level {profile?.level || "not set"}
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Strong: {strongTopics.length ? strongTopics.map((row) => row.name).join(", ") : "Not enough data yet"}</span>
-            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Needs practice: {weakTopics.length ? weakTopics.map((row) => row.name).join(", ") : "Not enough data yet"}</span>
-            <span className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold">Attempts: {getAttempts().length} · Average: {averageScore() ?? 0}%</span>
-          </div>
-        </div>
-        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          <strong>Teaching context:</strong> {profile?.department || "Department missing"} ·{" "}
-          {profile?.course || "Programme missing"}. The Tutor uses this context and the saved
-          conversation below; it will not guess a different programme.
-        </div>
-        <div className="flex max-h-[calc(100dvh-10rem)] min-h-[34rem] flex-col overflow-hidden rounded-[28px] border border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d]">
+      <div className="h-full w-full">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden border-y border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d] lg:rounded-none lg:border-x-0">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500">
@@ -1691,14 +1674,6 @@ function Learn({ setView, profile, userId }: Props) {
               Enter to send · Shift + Enter for a new line · AI checks your course context
             </p>
           </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-[#71877d]">
-            Need a timed exam? Start CBT practice after your tutoring session.
-          </p>
-          <Btn onClick={() => setView("practice")}>
-            <Target size={16} /> Test me
-          </Btn>
         </div>
       </div>
     </Page>
