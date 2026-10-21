@@ -1258,9 +1258,32 @@ function Learn({ setView, profile, userId }: Props) {
     localStorage.setItem(memoryKey, JSON.stringify(messages.slice(-40)));
   }, [memoryKey, messages]);
   useEffect(() => {
-    if (tutorQuiz) localStorage.setItem(quizMemoryKey, JSON.stringify(tutorQuiz));
-    else localStorage.removeItem(quizMemoryKey);
+    if (!tutorQuiz) {
+      localStorage.removeItem(quizMemoryKey);
+      return;
+    }
+    if (tutorQuiz.submitted) {
+      localStorage.removeItem(quizMemoryKey);
+      void supabase.auth.updateUser({ data: { tutor_quiz: null } });
+      return;
+    }
+    localStorage.setItem(quizMemoryKey, JSON.stringify(tutorQuiz));
+    const timer = window.setTimeout(() => {
+      void supabase.auth.updateUser({ data: { tutor_quiz: tutorQuiz } });
+    }, 500);
+    return () => window.clearTimeout(timer);
   }, [quizMemoryKey, tutorQuiz]);
+  useEffect(() => {
+    if (!userId || tutorQuiz) return;
+    let cancelled = false;
+    void supabase.auth.getUser().then(({ data }) => {
+      const saved = (data.user?.user_metadata as { tutor_quiz?: TutorQuizState } | undefined)?.tutor_quiz;
+      if (!cancelled && saved?.questions?.length && !saved.submitted) setTutorQuiz(saved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, tutorQuiz]);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, isAsking]);
