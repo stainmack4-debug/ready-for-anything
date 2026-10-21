@@ -1589,9 +1589,9 @@ function Learn({ setView, profile, userId }: Props) {
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-white text-[#10231c]"}`}
+                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-[#1f302b] text-white"}`}
                 >
-                  <TutorMessage content={message.content} light={message.role === "assistant"} />
+                  <TutorMessage content={message.content} />
                 </div>
               </div>
             ))}
