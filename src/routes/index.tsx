@@ -1208,6 +1208,7 @@ function Learn({ setView, profile, userId }: Props) {
   };
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const sendLockRef = useRef(false);
   const [tutorError, setTutorError] = useState("");
   const [sourceContext, setSourceContext] = useState("");
   const [sourceName, setSourceName] = useState("");
@@ -1356,7 +1357,8 @@ function Learn({ setView, profile, userId }: Props) {
   }, []);
 
   const startTutorQuiz = async (request: string) => {
-    if (!profile?.course || isAsking) return;
+    if (!profile?.course || isAsking || sendLockRef.current) return;
+    sendLockRef.current = true;
     setIsAsking(true);
     setTutorError("");
     const topic = profile.course;
@@ -1385,6 +1387,7 @@ function Learn({ setView, profile, userId }: Props) {
       setTutorError(error instanceof Error ? error.message : "The Tutor could not prepare a checkpoint right now.");
     } finally {
       setIsAsking(false);
+      sendLockRef.current = false;
     }
   };
   const submitTutorQuiz = async () => {
@@ -1401,7 +1404,7 @@ function Learn({ setView, profile, userId }: Props) {
 
   const askTutor = async (preset?: string, sourceContextOverride?: string) => {
     const message = (preset || question).trim();
-    if (!message || isAsking || !conversationReady) return;
+    if (!message || isAsking || sendLockRef.current || !conversationReady) return;
     if (!profile?.department || !profile?.course) {
       setTutorError(
         "Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.",
@@ -1413,6 +1416,7 @@ function Learn({ setView, profile, userId }: Props) {
       void startTutorQuiz(message);
       return;
     }
+    sendLockRef.current = true;
     setIsAsking(true);
     setTutorError("");
     const nextMessages = [...messages, { role: "user" as const, content: message }];
@@ -1445,6 +1449,7 @@ function Learn({ setView, profile, userId }: Props) {
       setMessages(messages);
     } finally {
       setIsAsking(false);
+      sendLockRef.current = false;
     }
   };
 
@@ -1633,7 +1638,13 @@ function Learn({ setView, profile, userId }: Props) {
                 {tutorError}
               </p>
             )}
-            <div className="flex items-end gap-2 rounded-2xl border border-white/15 bg-white/10 p-2">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void askTutor();
+              }}
+              className="flex items-end gap-2 rounded-2xl border border-white/15 bg-white/10 p-2"
+            >
               <button
                 onClick={() => document.getElementById("tutor-upload")?.click()}
                 className="flex size-10 shrink-0 items-center justify-center rounded-xl text-emerald-100/80 hover:bg-white/10"
@@ -1658,9 +1669,9 @@ function Learn({ setView, profile, userId }: Props) {
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
                     event.preventDefault();
-                    askTutor();
+                    event.currentTarget.form?.requestSubmit();
                   }
                 }}
                 placeholder="Ask FunaBAcer anything…"
@@ -1668,14 +1679,14 @@ function Learn({ setView, profile, userId }: Props) {
                 className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-emerald-100/45"
               />
               <button
-                onClick={() => askTutor()}
+                type="submit"
                 disabled={!question.trim() || isAsking || !conversationReady}
                 className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[#071612] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
               >
                 <Send size={17} />
               </button>
-            </div>
+            </form>
             <p className="mt-2 text-center text-[11px] text-emerald-100/45">
               Enter to send · Shift + Enter for a new line · AI checks your course context
             </p>
