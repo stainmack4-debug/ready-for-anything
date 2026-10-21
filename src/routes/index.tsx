@@ -1558,7 +1558,16 @@ function Learn({ setView, profile, userId }: Props) {
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
       className="tutor-page h-screen overflow-hidden bg-[#071612] p-0 sm:p-0"
     >
-      <div className="h-full w-full">
+      <div className="relative h-full w-full">
+        <button
+          type="button"
+          onClick={() => setView("dashboard")}
+          className="absolute left-3 top-3 z-20 flex size-9 items-center justify-center rounded-full border border-white/15 bg-[#071612]/75 text-emerald-100/80 shadow-lg backdrop-blur transition hover:border-emerald-300 hover:bg-[#1f302b] hover:text-white"
+          aria-label="Return to Home"
+          title="Return to Home"
+        >
+          <ArrowLeft size={18} />
+        </button>
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#071612]">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white sm:px-6 sm:py-4">
             <div className="flex items-center gap-3">
