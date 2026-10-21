@@ -1553,12 +1553,20 @@ function Learn({ setView, profile, userId }: Props) {
       title="AI Coach"
       eyebrow="YOUR PERSONAL TUTOR"
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
-      className="tutor-page h-[calc(100dvh-76px-84px)] overflow-hidden p-0 sm:p-0 lg:h-[calc(100dvh-76px)]"
+      className="tutor-page h-screen overflow-hidden p-0 sm:p-0"
     >
       <div className="h-full w-full">
         <div className="flex h-full min-h-0 flex-col overflow-hidden border-y border-[#c9ddd2] bg-[#071612] shadow-[0_28px_80px_-40px_#0b3d2d] lg:rounded-none lg:border-x-0">
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white sm:px-5 sm:py-4">
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setView("dashboard")}
+                className="flex size-9 items-center justify-center rounded-xl text-emerald-100/75 hover:bg-white/10"
+                aria-label="Leave Tutor"
+                title="Leave Tutor"
+              >
+                <ArrowLeft size={18} />
+              </button>
               <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500">
                 <Bot size={20} />
               </div>
@@ -3947,6 +3955,7 @@ function App() {
     if (typeof window !== "undefined") localStorage.setItem("funabacer.current-view", next);
   };
   const [mobile, setMobile] = useState(false);
+  const isTutorView = view === "practice";
   useEffect(() => {
     if (!session || localStorage.getItem("funabacer-curriculum-seeded-v2")) return;
     let cancelled = false;
@@ -4109,14 +4118,16 @@ function App() {
     );
   return (
     <div className={`app-shell theme-${theme} flex min-h-screen bg-[#f7faf8] text-[#10231c]`}>
-      <Sidebar
-        view={view}
-        setView={setView}
-        logout={async () => {
-          await supabase.auth.signOut();
-          setSession(null);
-        }}
-      />
+      {!isTutorView && (
+        <Sidebar
+          view={view}
+          setView={setView}
+          logout={async () => {
+            await supabase.auth.signOut();
+            setSession(null);
+          }}
+        />
+      )}
       {mobile && (
         <div
           className="fixed inset-0 z-50 bg-[#10231c]/30 lg:hidden"
@@ -4151,18 +4162,20 @@ function App() {
         </div>
       )}
       <main className="min-w-0 flex-1">
-        <Topbar
-          theme={theme}
-          setTheme={(next) => {
-            setTheme(next);
-            localStorage.setItem("funabacer-theme", next);
-          }}
-          openMobile={() => setMobile(true)}
-          setView={setView}
-        />
-        <div className="mx-auto max-w-[1220px] pb-24 lg:pb-0">{content}</div>
+        {!isTutorView && (
+          <Topbar
+            theme={theme}
+            setTheme={(next) => {
+              setTheme(next);
+              localStorage.setItem("funabacer-theme", next);
+            }}
+            openMobile={() => setMobile(true)}
+            setView={setView}
+          />
+        )}
+        <div className={isTutorView ? "h-screen w-full" : "mx-auto max-w-[1220px] pb-24 lg:pb-0"}>{content}</div>
       </main>
-      <BottomNav view={view} setView={setView} />
+      {!isTutorView && <BottomNav view={view} setView={setView} />}
     </div>
   );
 }
