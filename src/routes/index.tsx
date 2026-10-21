@@ -257,7 +257,7 @@ function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }
   const links: [View, string, ReactNode][] = [
     ["dashboard", "Home", <House size={21} />],
     ["courses", "Learn", <GraduationCap size={21} />],
-    ["practice", "AI Coach", <Bot size={21} />],
+    ["learn", "AI Coach", <Bot size={21} />],
     ["results", "Progress", <BarChart3 size={21} />],
   ];
   return (
@@ -3947,7 +3947,7 @@ function App() {
     if (typeof window !== "undefined") localStorage.setItem("funabacer.current-view", next);
   };
   const [mobile, setMobile] = useState(false);
-  const isTutorView = view === "practice";
+  const isTutorView = view === "learn";
   useEffect(() => {
     if (!session || localStorage.getItem("funabacer-curriculum-seeded-v2")) return;
     let cancelled = false;
