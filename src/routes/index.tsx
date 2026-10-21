@@ -1105,7 +1105,10 @@ function TutorMessage({ content, light = false }: { content: string; light?: boo
     .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression: string) => `\\[${expression.replace(/\n+/g, " ").trim()}\\]`);
   const lines = normalized.split("\n");
   return (
-    <div className={`space-y-1 ${light ? "text-[#244138]" : ""}`}>
+    <div
+      className={`space-y-1 ${light ? "text-[#10231c]" : "text-white"}`}
+      style={{ color: light ? "#10231c" : "#ffffff" }}
+    >
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={i} className="h-2" />;
@@ -1127,18 +1130,18 @@ function TutorMessage({ content, light = false }: { content: string; light?: boo
           );
         if (/^[-*] /.test(trimmed))
           return (
-            <div key={i} className="ml-4 list-item">
+            <div key={i} className={`ml-4 list-item ${light ? "text-[#10231c]" : "text-white"}`}>
               <TutorInline value={trimmed.slice(2)} />
             </div>
           );
         if (/^\d+[.)] /.test(trimmed))
           return (
-            <div key={i} className="ml-4 list-item">
+            <div key={i} className={`ml-4 list-item ${light ? "text-[#10231c]" : "text-white"}`}>
               <TutorInline value={trimmed.replace(/^\d+[.)] /, "")} />
             </div>
           );
         return (
-          <p key={i}>
+          <p key={i} className={light ? "text-[#10231c]" : "text-white"}>
             <TutorInline value={trimmed} />
           </p>
         );
