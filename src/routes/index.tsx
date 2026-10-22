@@ -1569,7 +1569,7 @@ function Learn({ setView, profile, userId }: Props) {
           <ArrowLeft size={18} />
         </button>
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#071612]">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 pl-16 text-white sm:px-6 sm:pl-16 sm:py-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500 text-[#071612]">
                 <Bot size={20} />
@@ -1595,10 +1595,10 @@ function Learn({ setView, profile, userId }: Props) {
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-stretch"}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-7 ${message.role === "user" ? "rounded-br-md bg-[#1d5fba] text-white" : "rounded-bl-md bg-[#1f302b] text-white"}`}
+                  className={message.role === "user" ? "max-w-[88%] rounded-2xl rounded-br-md bg-[#1d5fba] px-4 py-3 text-sm leading-7 text-white" : "w-full max-w-none px-1 py-2 text-sm leading-7 text-white sm:text-base"}
                 >
                   <TutorMessage content={message.content} />
                 </div>
