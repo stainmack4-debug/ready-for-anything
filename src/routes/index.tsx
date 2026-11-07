@@ -944,8 +944,7 @@ function AdminPanel() {
             Open Admin Panel
           </Btn>
           <p className="mt-4 text-xs leading-5 text-[#71877d]">
-            This panel currently controls this browser only. Server-side multi-user announcements
-            and unlock codes still need a protected Supabase admin table.
+            These settings apply to this browser.
           </p>
         </div>
       </Page>
@@ -2467,10 +2466,8 @@ function Practice({ setView, profile, userId }: Props) {
           </div>
           {generationAudit && (
             <div className={`rounded-xl border px-4 py-3 text-xs leading-5 ${generationAudit.persistenceError ? "border-amber-300 bg-amber-50 text-amber-950" : "border-sky-200 bg-sky-50 text-sky-950"}`}>
-              <strong>Generation audit</strong>: {generationAudit.generatedCount} verified questions returned
-              ({generationAudit.providerCounts.nvidia || 0} NVIDIA + {generationAudit.providerCounts.gemini || 0} Gemini).
+              <strong>Question bank</strong>: {generationAudit.generatedCount} verified questions ready.
               Bank size: {generationAudit.bankSize}.
-              {generationAudit.persisted ? " Saved to Supabase." : generationAudit.persistenceError ? ` Supabase save warning: ${generationAudit.persistenceError}` : " Supabase save not confirmed."}
             </div>
           )}
           <div className="flex flex-wrap gap-3">
@@ -3183,34 +3180,9 @@ function OpenCoursewareLibrary() {
   return (
     <Page
       title="FUNAAB OpenCourseWare"
-      eyebrow="FunaBAcer library"
-      subtitle="665 official course PDFs, linked directly to FUNAAB so the originals stay on their server."
+      eyebrow="COURSE LIBRARY"
+      subtitle="Browse 665 course PDFs from the FUNAAB OpenCourseWare collection."
     >
-      <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-lime-50 p-5 sm:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[.18em] text-emerald-700">
-              <Library size={15} /> FunaBAcer watermark
-            </div>
-            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-[#10231c]">
-              Study from the source, not a copied file.
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#587166]">
-              These are external links only. FunaBAcer does not copy, upload, or store the PDFs in
-              Supabase. Generated study exports and result cards can carry FunaBAcer branding while
-              the official source files remain unchanged.
-            </p>
-          </div>
-          <a
-            href="https://funaab.edu.ng/opencourseware/"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-bold text-emerald-800 hover:border-emerald-500"
-          >
-            Browse official page
-          </a>
-        </div>
-      </div>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <label className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8ca198]" size={18} />
