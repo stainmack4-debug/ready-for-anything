@@ -4,6 +4,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
+import { funaabOpenCourseware } from "@/lib/funaab-opencourseware";
 import { isOnOfficialTimetable, officialTimetable } from "@/lib/funaab-timetable";
 import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
@@ -63,6 +64,7 @@ type View =
   | "review"
   | "results"
   | "notes"
+  | "library"
   | "profile"
   | "settings"
   | "admin";
@@ -77,6 +79,7 @@ const persistedViews: View[] = [
   "review",
   "results",
   "notes",
+  "library",
   "profile",
   "settings",
   "admin",
@@ -191,6 +194,7 @@ function Sidebar({
 }) {
   const links: [View, string, ReactNode][] = [
     ["notes", "Note Cruncher", <FileText size={18} />],
+    ["library", "FUNAAB Library", <Library size={18} />],
     ["profile", "Profile & academic info", <UserRound size={18} />],
     ["settings", "Settings & preferences", <Settings size={18} />],
   ];
@@ -258,11 +262,12 @@ function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }
     ["dashboard", "Home", <House size={21} />],
     ["courses", "Learn", <GraduationCap size={21} />],
     ["learn", "AI Coach", <Bot size={21} />],
+    ["library", "Library", <Library size={21} />],
     ["results", "Progress", <BarChart3 size={21} />],
   ];
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dcebe3] bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-14px_35px_-28px_#154c35] backdrop-blur-xl lg:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
         {links.map(([id, label, icon]) => {
           const active =
             view === id ||
@@ -3162,6 +3167,103 @@ function Notes({ userId }: Props) {
   );
 }
 
+function OpenCoursewareLibrary() {
+  const [query, setQuery] = useState("");
+  const [visible, setVisible] = useState(30);
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = useMemo(
+    () =>
+      funaabOpenCourseware.filter((item) =>
+        `${item.title} ${item.url}`.toLowerCase().includes(normalizedQuery),
+      ),
+    [normalizedQuery],
+  );
+  useEffect(() => setVisible(30), [normalizedQuery]);
+
+  return (
+    <Page
+      title="FUNAAB OpenCourseWare"
+      eyebrow="FunaBAcer library"
+      subtitle="665 official course PDFs, linked directly to FUNAAB so the originals stay on their server."
+    >
+      <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-lime-50 p-5 sm:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[.18em] text-emerald-700">
+              <Library size={15} /> FunaBAcer watermark
+            </div>
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-[#10231c]">
+              Study from the source, not a copied file.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#587166]">
+              These are external links only. FunaBAcer does not copy, upload, or store the PDFs in
+              Supabase. Generated study exports and result cards can carry FunaBAcer branding while
+              the official source files remain unchanged.
+            </p>
+          </div>
+          <a
+            href="https://funaab.edu.ng/opencourseware/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm font-bold text-emerald-800 hover:border-emerald-500"
+          >
+            Browse official page
+          </a>
+        </div>
+      </div>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <label className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8ca198]" size={18} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search course code, title, or topic…"
+            className="w-full rounded-xl border border-[#c9ddd2] bg-white py-3 pl-11 pr-4 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+          />
+        </label>
+        <div className="flex items-center rounded-xl border border-[#dcebe3] bg-white px-4 py-3 text-sm font-bold text-[#587166]">
+          {matches.length} source links
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {matches.slice(0, visible).map((item) => (
+          <a
+            key={item.url}
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex min-h-28 flex-col justify-between rounded-2xl border border-[#dcebe3] bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_16px_35px_-25px_#14794b]"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                <FileText size={17} />
+              </span>
+              <span className="line-clamp-3 text-sm font-bold leading-5 text-[#244138]">
+                {item.title}
+              </span>
+            </div>
+            <span className="mt-3 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[.14em] text-[#8ca198]">
+              Official FUNAAB source <ChevronRight size={14} className="transition group-hover:translate-x-1" />
+            </span>
+          </a>
+        ))}
+      </div>
+      {matches.length === 0 && (
+        <div className="mt-5 rounded-2xl border border-dashed border-[#c9ddd2] bg-white p-8 text-center text-sm text-[#71877d]">
+          No OpenCourseWare links match that search.
+        </div>
+      )}
+      {visible < matches.length && (
+        <div className="mt-6 text-center">
+          <Btn variant="outline" onClick={() => setVisible((count) => count + 30)}>
+            Show more source links
+          </Btn>
+        </div>
+      )}
+    </Page>
+  );
+}
+
 function Profile({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
   return (
     <Page
@@ -4097,6 +4199,7 @@ function App() {
   else if (view === "review") content = <Review {...props} />;
   else if (view === "results") content = <Results {...props} />;
   else if (view === "notes") content = <Notes {...props} />;
+  else if (view === "library") content = <OpenCoursewareLibrary />;
   else if (view === "profile")
     content = (
       <Profile
@@ -4148,6 +4251,7 @@ function App() {
             <div className="mt-10 space-y-2">
               {[
                 ["notes", "Note Cruncher"],
+                ["library", "FUNAAB Library"],
                 ["profile", "Profile"],
                 ["settings", "Settings"],
               ].map(([id, label]) => (
