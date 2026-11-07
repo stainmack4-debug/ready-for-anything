@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import { supabase } from "@/integrations/supabase/client";
 import { funaabCurriculum } from "@/lib/funaab-curriculum";
 import { funaabOpenCourseware } from "@/lib/funaab-opencourseware";
+import { nuesaResources } from "@/lib/nuesa-resources";
 import { isOnOfficialTimetable, officialTimetable } from "@/lib/funaab-timetable";
 import { courseBankFor, courseBankLevelsFor, funaabCourseBank } from "@/lib/funaab-course-bank";
 import { avatarUrl, avatars, getAvatarId, setAvatarId } from "@/lib/avatars";
@@ -3175,13 +3176,20 @@ function OpenCoursewareLibrary() {
       ),
     [normalizedQuery],
   );
+  const nuesaMatches = useMemo(
+    () =>
+      nuesaResources.filter((item) =>
+        `${item.title} ${item.department} ${item.kind} ${item.source}`.toLowerCase().includes(normalizedQuery),
+      ),
+    [normalizedQuery],
+  );
   useEffect(() => setVisible(30), [normalizedQuery]);
 
   return (
     <Page
       title="FUNAAB OpenCourseWare"
       eyebrow="COURSE LIBRARY"
-      subtitle="Browse 665 course PDFs from the FUNAAB OpenCourseWare collection."
+      subtitle="Browse official course PDFs and approved external study resources without copying the source files."
     >
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <label className="relative flex-1">
@@ -3194,9 +3202,53 @@ function OpenCoursewareLibrary() {
           />
         </label>
         <div className="flex items-center rounded-xl border border-[#dcebe3] bg-white px-4 py-3 text-sm font-bold text-[#587166]">
-          {matches.length} source links
+          {matches.length + nuesaMatches.length} source links
         </div>
       </div>
+      {nuesaMatches.length > 0 && (
+        <section className="mt-8">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[.18em] text-emerald-700">NUESA STUDY MATERIALS</p>
+              <h2 className="mt-1 text-xl font-extrabold text-[#10231c]">Departmental resources</h2>
+              <p className="mt-1 text-sm text-[#71877d]">Open PDFs and Drive folders from their original source.</p>
+            </div>
+            <span className="text-xs font-bold text-[#8ca198]">{nuesaMatches.length} links</span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {nuesaMatches.map((item) => (
+              <a
+                key={item.url}
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex min-h-32 flex-col justify-between rounded-2xl border border-[#dcebe3] bg-white p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_16px_35px_-25px_#14794b]"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                    <FileText size={17} />
+                  </span>
+                  <span>
+                    <span className="line-clamp-3 text-sm font-bold leading-5 text-[#244138]">{item.title}</span>
+                    <span className="mt-1 block text-xs text-[#71877d]">{item.department}</span>
+                  </span>
+                </div>
+                <span className="mt-3 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[.12em] text-[#8ca198]">
+                  {item.kind} <ChevronRight size={14} className="transition group-hover:translate-x-1" />
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+      <section className="mt-8">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[.18em] text-emerald-700">FUNAAB OPENCOURSEWARE</p>
+            <h2 className="mt-1 text-xl font-extrabold text-[#10231c]">Official course PDFs</h2>
+          </div>
+          <span className="text-xs font-bold text-[#8ca198]">{matches.length} links</span>
+        </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {matches.slice(0, visible).map((item) => (
           <a
@@ -3222,7 +3274,7 @@ function OpenCoursewareLibrary() {
       </div>
       {matches.length === 0 && (
         <div className="mt-5 rounded-2xl border border-dashed border-[#c9ddd2] bg-white p-8 text-center text-sm text-[#71877d]">
-          No OpenCourseWare links match that search.
+          No library links match that search.
         </div>
       )}
       {visible < matches.length && (
@@ -3232,6 +3284,7 @@ function OpenCoursewareLibrary() {
           </Btn>
         </div>
       )}
+      </section>
     </Page>
   );
 }
