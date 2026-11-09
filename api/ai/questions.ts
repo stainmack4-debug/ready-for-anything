@@ -200,7 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const course = String(body.course || "").trim();
   const topic = String(body.topic || "").trim();
-  const count = Math.min(Math.max(Number(body.count) || 10, 1), 100);
+  const count = Math.min(Math.max(Number(body.count) || 10, 10), 20);
   const level = String(body.level || "").trim() || "all levels";
   const background = body.background === true;
   if (!course || !topic) return res.status(400).json({ error: "Choose a course and topic first." });
@@ -235,7 +235,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  if (savedBank.length >= Math.min(count, 10)) {
+  if (savedBank.length >= count) {
     return res.status(200).json({
       questions: savedBank,
       cached: true,
@@ -276,7 +276,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
 
   // A normal quiz request gives each configured provider its own 20-question job.
   // Their validated, de-duplicated results are merged into one shared bank.
-  const generationCount = background ? 10 : 20;
+  const generationCount = background ? 10 : count;
   const generationPrompt = prompt
     .replace(`Create ${count} original`, `Create ${generationCount} original`)
     .replace(`Exactly ${count} items`, `Exactly ${generationCount} items`);
@@ -357,7 +357,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
       (question, index, all) =>
         all.findIndex((candidate) => candidate.question === question.question) === index,
     )
-    .slice(0, background ? 10 : 40);
+    .slice(0, background ? 10 : count);
   if (uniqueGenerated.length === 0) {
     const detail = errors.join(" | ");
     console.error("Question generation failed", detail);
@@ -376,7 +376,7 @@ IMPORTANT formatting: write all maths in plain text with Unicode symbols, NOT La
     .slice(-100);
   let persisted = false;
   let persistenceError = "";
-  if (cacheHeaders && cacheUrl && uniqueGenerated.length >= Math.min(count, 10)) {
+  if (cacheHeaders && cacheUrl && uniqueGenerated.length >= (background ? 10 : count)) {
     try {
       const saveResponse = await fetch(`${cacheUrl}?on_conflict=programme,level,topic`, {
         method: "POST",
