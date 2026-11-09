@@ -1200,8 +1200,8 @@ function TutorQuizCard({
                   </button>
                 ))}
               </div>
-              {quiz.submitted && <p className={`mt-2 text-xs font-extrabold ${isCorrect ? "text-emerald-300" : "text-rose-300"}`}>{isCorrect ? "✓ Correct" : `× Incorrect · Correct answer: ${question.options[question.answer]}`}</p>}
-              {quiz.submitted && <p className="mt-2 text-xs leading-5 text-emerald-100/75">{question.explanation}</p>}
+              {(quiz.submitted || selected !== undefined) && <p className={`mt-2 text-xs font-extrabold ${isCorrect ? "text-emerald-300" : "text-rose-300"}`}>{isCorrect ? "✓ Correct" : `× Not quite · Correct answer: ${question.options[question.answer]}`}</p>}
+              {(quiz.submitted || selected !== undefined) && <p className="mt-2 text-xs leading-5 text-emerald-100/75">{question.explanation}</p>}
             </div>
           );
         })()}
@@ -4157,7 +4157,7 @@ function App() {
     supabase.auth.getSession().then(async ({ data }) => {
       const { data: userData } = await supabase.auth.getUser();
       const metadata = userData.user?.user_metadata as
-        { department?: string; course?: string; level?: string; full_name?: string } | undefined;
+        { department?: string; course?: string; level?: string; full_name?: string; selectedCourses?: string[] } | undefined;
       let hasProfile = false;
       if (metadata?.department && metadata.course) {
         hasProfile = true;
@@ -4166,6 +4166,7 @@ function App() {
           course: metadata.course,
           ...(metadata.level ? { level: metadata.level } : {}),
           ...(metadata.full_name ? { name: metadata.full_name } : {}),
+          ...(Array.isArray(metadata.selectedCourses) ? { selectedCourses: metadata.selectedCourses } : {}),
         };
         localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
         setProfile(savedProfile);
@@ -4204,9 +4205,9 @@ function App() {
     });
     const { data } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      const metadata = s?.user.user_metadata as { department?: string; course?: string } | undefined;
+      const metadata = s?.user.user_metadata as { department?: string; course?: string; level?: string; selectedCourses?: string[] } | undefined;
       if (metadata?.department && metadata.course) {
-        const savedProfile = { department: metadata.department, course: metadata.course };
+        const savedProfile = { department: metadata.department, course: metadata.course, ...(metadata.level ? { level: metadata.level } : {}), ...(Array.isArray(metadata.selectedCourses) ? { selectedCourses: metadata.selectedCourses } : {}) };
         localStorage.setItem("funabacer-profile", JSON.stringify(savedProfile));
         setProfile(savedProfile);
         setNeedsOnboarding(false);
