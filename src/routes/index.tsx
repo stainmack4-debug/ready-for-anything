@@ -86,7 +86,7 @@ const persistedViews: View[] = [
   "admin",
 ];
 type Theme = "day" | "night";
-type StudentProfile = { department: string; course: string; level?: string; name?: string };
+type StudentProfile = { department: string; course: string; level?: string; name?: string; selectedCourses?: string[] };
 type CustomCourse = { code: string; title: string; level: string };
 type Props = { setView: (v: View) => void; profile?: StudentProfile | null; userId?: string };
 type TutorQuizQuestion = {
@@ -102,6 +102,7 @@ type TutorQuizState = {
   questions: TutorQuizQuestion[];
   answers: Record<number, number>;
   submitted: boolean;
+  currentIndex?: number;
 };
 function compactQuestionKey(question: string): string {
   let hash = 2166136261;
@@ -831,15 +832,12 @@ function Courses({ setView, profile }: Props) {
         .flatMap((item) => item.courses.map((course) => ({ domain: item, course })))
         .find((item) => item.course.name.toLowerCase() === profile.course.toLowerCase())
     : undefined;
+  const selectedCourseNames = profile?.selectedCourses || [];
   return (
     <Page
-      title="Learn"
-      eyebrow="YOUR PROGRAMME"
-      subtitle={
-        profile?.course
-          ? `Showing only ${profile.course}`
-          : "Choose your programme during onboarding."
-      }
+      title="My semester courses"
+      eyebrow="STUDENT-SELECTED COURSES"
+      subtitle={profile?.course ? `${profile.course} · ${profile?.level || "Level not set"}` : "Choose your programme first."}
     >
       {!selected ? (
         <div className="rounded-2xl border border-[#dcebe3] bg-white p-7">
@@ -868,6 +866,10 @@ function Courses({ setView, profile }: Props) {
               No topic is marked strong until you actually study and submit answers. Ask the Tutor
               to teach a topic from your {selected.course.name} programme, then practise it.
             </p>
+            <div className="mt-5 rounded-xl border border-[#dcebe3] bg-white p-4">
+              <h3 className="font-extrabold">Your selected semester courses</h3>
+              {selectedCourseNames.length ? <div className="mt-3 flex flex-wrap gap-2">{selectedCourseNames.map((item) => <span key={item} className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">{item}</span>)}</div> : <p className="mt-2 text-sm text-[#71877d]">No course units selected yet. Edit your academic profile to choose the courses you registered this semester.</p>}
+            </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <Btn onClick={() => setView("learn")}>
                 <BookOpen size={16} /> Open AI Tutor
@@ -1158,12 +1160,16 @@ function TutorQuizCard({
   quiz,
   onAnswer,
   onSubmit,
+  onNext,
 }: {
   quiz: TutorQuizState;
   onAnswer: (index: number, answer: number) => void;
   onSubmit: () => void;
+  onNext: () => void;
 }) {
   const correct = quiz.questions.reduce((total, question, index) => total + (quiz.answers[index] === question.answer ? 1 : 0), 0);
+  const currentIndex = Math.min(quiz.currentIndex || 0, quiz.questions.length - 1);
+  const question = quiz.questions[currentIndex];
   return (
     <div className="mt-4 rounded-2xl border border-emerald-300/35 bg-[#04100c] p-4 text-emerald-50 shadow-lg">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
@@ -1174,7 +1180,8 @@ function TutorQuizCard({
         <span className="shrink-0 rounded-full bg-emerald-500/25 px-3 py-1 text-xs font-extrabold text-emerald-200">{quiz.questions.length} questions</span>
       </div>
       <div className="mt-3 space-y-4">
-        {quiz.questions.map((question, index) => {
+        {question && (() => {
+          const index = currentIndex;
           const selected = quiz.answers[index];
           const isCorrect = selected === question.answer;
           return (
@@ -1197,10 +1204,14 @@ function TutorQuizCard({
               {quiz.submitted && <p className="mt-2 text-xs leading-5 text-emerald-100/75">{question.explanation}</p>}
             </div>
           );
-        })}
+        })()}
       </div>
       {!quiz.submitted ? (
-        <button type="button" onClick={onSubmit} className="mt-2 w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-extrabold text-[#071612]">Submit checkpoint ({Object.keys(quiz.answers).length}/{quiz.questions.length})</button>
+        currentIndex < quiz.questions.length - 1 ? (
+          <button type="button" disabled={quiz.answers[currentIndex] === undefined} onClick={onNext} className="mt-2 w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-extrabold text-[#071612] disabled:opacity-40">Next question ({currentIndex + 1}/{quiz.questions.length})</button>
+        ) : (
+          <button type="button" disabled={quiz.answers[currentIndex] === undefined} onClick={onSubmit} className="mt-2 w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-extrabold text-[#071612] disabled:opacity-40">Submit checkpoint ({Object.keys(quiz.answers).length}/{quiz.questions.length})</button>
+        )
       ) : (
         <div className="mt-2 rounded-xl bg-emerald-400/15 p-3 text-center text-sm font-extrabold text-emerald-200">Checkpoint complete · {correct}/{quiz.questions.length} ({Math.round((correct / quiz.questions.length) * 100)}%) saved to your progress</div>
       )}
@@ -1394,6 +1405,8 @@ function Learn({ setView, profile, userId }: Props) {
     setIsAsking(true);
     setTutorError("");
     const topic = profile.course;
+    const requestedCount = Number(request.match(/\b(1[0-9]|20)\s+questions?\b/i)?.[1] || 10);
+    const quizCount = Math.min(20, Math.max(10, requestedCount));
     const userMessage = { role: "user" as const, content: request };
     setMessages((current) => [...current, userMessage]);
     void saveTutorMessages([userMessage]);
@@ -1406,15 +1419,15 @@ function Learn({ setView, profile, userId }: Props) {
           "Content-Type": "application/json",
           ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
         },
-        body: JSON.stringify({ course: profile.course, level: profile.level || "", topic, count: 5 }),
+        body: JSON.stringify({ course: profile.course, level: profile.level || "", topic, count: quizCount }),
       });
       const data = await response.json();
       if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) throw new Error(data.error || "The Tutor could not prepare a checkpoint right now.");
-      const quizQuestions = data.questions.slice(0, 5) as TutorQuizQuestion[];
-      const assistantMessage = { role: "assistant" as const, content: `I prepared a five-question checkpoint for ${topic}. Choose one answer for each question, then submit when you are ready.` };
+      const quizQuestions = data.questions.slice(0, quizCount) as TutorQuizQuestion[];
+      const assistantMessage = { role: "assistant" as const, content: `I prepared a ${quizQuestions.length}-question checkpoint for ${topic}. I’ll ask one question at a time and explain your result when you finish.` };
       setMessages((current) => [...current, assistantMessage]);
       void saveTutorMessages([assistantMessage]);
-      setTutorQuiz({ title: `${topic} — Checkpoint`, topic, questions: quizQuestions, answers: {}, submitted: false });
+      setTutorQuiz({ title: `${topic} — Checkpoint`, topic, questions: quizQuestions, answers: {}, submitted: false, currentIndex: 0 });
     } catch (error) {
       setTutorError(error instanceof Error ? error.message : "The Tutor could not prepare a checkpoint right now.");
     } finally {
@@ -1553,7 +1566,7 @@ function Learn({ setView, profile, userId }: Props) {
 
   const quickPrompts = [
     `Explain ${profile?.course || "this course"} from the beginning`,
-    `Give me 5 exam-style questions for ${profile?.course || "this course"}`,
+    `Give me 10 exam-style questions for ${profile?.course || "this course"}`,
     "Quiz me one question at a time",
   ];
   return (
@@ -1614,6 +1627,7 @@ function Learn({ setView, profile, userId }: Props) {
                 quiz={tutorQuiz}
                 onAnswer={(index, answer) => setTutorQuiz((current) => current && !current.submitted ? { ...current, answers: { ...current.answers, [index]: answer } } : current)}
                 onSubmit={() => void submitTutorQuiz()}
+                onNext={() => setTutorQuiz((current) => current ? { ...current, currentIndex: Math.min((current.currentIndex || 0) + 1, current.questions.length - 1) } : current)}
               />
             )}
             <div ref={messagesEndRef} />
@@ -3575,6 +3589,7 @@ function Onboarding({
 }) {
   const [course, setCourse] = useState("");
   const [level, setLevel] = useState("");
+  const [selectedCourseCodes, setSelectedCourseCodes] = useState<string[]>([]);
   const [programmeSearch, setProgrammeSearch] = useState("");
   const [customCodes, setCustomCodes] = useState("");
   const [customTitle, setCustomTitle] = useState("");
@@ -3585,6 +3600,7 @@ function Onboarding({
   );
   const selected = programmes.find((item) => item.name === course);
   const levelOptions = selected ? courseBankLevelsFor(selected.name) : [];
+  const semesterCourseRows = selected ? courseBankFor(selected.name, level || undefined) : [];
   const filteredProgrammes = programmes
     .filter((item) =>
       `${item.name} ${item.department}`
@@ -3598,6 +3614,7 @@ function Onboarding({
       department: selected.department,
       course: selected.name,
       ...(level ? { level } : {}),
+      selectedCourses: selectedCourseCodes,
     };
     const codes = customCodes
       .split(/[\n,;]+/)
@@ -3754,6 +3771,27 @@ function Onboarding({
                 )}
               </div>
             )}
+            {selected && level && semesterCourseRows.length > 0 && (
+              <div className="mt-5 rounded-xl border border-emerald-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-extrabold text-[#244138]">Choose your courses for this semester</p>
+                    <p className="mt-1 text-xs leading-5 text-[#71877d]">Select only the course units you registered. You can update this list each semester.</p>
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800">{selectedCourseCodes.length} selected</span>
+                </div>
+                <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                  {semesterCourseRows.map((row) => {
+                    const key = `${row.code} — ${row.title}`;
+                    const checked = selectedCourseCodes.includes(key);
+                    return <label key={`${row.code}-${row.title}`} className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#eff7f2] p-3 text-sm hover:bg-emerald-50">
+                      <input type="checkbox" checked={checked} onChange={(event) => setSelectedCourseCodes((current) => event.target.checked ? [...current, key] : current.filter((item) => item !== key))} className="mt-0.5 size-4 accent-emerald-600" />
+                      <span><strong>{row.code}</strong><span className="block text-xs text-[#71877d]">{row.title} · {row.units || "Units not listed"}</span></span>
+                    </label>;
+                  })}
+                </div>
+              </div>
+            )}
             <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-[#fbfdfc] p-4">
               <p className="text-sm font-extrabold text-[#244138]">
                 Missing courses? Add your semester courses
@@ -3798,7 +3836,7 @@ function Onboarding({
               Build my study plan <ArrowRight className="ml-2 inline-block" size={16} />
             </button>
             <p className="mt-4 text-center text-xs text-[#8ca198]">
-              You can change your programme later from Profile.
+              You choose your registered course units; you can update them from the Courses page each semester.
             </p>
           </div>
         </div>
