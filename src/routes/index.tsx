@@ -826,7 +826,7 @@ function Dashboard({ setView, profile }: Props) {
     </div>
   );
 }
-function Courses({ setView, profile }: Props) {
+function Courses({ setView, profile, onEdit }: Props & { onEdit?: () => void }) {
   const selected = profile?.course
     ? funaabCurriculum
         .flatMap((item) => item.courses.map((course) => ({ domain: item, course })))
@@ -871,6 +871,9 @@ function Courses({ setView, profile }: Props) {
               {selectedCourseNames.length ? <div className="mt-3 flex flex-wrap gap-2">{selectedCourseNames.map((item) => <span key={item} className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">{item}</span>)}</div> : <p className="mt-2 text-sm text-[#71877d]">No course units selected yet. Edit your academic profile to choose the courses you registered this semester.</p>}
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
+              <Btn onClick={onEdit} variant="outline">
+                <Settings size={16} /> Edit semester courses
+              </Btn>
               <Btn onClick={() => setView("learn")}>
                 <BookOpen size={16} /> Open AI Tutor
               </Btn>
@@ -1759,12 +1762,16 @@ function Practice({ setView, profile, userId }: Props) {
   const [expandedExplanations, setExpandedExplanations] = useState<Record<number, boolean>>({});
   const courseLevels = useMemo(() => courseBankLevelsFor(profile?.course || ""), [profile?.course]);
   const courseRows = useMemo(
-    () =>
-      courseBankFor(
+    () => {
+      const rows = courseBankFor(
         profile?.course || "",
         selectedLevel && selectedLevel !== "all" ? selectedLevel : undefined,
-      ),
-    [profile?.course, selectedLevel],
+      );
+      if (!Array.isArray(profile?.selectedCourses)) return rows;
+      const selected = new Set(profile.selectedCourses);
+      return rows.filter((row) => selected.has(`${row.code} — ${row.title}`));
+    },
+    [profile?.course, selectedLevel, profile?.selectedCourses],
   );
   useEffect(() => {
     if (!userId || !profile?.course) return;
@@ -3586,11 +3593,12 @@ function Onboarding({
 }: {
   done: (profile: { department: string; course: string; level?: string }) => void;
   userId?: string;
+  initialProfile?: StudentProfile | null;
 }) {
-  const [course, setCourse] = useState("");
-  const [level, setLevel] = useState("");
-  const [selectedCourseCodes, setSelectedCourseCodes] = useState<string[]>([]);
-  const [programmeSearch, setProgrammeSearch] = useState("");
+  const [course, setCourse] = useState(initialProfile?.course || "");
+  const [level, setLevel] = useState(initialProfile?.level || "");
+  const [selectedCourseCodes, setSelectedCourseCodes] = useState<string[]>(initialProfile?.selectedCourses || []);
+  const [programmeSearch, setProgrammeSearch] = useState(initialProfile?.course || "");
   const [customCodes, setCustomCodes] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -4115,6 +4123,7 @@ function App() {
       : "day",
   );
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [editingCourses, setEditingCourses] = useState(false);
   const [view, setViewState] = useState<View>(() => {
     if (typeof window === "undefined") return "dashboard";
     const saved = localStorage.getItem("funabacer.current-view");
@@ -4236,6 +4245,7 @@ function App() {
   if (needsOnboarding)
     return (
       <Onboarding
+        initialProfile={editingCourses ? profile : null}
         userId={
           typeof session === "object" && session && "user" in session
             ? String((session as { user?: { id?: string } }).user?.id || "")
@@ -4243,6 +4253,7 @@ function App() {
         }
         done={(nextProfile) => {
           setProfile(nextProfile);
+          setEditingCourses(false);
           setNeedsOnboarding(false);
         }}
       />
@@ -4255,7 +4266,7 @@ function App() {
   const props = { setView, profile, userId };
   if (view === "dashboard") content = <Home {...props} />;
   else if (view === "overview") content = <Dashboard {...props} />;
-  else if (view === "courses") content = <Courses {...props} />;
+  else if (view === "courses") content = <Courses {...props} onEdit={() => { setEditingCourses(true); setNeedsOnboarding(true); }} />;
   else if (view === "topic") content = <Topic {...props} />;
   else if (view === "learn") content = <Learn {...props} profile={profile} />;
   else if (view === "practice") content = <Practice {...props} profile={profile} />;
