@@ -3590,6 +3590,7 @@ const funaabDepartments = [
 function Onboarding({
   done,
   userId,
+  initialProfile,
 }: {
   done: (profile: { department: string; course: string; level?: string }) => void;
   userId?: string;
