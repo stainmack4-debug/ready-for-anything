@@ -1577,27 +1577,27 @@ function Learn({ setView, profile, userId }: Props) {
       title="AI Coach"
       eyebrow="YOUR PERSONAL TUTOR"
       subtitle={`${profile?.course || "Your course"} · Ask, practise, calculate and understand`}
-      className="tutor-page h-screen overflow-hidden bg-[#071612] p-0 sm:p-0"
+      className="tutor-page h-screen overflow-hidden bg-[#f4f8f5] p-0 sm:p-0"
     >
       <div className="relative h-full w-full">
         <button
           type="button"
           onClick={() => setView("dashboard")}
-          className="absolute left-3 top-3 z-20 flex size-9 items-center justify-center rounded-full border border-white/15 bg-[#071612]/75 text-emerald-100/80 shadow-lg backdrop-blur transition hover:border-emerald-300 hover:bg-[#1f302b] hover:text-white"
+          className="absolute left-3 top-3 z-20 flex size-9 items-center justify-center rounded-full border border-[#dcebe3] bg-white text-[#587166] shadow-sm transition hover:border-emerald-300 hover:text-emerald-800"
           aria-label="Return to Home"
           title="Return to Home"
         >
           <ArrowLeft size={18} />
         </button>
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#071612]">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 pl-16 text-white sm:px-6 sm:pl-16 sm:py-4">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f7faf8]">
+          <div className="flex items-center justify-between border-b border-[#dcebe3] bg-white px-4 py-3 pl-16 text-[#10231c] sm:px-6 sm:pl-16 sm:py-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500 text-[#071612]">
                 <Bot size={20} />
               </div>
               <div>
                 <p className="text-sm font-extrabold">FunaBAcer Tutor</p>
-                <p className="text-xs text-emerald-100/65">
+                <p className="text-xs text-[#71877d]">
                   {profile?.course || "Personalised study session"}
                 </p>
               </div>
@@ -1612,16 +1612,16 @@ function Learn({ setView, profile, userId }: Props) {
               CAL
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#071612] px-4 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f7faf8] px-4 py-5 sm:px-6">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-stretch"}`}
               >
                 <div
-                  className={message.role === "user" ? "max-w-[88%] rounded-2xl rounded-br-md bg-[#1d5fba] px-4 py-3 text-sm leading-7 text-white" : "w-full max-w-none px-1 py-2 text-sm leading-7 text-white sm:text-base"}
+                  className={message.role === "user" ? "max-w-[88%] rounded-2xl rounded-br-md bg-[#1d5fba] px-4 py-3 text-sm leading-7 text-white" : "w-full max-w-none rounded-2xl border border-[#dcebe3] bg-white px-4 py-3 text-sm leading-7 text-[#10231c] shadow-sm sm:text-base"}
                 >
-                  <TutorMessage content={message.content} />
+                  <TutorMessage content={message.content} light={message.role === "assistant"} />
                 </div>
               </div>
             ))}
@@ -1636,13 +1636,13 @@ function Learn({ setView, profile, userId }: Props) {
             <div ref={messagesEndRef} />
             {isAsking && (
               <div className="flex justify-start">
-                <div className="rounded-2xl rounded-bl-md bg-white/10 px-4 py-3 text-sm text-emerald-100/70">
+                <div className="rounded-2xl rounded-bl-md border border-[#dcebe3] bg-white px-4 py-3 text-sm text-[#71877d]">
                   Thinking through that…
                 </div>
               </div>
             )}
           </div>
-          <div className="sticky bottom-0 border-t border-white/10 bg-[#071612] px-4 pb-4 pt-3 sm:px-6">
+          <div className="sticky bottom-0 border-t border-[#dcebe3] bg-white px-4 pb-4 pt-3 sm:px-6">
             {messages.length <= 1 && !question.trim() && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {quickPrompts.map((prompt) => (
@@ -1650,7 +1650,7 @@ function Learn({ setView, profile, userId }: Props) {
                     key={prompt}
                     onClick={() => askTutor(prompt)}
                     disabled={isAsking}
-                    className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-emerald-100/75 hover:border-emerald-300 hover:text-white"
+                    className="rounded-full border border-[#dcebe3] bg-[#f7faf8] px-3 py-1.5 text-xs font-semibold text-[#587166] hover:border-emerald-300 hover:text-emerald-800"
                   >
                     {prompt}
                   </button>
@@ -1683,7 +1683,7 @@ function Learn({ setView, profile, userId }: Props) {
                 event.preventDefault();
                 void askTutor();
               }}
-              className="flex w-full items-end gap-2 rounded-2xl border border-white/20 bg-white p-2 transition-all focus-within:border-emerald-300/60"
+              className="flex w-full items-end gap-2 rounded-2xl border border-[#dcebe3] bg-[#f7faf8] p-2 transition-all focus-within:border-emerald-300"
             >
               <button
                 onClick={() => document.getElementById("tutor-upload")?.click()}
@@ -1728,7 +1728,7 @@ function Learn({ setView, profile, userId }: Props) {
                 <Send size={17} />
               </button>
             </form>
-            <p className="mt-2 text-center text-[11px] text-emerald-100/45">
+            <p className="mt-2 text-center text-[11px] text-[#8ca198]">
               Enter to send · Shift + Enter for a new line · AI checks your course context
             </p>
           </div>
@@ -3780,7 +3780,7 @@ function Onboarding({
                 )}
               </div>
             )}
-            {selected && level && semesterCourseRows.length > 0 && (
+            {selected && (level || levelOptions.length === 0) && semesterCourseRows.length > 0 && (
               <div className="mt-5 rounded-xl border border-emerald-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
