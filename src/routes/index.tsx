@@ -1427,8 +1427,13 @@ function Learn({ setView, profile, userId }: Props) {
     setIsAsking(true);
     setTutorError("");
     const topic = profile.course;
-    const requestedCount = Number(request.match(/\b(1[0-9]|20)\s+questions?\b/i)?.[1] || 10);
-    const quizCount = Math.min(20, Math.max(10, requestedCount));
+    const requestedCountMatch = request.match(/\b(1[0-9]|20|[1-9])\s+questions?\b/i);
+    const asksForOne = /\b(one|a|an|single)\s+(multiple[- ]choice\s+)?question\b/i.test(request);
+    const quizCount = requestedCountMatch
+      ? Math.min(20, Math.max(1, Number(requestedCountMatch[1])))
+      : asksForOne
+        ? 1
+        : 5;
     const userMessage = { role: "user" as const, content: request };
     setMessages((current) => [...current, userMessage]);
     void saveTutorMessages([userMessage]);
@@ -1478,7 +1483,10 @@ function Learn({ setView, profile, userId }: Props) {
       );
       return;
     }
-    const asksForPractice = /\b(quiz me|test me|checkpoint|set (me )?(a )?quiz|practice questions|give me \d+ questions)\b/i.test(message);
+    const asksForPractice =
+      /\b(quiz me|test me|checkpoint|set (me )?(a )?quiz|practice questions|give me \d+ questions)\b/i.test(message) ||
+      /\b(set|give|ask|show|create|make)\s+(me\s+)?(a|an|one|single)?\s*(multiple[- ]choice\s+)?questions?\b/i.test(message) ||
+      /\b(multiple[- ]choice|pick an answer|choose an answer|click (an? )?answer|select an answer)\b/i.test(message);
     if (asksForPractice) {
       void startTutorQuiz(message);
       return;
