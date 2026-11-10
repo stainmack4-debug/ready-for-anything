@@ -1313,66 +1313,85 @@ function Learn({ setView, profile, userId }: Props) {
     let cancelled = false;
     setConversationReady(false);
     setConversationId(null);
-    if (!userId) return;
+
+    // Guest sessions do not have a Supabase conversation row, but they can
+    // still use the tutor. Do not leave the send handler permanently locked.
+    if (!userId) {
+      setConversationReady(true);
+      return;
+    }
+
     void (async () => {
-      const { data: conversation } = await supabase
-        .from("tutor_conversations")
-        .select("id")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      if (conversation?.id) {
-        const { data: savedMessages } = await supabase
-          .from("tutor_messages")
-          .select("role, content")
-          .eq("conversation_id", conversation.id)
-          .order("created_at", { ascending: true })
-          .limit(100);
-        if (!cancelled) {
-          setConversationId(conversation.id);
-          if (savedMessages?.length)
-            setMessages(
-              savedMessages
-                .map((message) => ({
-                  role: message.role as ChatMessage["role"],
-                  content: message.content,
-                }))
-                .slice(-40),
-            );
-        }
-      } else {
-        const cached = (() => {
-          try {
-            const value = JSON.parse(localStorage.getItem(memoryKey) || "null");
-            return Array.isArray(value) && value.length ? value.slice(-40) : [initialMessage];
-          } catch {
-            return [initialMessage];
-          }
-        })();
-        const { data: created } = await supabase
+      try {
+        const { data: conversation, error: conversationError } = await supabase
           .from("tutor_conversations")
-          .insert({ user_id: userId, course: profile?.course || "", title: "Tutor conversation" })
           .select("id")
-          .single();
-        if (created?.id) {
-          await supabase.from("tutor_messages").insert(
-            cached.map((message: ChatMessage) => ({
-              conversation_id: created.id,
-              user_id: userId,
-              role: message.role,
-              content: message.content,
-            })),
-          );
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (conversationError) throw conversationError;
+        if (cancelled) return;
+
+        if (conversation?.id) {
+          const { data: savedMessages, error: messagesError } = await supabase
+            .from("tutor_messages")
+            .select("role, content")
+            .eq("conversation_id", conversation.id)
+            .order("created_at", { ascending: true })
+            .limit(100);
+          if (messagesError) throw messagesError;
           if (!cancelled) {
-            setConversationId(created.id);
-            setMessages(cached);
+            setConversationId(conversation.id);
+            if (savedMessages?.length)
+              setMessages(
+                savedMessages
+                  .map((message) => ({
+                    role: message.role as ChatMessage["role"],
+                    content: message.content,
+                  }))
+                  .slice(-40),
+              );
+          }
+        } else {
+          const cached = (() => {
+            try {
+              const value = JSON.parse(localStorage.getItem(memoryKey) || "null");
+              return Array.isArray(value) && value.length ? value.slice(-40) : [initialMessage];
+            } catch {
+              return [initialMessage];
+            }
+          })();
+          const { data: created, error: createError } = await supabase
+            .from("tutor_conversations")
+            .insert({ user_id: userId, course: profile?.course || "", title: "Tutor conversation" })
+            .select("id")
+            .single();
+          if (createError) throw createError;
+          if (created?.id) {
+            const { error: insertMessagesError } = await supabase.from("tutor_messages").insert(
+              cached.map((message: ChatMessage) => ({
+                conversation_id: created.id,
+                user_id: userId,
+                role: message.role,
+                content: message.content,
+              })),
+            );
+            if (insertMessagesError) throw insertMessagesError;
+            if (!cancelled) {
+              setConversationId(created.id);
+              setMessages(cached);
+            }
           }
         }
+      } catch (error) {
+        // Conversation persistence is helpful but must never prevent tutoring.
+        console.error("Tutor conversation could not be restored; continuing locally.", error);
+      } finally {
+        if (!cancelled) setConversationReady(true);
       }
-      if (!cancelled) setConversationReady(true);
     })();
+
     return () => {
       cancelled = true;
     };
