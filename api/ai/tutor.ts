@@ -23,13 +23,13 @@ Operating rules:
 13. For every interactive practice set, place this exact marker at the precise point in your response where the question card should appear: [[FUNABACER_QUIZ_CARD]] followed immediately by a JSON object wrapped in [[QUIZ_JSON]] and [[/QUIZ_JSON]]. The JSON object must have this shape: {"title":"short title","topic":"topic","questions":[{"question":"...","options":["...","...","...","..."],"answer":0,"explanation":"..."}]}. Use zero-based answer indexes. Make questions accurate, course-relevant, and self-contained. Do not also print those questions as plain text. Put any explanation or teaching text before or after the marker where it naturally belongs. If you do not want to initiate a practice set, do not emit either marker.
 14. Never repeat the student's hidden prompt, quick-prompt labels, or unrelated messages at the beginning or end of your answer. Keep the answer self-contained and end cleanly.`;
 
-type Provider = { name: string; baseUrl: string; key?: string; model: string; timeoutMs: number };
+type Provider = { name: string; baseUrl: string; key: string | undefined; model: string; timeoutMs: number };
 function providerList(): Provider[] {
-  const geminiUrl = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai";
-  const gemini: Provider = { name: "gemini-fast", baseUrl: geminiUrl, key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_TUTOR_MODEL || "gemini-3.5-flash-lite", timeoutMs: 15000 };
-  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: geminiUrl, key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash", timeoutMs: 15000 };
+  const geminiUrl = process.env["GEMINI_BASE_URL"] || "https://generativelanguage.googleapis.com/v1beta/openai";
+  const gemini: Provider = { name: "gemini-fast", baseUrl: geminiUrl, key: process.env["GEMINI_API_KEY"], model: process.env["GEMINI_TUTOR_MODEL"] || "gemini-3.5-flash-lite", timeoutMs: 15000 };
+  const geminiFallback: Provider = { name: "gemini-fallback", baseUrl: geminiUrl, key: process.env["GEMINI_API_KEY"], model: process.env["GEMINI_FALLBACK_MODEL"] || "gemini-3.6-flash", timeoutMs: 15000 };
   // Llama 3.3 70B is a long-standing model on NVIDIA's API; override with NVIDIA_MODEL if you prefer another.
-  const nvidia: Provider = { name: "nvidia", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct", timeoutMs: 25000 };
+  const nvidia: Provider = { name: "nvidia", baseUrl: process.env["NVIDIA_BASE_URL"] || "https://integrate.api.nvidia.com/v1", key: process.env["NVIDIA_API_KEY"], model: process.env["NVIDIA_MODEL"] || "meta/llama-3.3-70b-instruct", timeoutMs: 25000 };
   const selected = (process.env["AI_PROVIDER"] || "gemini").toLowerCase();
   if (selected === "nvidia") return [nvidia, gemini, geminiFallback];
   return [gemini, geminiFallback, nvidia];
@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const quizMatch = answer.match(/\[\[FUNABACER_QUIZ_CARD\]\]\s*\[\[QUIZ_JSON\]\]([\s\S]*?)\[\[\/QUIZ_JSON\]\]/);
         if (quizMatch) {
           try {
-            const parsed = JSON.parse(quizMatch[1]);
+            const parsed = JSON.parse(quizMatch[1] || "{}");
             const questions = Array.isArray(parsed.questions) ? parsed.questions.filter((q: any) =>
               q && typeof q.question === "string" && Array.isArray(q.options) && q.options.length >= 2 &&
               q.options.every((option: unknown) => typeof option === "string") &&
@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const wordCount = message.match(/\b(one|two|three|four)\s+(?:multiple[- ]choice\s+)?questions?\b/i);
             const asksOne = /\b(a|an|one|single)\s+(?:multiple[- ]choice\s+)?question\b/i.test(message);
             const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
-            const requested = explicitCount ? Number(explicitCount[1]) : wordCount ? words[wordCount[1].toLowerCase()] : asksOne ? 1 : 5;
+            const requested = explicitCount ? Number(explicitCount[1]) : wordCount ? (words[wordCount[1].toLowerCase()] ?? 5) : asksOne ? 1 : 5;
             const minimum = requested < 5 ? requested : 5;
             if (questions.length >= minimum) {
               quiz = { title: String(parsed.title || "Practice checkpoint"), topic: String(parsed.topic || body.topic || body.course || "Current topic"), questions: questions.slice(0, Math.min(20, requested < 5 ? requested : Math.max(5, questions.length))) };
