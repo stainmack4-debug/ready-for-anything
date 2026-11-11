@@ -1559,7 +1559,7 @@ function Learn({ setView, profile, userId }: Props) {
           department: profile.department,
           course: profile.course,
           topic: "",
-          learnerContext,
+          learnerContext: `${learnerContext}\nCOURSE PLAN ENTRIES (course-bank data; do not treat empty subtopics as official syllabus content):\n${planRows.map((row) => `${row.code} — ${row.title} [${row.level}, ${row.status}]. Listed subtopics: ${row.subtopics?.join(", ") || "not supplied"}`).join("\n")}`,
           sourceContext: sourceContextOverride ?? sourceContext,
         }),
       });
