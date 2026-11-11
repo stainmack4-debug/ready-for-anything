@@ -1243,6 +1243,22 @@ function Learn({ setView, profile, userId }: Props) {
   const [tutorFileName, setTutorFileName] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationReady, setConversationReady] = useState(false);
+  const planMemoryKey = `funabacer.tutor.plan.v1.${userId || profile?.course || "unknown-user"}`;
+  const [completedPlanLessons, setCompletedPlanLessons] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(planMemoryKey) || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch { return []; }
+  });
+  const [planExpanded, setPlanExpanded] = useState(true);
+  const planRows = useMemo(() => {
+    const rows = courseBankFor(profile?.course || "", profile?.level || undefined);
+    const selected = new Set(profile?.selectedCourses || []);
+    return rows.filter((row) => !selected.size || selected.has(`${row.code} — ${row.title}`));
+  }, [profile?.course, profile?.level, profile?.selectedCourses]);
+  useEffect(() => {
+    localStorage.setItem(planMemoryKey, JSON.stringify(completedPlanLessons));
+  }, [planMemoryKey, completedPlanLessons]);
   const quizMemoryKey = `funabacer.tutor.quiz.v1.${userId || profile?.course || "unknown-user"}`;
   const [tutorQuiz, setTutorQuiz] = useState<TutorQuizState | null>(() => {
     try {
@@ -1693,6 +1709,49 @@ function Learn({ setView, profile, userId }: Props) {
             </button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f7faf8] px-4 py-5 sm:px-6">
+            <section className="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+              <button type="button" onClick={() => setPlanExpanded((open) => !open)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[.16em] text-emerald-700">Your teaching plan</p>
+                  <p className="mt-1 text-sm font-extrabold text-[#10231c]">{profile?.course || "Select your programme"} · {completedPlanLessons.length}/{planRows.length} course units covered</p>
+                  <p className="mt-1 text-xs text-[#71877d]">A guided sequence based on your course-bank entries. Topic outlines are provisional where no official subtopics are listed.</p>
+                </div>
+                <span className="shrink-0 text-xs font-bold text-emerald-700">{planExpanded ? "Hide" : "View"} plan</span>
+              </button>
+              {planExpanded && (
+                <div className="border-t border-[#e5eee9] px-4 py-3">
+                  {planRows.length ? (
+                    <div className="space-y-2">
+                      {planRows.slice(0, 8).map((row, index) => {
+                        const lessonId = `${row.code} — ${row.title}`;
+                        const done = completedPlanLessons.includes(lessonId);
+                        return (
+                          <div key={lessonId} className="flex items-center gap-3 rounded-xl bg-[#f7faf8] px-3 py-2">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-extrabold text-emerald-800">{done ? "✓" : index + 1}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-extrabold text-[#244138]">{row.code} · {row.title}</p>
+                              <p className="text-[10px] text-[#71877d]">{row.subtopics?.length ? row.subtopics.slice(0, 3).join(" · ") : "Tutor will establish lesson objectives and teach foundations"}</p>
+                            </div>
+                            <button type="button" onClick={() => {
+                              setMessages((current) => [...current, { role: "user", content: `Teach me ${row.code}: ${row.title}. Begin with a short diagnostic, then state 2–4 learning objectives, teach the lesson in clear steps with examples, check understanding using an inline question card when appropriate, and summarise what I should know. Use official source context when available and label any provisional outline clearly.` }]);
+                              void askTutor(`Teach me ${row.code}: ${row.title}. Begin with a short diagnostic, then state 2–4 learning objectives, teach the lesson in clear steps with examples, check understanding using an inline question card when appropriate, and summarise what I should know. Use official source context when available and label any provisional outline clearly.`);
+                            }} disabled={isAsking} className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-extrabold text-white disabled:opacity-40">{done ? "Review" : "Start"}</button>
+                            <button type="button" onClick={() => setCompletedPlanLessons((current) => done ? current.filter((item) => item !== lessonId) : [...current, lessonId])} className="shrink-0 rounded-lg border border-[#dcebe3] px-2 py-2 text-[10px] font-bold text-[#587166]">{done ? "Undo" : "Done"}</button>
+                          </div>
+                        );
+                      })}
+                      {planRows.length > 8 && <p className="pt-1 text-center text-[11px] text-[#71877d]">Showing 8 of {planRows.length} course units. Start with these and continue in sequence.</p>}
+                    </div>
+                  ) : (
+                    <p className="text-xs leading-5 text-[#71877d]">No course-bank units are available for this programme and level yet. Ask the tutor to build a provisional topic plan, and verify it against your course outline.</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => void askTutor(`Build my study roadmap for ${profile?.course || "my programme"} at ${profile?.level || "my current level"}. Use the course-bank units supplied in my context, identify any missing official syllabus details, sequence the units, and give learning objectives and a realistic weekly study routine. Do not invent official course requirements.`)} disabled={isAsking} className="rounded-full border border-emerald-200 px-3 py-2 text-[11px] font-bold text-emerald-800 disabled:opacity-40">Ask tutor to explain my roadmap</button>
+                    <span className="self-center text-[10px] text-[#8ca198]">Completed items are saved on this device.</span>
+                  </div>
+                </div>
+              )}
+            </section>
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
