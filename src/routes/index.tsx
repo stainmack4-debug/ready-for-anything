@@ -1428,12 +1428,17 @@ function Learn({ setView, profile, userId }: Props) {
     setTutorError("");
     const topic = profile.course;
     const requestedCountMatch = request.match(/\b(1[0-9]|20|[1-9])\s+questions?\b/i);
-    const asksForOne = /\b(one|a|an|single)\s+(multiple[- ]choice\s+)?question\b/i.test(request);
+    const requestedWordCountMatch = request.match(/\b(one|two|three|four)\s+(?:multiple[- ]choice\s+)?questions?\b/i);
+    const asksForOne = /\b(a|an|one|single)\s+(?:multiple[- ]choice\s+)?question\b/i.test(request);
+    const wordCounts: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+    // Practice sets default to five. Only an explicitly smaller request may lower the count.
     const quizCount = requestedCountMatch
       ? Math.min(20, Math.max(1, Number(requestedCountMatch[1])))
-      : asksForOne
-        ? 1
-        : 5;
+      : requestedWordCountMatch
+        ? wordCounts[requestedWordCountMatch[1].toLowerCase()] || 5
+        : asksForOne
+          ? 1
+          : 5;
     const userMessage = { role: "user" as const, content: request };
     setMessages((current) => [...current, userMessage]);
     void saveTutorMessages([userMessage]);
