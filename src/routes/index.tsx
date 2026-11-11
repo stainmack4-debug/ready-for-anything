@@ -1284,11 +1284,6 @@ function Learn({ setView, profile, userId }: Props) {
       localStorage.removeItem(quizMemoryKey);
       return;
     }
-    if (tutorQuiz.submitted) {
-      localStorage.removeItem(quizMemoryKey);
-      void supabase.auth.updateUser({ data: { tutor_quiz: null } });
-      return;
-    }
     localStorage.setItem(quizMemoryKey, JSON.stringify(tutorQuiz));
     const timer = window.setTimeout(() => {
       void supabase.auth.updateUser({ data: { tutor_quiz: tutorQuiz } });
@@ -1498,12 +1493,14 @@ function Learn({ setView, profile, userId }: Props) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The tutor could not review your answers right now.");
       const followUp = { role: "assistant" as const, content: typeof data.answer === "string" ? data.answer : `Your score was ${attempt.score}%. Let's work on the questions you found difficult.` };
-      setMessages((current) => [...current, followUp]);
-      void saveTutorMessages([followUp]);
-      if (data.quiz && Array.isArray(data.quiz.questions) && data.quiz.questions.length >= 5) {
+      if (data.quiz && Array.isArray(data.quiz.questions) && data.quiz.questions.length >= 1) {
         setTutorQuiz({ title: String(data.quiz.title || "Next practice"), topic: String(data.quiz.topic || completedQuiz.topic), questions: data.quiz.questions, answers: {}, submitted: false, currentIndex: 0 });
-        setMessages((current) => current.map((item) => item.content.includes("[[FUNABACER_QUIZ_CARD]]") ? { ...item, content: item.content.replaceAll("[[FUNABACER_QUIZ_CARD]]", "") } : item).concat({ ...followUp, content: followUp.content.includes("[[FUNABACER_QUIZ_CARD]]") ? followUp.content : `${followUp.content}\n\n[[FUNABACER_QUIZ_CARD]]` }));
+        followUp.content = followUp.content.includes("[[FUNABACER_QUIZ_CARD]]")
+          ? followUp.content
+          : `${followUp.content}\n\n[[FUNABACER_QUIZ_CARD]]`;
       }
+      setMessages((current) => current.map((item) => item.content.includes("[[FUNABACER_QUIZ_CARD]]") ? { ...item, content: item.content.replaceAll("[[FUNABACER_QUIZ_CARD]]", "") } : item).concat(followUp));
+      void saveTutorMessages([followUp]);
     } catch (error) {
       setTutorError(error instanceof Error ? error.message : "The tutor could not review your answers right now.");
     } finally {
@@ -1546,7 +1543,7 @@ function Learn({ setView, profile, userId }: Props) {
       if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
       const assistantContent = typeof data.answer === "string" ? data.answer : "I couldn't prepare a response just now.";
       const assistantMessage = { role: "assistant" as const, content: assistantContent };
-      if (data.quiz && Array.isArray(data.quiz.questions) && data.quiz.questions.length >= 5) {
+      if (data.quiz && Array.isArray(data.quiz.questions) && data.quiz.questions.length >= 1) {
         const quizState: TutorQuizState = {
           title: String(data.quiz.title || "Practice checkpoint"),
           topic: String(data.quiz.topic || profile.course),
