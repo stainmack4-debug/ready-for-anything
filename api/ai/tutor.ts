@@ -94,10 +94,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // Fallback: models sometimes ignore the card marker and leave a real learning check in prose.
         // Convert only explicit teaching/checkpoint questions; ordinary clarification questions stay text.
+        // Classify any substantive question-bearing response, not just a short list of trigger phrases.
+        // The repair model decides whether it is an academic check or an ordinary clarification.
         const looksLikeLearningCheck =
           !quiz &&
           /\?/m.test(answer) &&
-          /(?:check your understanding|quick check|test yourself|try this|answer the following|solve this|which of the following|what is the|calculate|work out|practice question|knowledge check|lesson check|comprehension check)/i.test(answer);
+          (answer.trim().length >= 120 ||
+            /(?:check your understanding|quick check|test yourself|try this|answer the following|solve this|which of the following|calculate|work out|practice question|knowledge check|lesson check|comprehension check)/i.test(answer));
         if (looksLikeLearningCheck) {
           try {
             const fallbackController = new AbortController();
