@@ -116,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   },
                   {
                     role: "user",
-                    content: `Student request: ${message}\\n\\nTutor response to repair:\\n${answer}`
+                    content: `Student request: ${message}\n\nTutor response to repair:\n${answer}`
                   }
                 ]
               }),
@@ -137,9 +137,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 typeof q.explanation === "string" && q.explanation.trim()
               ) : [];
               if (repaired && typeof repaired.answer === "string" && repaired.quiz && repairedQuestions.length > 0) {
-                const explicitCount = message.match(/\\b(1[0-9]|20|[1-9])\\s+questions?\\b/i);
-                const wordCount = message.match(/\\b(one|two|three|four)\\s+(?:multiple[- ]choice\\s+)?questions?\\b/i);
-                const asksOne = /\\b(a|an|one|single)\\s+(?:multiple[- ]choice\\s+)?question\\b/i.test(message);
+                const explicitCount = message.match(/\b(1[0-9]|20|[1-9])\s+questions?\b/i);
+                const wordCount = message.match(/\b(one|two|three|four)\s+(?:multiple[- ]choice\s+)?questions?\b/i);
+                const asksOne = /\b(a|an|one|single)\s+(?:multiple[- ]choice\s+)?question\b/i.test(message);
                 const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
                 const requested = explicitCount ? Number(explicitCount[1]) : wordCount ? (words[wordCount[1].toLowerCase()] ?? 5) : asksOne ? 1 : 5;
                 const required = requested < 5 ? requested : 5;
@@ -150,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     topic: String(repaired.quiz.topic || body.topic || body.course || "Current topic"),
                     questions: repairedQuestions.slice(0, requested < 5 ? requested : Math.max(5, repairedQuestions.length))
                   };
-                  answer = `${answer}\\n\\n[[FUNABACER_QUIZ_CARD]]`;
+                  answer = `${answer}\n\n[[FUNABACER_QUIZ_CARD]]`;
                 }
               }
             }
