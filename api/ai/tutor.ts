@@ -92,7 +92,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             answer = answer.replace(quizMatch[0], "I couldn’t format that practice set correctly, so let’s continue with the explanation.");
           }
         }
-        console.info("Tutor provider success", provider.name, provider.model);
+        // Fallback: models sometimes ignore the card marker and leave a real learning check in prose.
+        // Convert only explicit teaching/checkpoint questions; ordinary clarification questions stay text.
+        const looksLikeLearningCheck =
+          !quiz &&
+          /\?/m.test(answer) &&
+          /(?:check your understanding|quick check|test yourself|try this|answer the following|solve this|which of the following|what is the|calculate|work out|practice question|knowledge check|lesson check|comprehension check)/i.test(answer);
+        if (looksLikeLearningCheck) {
+          try {
+            const fallbackController = new AbortController();
+            const fallbackTimer = setTimeout(() => fallbackController.abort(), provider.timeoutMs);
+            const fallbackResponse = await fetch(`${cleanBaseUrl(provider.baseUrl)}/chat/completions`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: provider.model,
+                temperature: 0.1,
+                max_tokens: 2200,
+                messages: [
+                  {
+                    role: "system",
+                    content: "You repair tutor responses for an interactive learning app. Return ONLY valid JSON. If the source contains a question that tests the learner's knowledge, return {\\"answer\\":\\"the teaching text with the tested question and its plain-text options removed\\",\\"quiz\\":{\\"title\\":\\"...\\",\\"topic\\":\\"...\\",\\"questions\\":[{\\"question\\":\\"...\\",\\"options\\":[\\"...\\",\\"...\\",\\"...\\",\\"...\\"],\\"answer\\":0,\\"explanation\\":\\"...\\"}]}}. Preserve all useful teaching explanation. Make exactly one question card for one quick check, or preserve the full number if a practice set was requested. If the question is only a clarification or conversational prompt, return {\\"answer\\":<original text>,\\"quiz\\":null}. Never invent a factual answer; if unsure, return quiz null."
+                  },
+                  {
+                    role: "user",
+                    content: `Student request: ${message}\\n\\nTutor response to repair:\\n${answer}`
+                  }
+                ]
+              }),
+              signal: fallbackController.signal
+            }).finally(() => clearTimeout(fallbackTimer));
+            const fallbackPayload = await fallbackResponse.json().catch(() => ({}));
+            if (fallbackResponse.ok) {
+              const fallbackText = String(fallbackPayload?.choices?.[0]?.message?.content || "").replace(/^```(?:json)?|\`\`\`$/g, "").trim();
+              const firstBrace = fallbackText.indexOf("{");
+              const lastBrace = fallbackText.lastIndexOf("}");
+              const repaired = firstBrace >= 0 && lastBrace > firstBrace
+                ? JSON.parse(fallbackText.slice(firstBrace, lastBrace + 1))
+                : null;
+              const repairedQuestions = Array.isArray(repaired?.quiz?.questions) ? repaired.quiz.questions.filter((q: any) =>
+                q && typeof q.question === "string" && Array.isArray(q.options) && q.options.length === 4 &&
+                q.options.every((option: unknown) => typeof option === "string" && option.trim()) &&
+                Number.isInteger(q.answer) && q.answer >= 0 && q.answer < 4 &&
+                typeof q.explanation === "string" && q.explanation.trim()
+              ) : [];
+              if (repaired && typeof repaired.answer === "string" && repaired.quiz && repairedQuestions.length > 0) {
+                const explicitCount = message.match(/\\b(1[0-9]|20|[1-9])\\s+questions?\\b/i);
+                const wordCount = message.match(/\\b(one|two|three|four)\\s+(?:multiple[- ]choice\\s+)?questions?\\b/i);
+                const asksOne = /\\b(a|an|one|single)\\s+(?:multiple[- ]choice\\s+)?question\\b/i.test(message);
+                const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+                const requested = explicitCount ? Number(explicitCount[1]) : wordCount ? (words[wordCount[1].toLowerCase()] ?? 5) : asksOne ? 1 : 5;
+                const required = requested < 5 ? requested : 5;
+                if (repairedQuestions.length >= required) {
+                  answer = repaired.answer.trim();
+                  quiz = {
+                    title: String(repaired.quiz.title || "Practice checkpoint"),
+                    topic: String(repaired.quiz.topic || body.topic || body.course || "Current topic"),
+                    questions: repairedQuestions.slice(0, requested < 5 ? requested : Math.max(5, repairedQuestions.length))
+                  };
+                  answer = `${answer}\\n\\n[[FUNABACER_QUIZ_CARD]]`;
+                }
+              }
+            }
+          } catch (fallbackError) {
+            console.warn("Tutor quiz-card fallback could not convert response", provider.name, fallbackError);
+          }
+        }
+        console.info("Tutor provider success", provider.name, provider.model, quiz ? "quiz-card" : "text-only");
         return res.status(200).json({ answer, quiz, provider: provider.name, model: provider.model });
       }
       errors.push(`${provider.name}: empty answer`);
