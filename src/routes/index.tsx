@@ -1451,8 +1451,8 @@ function Learn({ setView, profile, userId }: Props) {
       const data = await response.json();
       if (!response.ok || !Array.isArray(data.questions) || data.questions.length === 0) throw new Error(data.error || "The Tutor could not prepare a checkpoint right now.");
       const quizQuestions = data.questions.slice(0, quizCount) as TutorQuizQuestion[];
-      const assistantMessage = { role: "assistant" as const, content: `I prepared a ${quizQuestions.length}-question checkpoint for ${topic}. I’ll ask one question at a time and explain your result when you finish.` };
-      setMessages((current) => [...current, assistantMessage]);
+      const assistantMessage = { role: "assistant" as const, content: `I prepared a ${quizQuestions.length}-question checkpoint for ${topic}. I’ll ask one question at a time and explain each answer as you go.\n\n[[FUNABACER_QUIZ_CARD]]` };
+      setMessages((current) => [...current.map((item) => item.content.includes("[[FUNABACER_QUIZ_CARD]]") ? { ...item, content: item.content.replaceAll("[[FUNABACER_QUIZ_CARD]]", "") } : item), assistantMessage]);
       void saveTutorMessages([assistantMessage]);
       setTutorQuiz({ title: `${topic} — Checkpoint`, topic, questions: quizQuestions, answers: {}, submitted: false, currentIndex: 0 });
     } catch (error) {
@@ -1512,6 +1512,14 @@ function Learn({ setView, profile, userId }: Props) {
   const askTutor = async (preset?: string, sourceContextOverride?: string) => {
     const message = (preset || question).trim();
     if (!message || isAsking || sendLockRef.current || !conversationReady) return;
+    const asksForPractice =
+      /\b(quiz me|test me|checkpoint|set (me )?(a )?quiz|practice questions|give me \d+ questions)\b/i.test(message) ||
+      /\b(set|give|ask|show|create|make)\s+(me\s+)?(a|an|one|single)?\s*(multiple[- ]choice\s+)?questions?\b/i.test(message) ||
+      /\b(multiple[- ]choice|pick an answer|choose an answer|click (an? )?answer|select an answer)\b/i.test(message);
+    if (asksForPractice) {
+      void startTutorQuiz(message);
+      return;
+    }
     if (!profile?.department || !profile?.course) {
       setTutorError(
         "Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.",
