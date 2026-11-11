@@ -99,8 +99,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const looksLikeLearningCheck =
           !quiz &&
           /\?/m.test(answer) &&
+          !/(?:what|which)\s+(?:topic|subject|course)|what would you like|which do you prefer/i.test(answer) &&
           (answer.trim().length >= 120 ||
-            /(?:check your understanding|quick check|test yourself|try this|answer the following|solve this|which of the following|calculate|work out|practice question|knowledge check|lesson check|comprehension check)/i.test(answer));
+            /(?:check your understanding|quick check|test yourself|try this|answer the following|solve this|which of the following|what is|why does|how does|how would|calculate|work out|practice question|knowledge check|lesson check|comprehension check|(?:what|why|how|which|when|where|who)\b[^?]{0,180}\?)/i.test(answer));
         if (looksLikeLearningCheck) {
           try {
             const fallbackController = new AbortController();
