@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (typeof rawAnswer === "string" && rawAnswer.trim()) {
         let answer = rawAnswer.trim();
         let quiz: { title: string; topic: string; questions: Array<{ question: string; options: string[]; answer: number; explanation: string }> } | null = null;
-        const quizMatch = answer.match(/\\[\\[FUNABACER_QUIZ_CARD\\]\\]\\s*\\[\\[QUIZ_JSON\\]\\]([\\s\\S]*?)\\[\\[\\/QUIZ_JSON\\]\\]/);
+        const quizMatch = answer.match(/\[\[FUNABACER_QUIZ_CARD\]\]\s*\[\[QUIZ_JSON\]\]([\s\S]*?)\[\[\/QUIZ_JSON\]\]/);
         if (quizMatch) {
           try {
             const parsed = JSON.parse(quizMatch[1]);
@@ -75,9 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length &&
               typeof q.explanation === "string"
             ) : [];
-            const explicitCount = message.match(/\\b(1[0-9]|20|[1-9])\\s+questions?\\b/i);
-            const wordCount = message.match(/\\b(one|two|three|four)\\s+(?:multiple[- ]choice\\s+)?questions?\\b/i);
-            const asksOne = /\\b(a|an|one|single)\\s+(?:multiple[- ]choice\\s+)?question\\b/i.test(message);
+            const explicitCount = message.match(/\b(1[0-9]|20|[1-9])\s+questions?\b/i);
+            const wordCount = message.match(/\b(one|two|three|four)\s+(?:multiple[- ]choice\s+)?questions?\b/i);
+            const asksOne = /\b(a|an|one|single)\s+(?:multiple[- ]choice\s+)?question\b/i.test(message);
             const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
             const requested = explicitCount ? Number(explicitCount[1]) : wordCount ? words[wordCount[1].toLowerCase()] : asksOne ? 1 : 5;
             const minimum = requested < 5 ? requested : 5;
