@@ -1468,15 +1468,48 @@ function Learn({ setView, profile, userId }: Props) {
     }
   };
   const submitTutorQuiz = async () => {
-    if (!tutorQuiz || tutorQuiz.submitted) return;
-    const correct = tutorQuiz.questions.reduce((total, question, index) => total + (tutorQuiz.answers[index] === question.answer ? 1 : 0), 0);
-    const attempt = { topicId: `${profile?.course}:${tutorQuiz.topic}`, score: Math.round((correct / tutorQuiz.questions.length) * 100), total: tutorQuiz.questions.length, correct, at: Date.now() };
+    if (!tutorQuiz || tutorQuiz.submitted || sendLockRef.current) return;
+    const completedQuiz = tutorQuiz;
+    const correct = completedQuiz.questions.reduce((total, question, index) => total + (completedQuiz.answers[index] === question.answer ? 1 : 0), 0);
+    const attempt = { topicId: `${profile?.course}:${completedQuiz.topic}`, score: Math.round((correct / completedQuiz.questions.length) * 100), total: completedQuiz.questions.length, correct, at: Date.now() };
     saveAttempt(attempt);
     if (userId) void supabase.from("study_attempts").insert({ user_id: userId, topic_id: attempt.topicId, score: attempt.score, total: attempt.total, correct: attempt.correct });
     setTutorQuiz((current) => current ? { ...current, submitted: true } : current);
-    const resultMessage = { role: "assistant" as const, content: `Checkpoint complete: ${correct}/${tutorQuiz.questions.length} (${attempt.score}%). Your result has been saved to your FunaBAcer progress.` };
-    setMessages((current) => [...current, resultMessage]);
-    void saveTutorMessages([resultMessage]);
+    const resultText = `I completed the ${completedQuiz.title} practice set. I scored ${correct}/${completedQuiz.questions.length} (${attempt.score}%). My answers: ${completedQuiz.questions.map((q, i) => `Q${i + 1}: ${q.options[completedQuiz.answers[i]] || "unanswered"}; correct answer: ${q.options[q.answer]}. Explanation: ${q.explanation}`).join(" | ")}. Please review my performance, explain any misconceptions, and adapt what we study next.`;
+    const resultUserMessage = { role: "user" as const, content: resultText };
+    setMessages((current) => [...current, resultUserMessage]);
+    void saveTutorMessages([resultUserMessage]);
+    sendLockRef.current = true;
+    setIsAsking(true);
+    try {
+      const response = await fetch("/api/ai/tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: resultText,
+          history: messages.slice(-12),
+          department: profile?.department,
+          course: profile?.course,
+          topic: completedQuiz.topic,
+          learnerContext,
+          sourceContext,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "The tutor could not review your answers right now.");
+      const followUp = { role: "assistant" as const, content: typeof data.answer === "string" ? data.answer : `Your score was ${attempt.score}%. Let's work on the questions you found difficult.` };
+      setMessages((current) => [...current, followUp]);
+      void saveTutorMessages([followUp]);
+      if (data.quiz && Array.isArray(data.quiz.questions) && data.quiz.questions.length >= 5) {
+        setTutorQuiz({ title: String(data.quiz.title || "Next practice"), topic: String(data.quiz.topic || completedQuiz.topic), questions: data.quiz.questions, answers: {}, submitted: false, currentIndex: 0 });
+        setMessages((current) => current.map((item) => item.content.includes("[[FUNABACER_QUIZ_CARD]]") ? { ...item, content: item.content.replaceAll("[[FUNABACER_QUIZ_CARD]]", "") } : item).concat({ ...followUp, content: followUp.content.includes("[[FUNABACER_QUIZ_CARD]]") ? followUp.content : `${followUp.content}\n\n[[FUNABACER_QUIZ_CARD]]` }));
+      }
+    } catch (error) {
+      setTutorError(error instanceof Error ? error.message : "The tutor could not review your answers right now.");
+    } finally {
+      setIsAsking(false);
+      sendLockRef.current = false;
+    }
   };
 
   const askTutor = async (preset?: string, sourceContextOverride?: string) => {
@@ -1486,14 +1519,6 @@ function Learn({ setView, profile, userId }: Props) {
       setTutorError(
         "Your department and programme are missing. Open Profile and complete your academic information before asking the Tutor.",
       );
-      return;
-    }
-    const asksForPractice =
-      /\b(quiz me|test me|checkpoint|set (me )?(a )?quiz|practice questions|give me \d+ questions)\b/i.test(message) ||
-      /\b(set|give|ask|show|create|make)\s+(me\s+)?(a|an|one|single)?\s*(multiple[- ]choice\s+)?questions?\b/i.test(message) ||
-      /\b(multiple[- ]choice|pick an answer|choose an answer|click (an? )?answer|select an answer)\b/i.test(message);
-    if (asksForPractice) {
-      void startTutorQuiz(message);
       return;
     }
     sendLockRef.current = true;
@@ -1519,8 +1544,26 @@ function Learn({ setView, profile, userId }: Props) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The tutor could not answer right now.");
-      const assistantMessage = { role: "assistant" as const, content: data.answer };
-      setMessages([...nextMessages, assistantMessage]);
+      const assistantContent = typeof data.answer === "string" ? data.answer : "I couldn't prepare a response just now.";
+      const assistantMessage = { role: "assistant" as const, content: assistantContent };
+      if (data.quiz && Array.isArray(data.quiz.questions) && data.quiz.questions.length >= 5) {
+        const quizState: TutorQuizState = {
+          title: String(data.quiz.title || "Practice checkpoint"),
+          topic: String(data.quiz.topic || profile.course),
+          questions: data.quiz.questions,
+          answers: {},
+          submitted: false,
+          currentIndex: 0,
+        };
+        setTutorQuiz(quizState);
+        assistantMessage.content = assistantContent.includes("[[FUNABACER_QUIZ_CARD]]")
+          ? assistantContent
+          : `${assistantContent}\n\n[[FUNABACER_QUIZ_CARD]]`;
+      }
+      const cleanNextMessages = nextMessages.map((item) => item.content.includes("[[FUNABACER_QUIZ_CARD]]")
+        ? { ...item, content: item.content.replaceAll("[[FUNABACER_QUIZ_CARD]]", "") }
+        : item);
+      setMessages([...cleanNextMessages, assistantMessage]);
       void saveTutorMessages([assistantMessage]);
     } catch (error) {
       setTutorError(
@@ -1653,18 +1696,22 @@ function Learn({ setView, profile, userId }: Props) {
                 <div
                   className={message.role === "user" ? "max-w-[88%] rounded-2xl rounded-br-md bg-[#1d5fba] px-4 py-3 text-sm leading-7 text-white" : "w-full max-w-none rounded-2xl border border-[#dcebe3] bg-white px-4 py-3 text-sm leading-7 text-[#10231c] shadow-sm sm:text-base"}
                 >
-                  <TutorMessage content={message.content} light={message.role === "assistant"} />
+                  {message.content.split("[[FUNABACER_QUIZ_CARD]]").map((part, partIndex, parts) => (
+                    <div key={`${index}-part-${partIndex}`} className="contents">
+                      {part.trim() && <TutorMessage content={part} light={message.role === "assistant"} />}
+                      {partIndex < parts.length - 1 && tutorQuiz && (
+                        <TutorQuizCard
+                          quiz={tutorQuiz}
+                          onAnswer={(questionIndex, answer) => setTutorQuiz((current) => current && !current.submitted ? { ...current, answers: { ...current.answers, [questionIndex]: answer } } : current)}
+                          onSubmit={() => void submitTutorQuiz()}
+                          onNext={() => setTutorQuiz((current) => current ? { ...current, currentIndex: Math.min((current.currentIndex || 0) + 1, current.questions.length - 1) } : current)}
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
-            {tutorQuiz && (
-              <TutorQuizCard
-                quiz={tutorQuiz}
-                onAnswer={(index, answer) => setTutorQuiz((current) => current && !current.submitted ? { ...current, answers: { ...current.answers, [index]: answer } } : current)}
-                onSubmit={() => void submitTutorQuiz()}
-                onNext={() => setTutorQuiz((current) => current ? { ...current, currentIndex: Math.min((current.currentIndex || 0) + 1, current.questions.length - 1) } : current)}
-              />
-            )}
             <div ref={messagesEndRef} />
             {isAsking && (
               <div className="flex justify-start">
